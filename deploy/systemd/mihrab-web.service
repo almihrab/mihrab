@@ -3,6 +3,7 @@
 # ⚠️ غيرُ مُجرَّبةٍ على الخادم بعد. الخياراتُ مقروءةٌ من `--help` الخادمِ نفسِه
 # (بناء 1.126.05942) لا مفترَضة.
 #
+#   sudo useradd --system --home-dir /var/lib/mihrab --shell /bin/bash mihrab
 #   sudo cp deploy/systemd/mihrab-web.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now mihrab-web
 
@@ -17,13 +18,27 @@ Type=simple
 User=mihrab
 Group=mihrab
 WorkingDirectory=/opt/mihrab/web
+UMask=0027
+
+# ── البيتُ صريحٌ لا مستنتَج ──────────────────────────────────────────────────
+# ‏`ProtectHome=true` يجعل `/home` و`/root` **فارغةً** داخل الخدمة. وأثرُ ذلك ليس
+# تجميليًّا: الطرفيّةُ المدمجة تفتح في مجلّدٍ غيرِ موجود، و`git` لا يجد `~/.gitconfig`
+# فيفشل **كلُّ commit**، ولا `~/.ssh` فيستحيل `git push`. وأخبثُ منه أنّ `HOME` قد
+# يكون غيرَ مضبوطٍ أصلًا لو أُنشئ المستخدمُ بـ`--no-create-home` ⇒ سلوكٌ عشوائيٌّ في Node.
+# فيُوضَع بيتٌ حقيقيٌّ داخل منطقة الحالة، ويُستعمل `tmpfs` بدل `true`.
+Environment=HOME=/var/lib/mihrab
+Environment=SHELL=/bin/bash
+Environment=XDG_CONFIG_HOME=/var/lib/mihrab/.config
+Environment=XDG_CACHE_HOME=/var/lib/mihrab/.cache
 
 # ‏**رمزُ الاتّصال ليس اختياريًّا هنا.** الخادمُ يفتح طرفيّةً ونظامَ ملفّاتٍ لمن يصله؛
 # و`--without-connection-token` على منفذٍ يبلغه العالمُ = تنفيذُ شيفرةٍ عن بُعدٍ لأيّ زائر.
-# أنشئ الملفَّ قبل التشغيل:
 #   sudo install -d -m 750 -o mihrab -g mihrab /etc/mihrab
 #   openssl rand -hex 32 | sudo tee /etc/mihrab/token >/dev/null
 #   sudo chown mihrab:mihrab /etc/mihrab/token && sudo chmod 600 /etc/mihrab/token
+#
+# ‏`--accept-server-license-terms` **مقيسٌ موجودٌ** في `--help` بناءِ محراب (شُكَّ في
+# وجوده أثناء المراجعة؛ القياسُ حسم). إن غاب يومًا فالخدمةُ تفشل عند الإقلاع.
 ExecStart=/opt/mihrab/web/node /opt/mihrab/web/out/server-main.js \
     --host 127.0.0.1 \
     --port 14006 \
@@ -32,19 +47,35 @@ ExecStart=/opt/mihrab/web/node /opt/mihrab/web/out/server-main.js \
     --telemetry-level off \
     --accept-server-license-terms
 
-Restart=on-failure
+# ‏`on-failure` لا يغطّي الخروجَ النظيف بـ0 ⇒ 502 حتّى تدخّلٍ يدويّ.
+Restart=always
 RestartSec=5s
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
-# تقييدٌ متناسبٌ مع خدمةٍ تُنفِّذ شيفرةَ المستخدم عمدًا: لا نَعِد بعزلٍ لا نملكه،
-# لكن لا نمنحها أكثرَ ممّا تحتاج.
-NoNewPrivileges=true
-PrivateTmp=true
+# ── تقييدٌ متناسبٌ مع خدمةٍ تُنفِّذ شيفرةَ المستخدم عمدًا ──────────────────────
+NoNewPrivileges=true          # ⇐ يعطّل `sudo` في الطرفيّة المدمجة. مقصودٌ، لا عطب.
+PrivateTmp=true               # ⇐ `/tmp` معزول: وكيلُ SSH وأدواتٌ تتوقّع مشاركتَه لن تراه.
+ProtectHome=tmpfs
 ProtectSystem=full
-ProtectHome=true
-ReadWritePaths=/var/lib/mihrab /opt/mihrab/data
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
+StateDirectory=mihrab         # ينشئ /var/lib/mihrab بالملكيّة الصحيحة تلقائيًّا
+ReadWritePaths=/var/lib/mihrab /opt/mihrab/data
+
+# ملاحظةُ صدق: مع `ProtectSystem=full` يبقى `/var` و`/opt` قابلَين للكتابة أصلًا،
+# فـ`ReadWritePaths` أعلاه **بلا أثرٍ فعليّ** — وُضع للتوثيق ولانتقالٍ لاحقٍ إلى
+# `strict`. ومعناه أنّ الخدمةَ تستطيع الكتابةَ في `/opt/mihrab/web` نفسِه، أي تعديلَ
+# الشيفرةِ التي تنفّذها. التشديدُ الحقيقيُّ (`ProtectSystem=strict` + `ReadOnlyPaths`)
+# تغييرٌ سلوكيٌّ كبيرٌ على الطرفيّة — يُجرَّب في مرحلةٍ ثانية، لا في أوّل تشغيل.
+
+# ⛔ ممنوعاتٌ مقصودة — كلٌّ منها يكسر الخدمة، ولا تُضَف «تقسيةً»:
+#   MemoryDenyWriteExecute=true       ⇐ يقتل مُصرِّفَ V8 الآنيّ. Node لا يقلع أصلًا.
+#   PrivateDevices=true               ⇐ يحجب /dev/ptmx ⇒ لا طرفيّةَ زائفة ⇒ لا طرفيّة.
+#                                        فخٌّ شائع: يبدو بريئًا ويقتل الطرفيّةَ صامتًا.
+#   RestrictNamespaces=true           ⇐ يمنع docker/podman من الطرفيّة المدمجة.
+#   SystemCallFilter=@system-service  ⇐ غيرُ مؤكَّدٍ مع طرفيّةٍ تُنفّذ أيَّ ثنائيّ. لا بلا قياس.
 
 # مقابسُ WebSocket كثيرةٌ لكلّ جلسة (‏مضيفُ الامتدادات · الطرفيّة · المهامّ).
 LimitNOFILE=65535

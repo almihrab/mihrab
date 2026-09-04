@@ -1,0 +1,36 @@
+# الخادمُ الافتراضيُّ على 443 — **انسخه فقط إن أثبت `preflight.sh` غيابَه.**
+#
+# ## العطبُ الذي يمنعه
+#
+# الخادمُ الافتراضيُّ لمقبسٍ ما هو **أوّلُ كتلةٍ** تحمل ذلك `listen` بترتيب التحليل
+# (ترتيبُ `include` ثمّ أبجديُّ `conf.d/*.conf`) — إلّا إن وُسِمت كتلةٌ بـ`default_server`.
+#
+# فلو لم يوجد `default_server` على 443، وكان `mihrab.dev.conf` أوّلَ ملفٍّ أبجديًّا
+# يحمله، **صارت كتلةُ محرابٍ هي الافتراضيّة**. وعندها كلُّ طلبٍ بترويسة `Host` غيرِ
+# مطابقةٍ يُمرَّر إلى `127.0.0.1:14006` — أي إلى محرِّرٍ يفتح طرفيّةً على الخادم.
+#
+# ## وما ليس عطبًا
+#
+# ‏SNI وترويسةُ `Host` مستقلّان: عميلٌ يفتح TLS بـSNI=`mihrab.dev` ثمّ يرسل
+# `Host: sad-lang.org` يُخدَم من كتلة `sad-lang.org`. هذا سلوكُ nginx الطبيعيّ
+# ولا يُعالَج هنا.
+#
+#   sudo cp 00-default-tls.conf.example /etc/nginx/conf.d/00-default-tls.conf
+#   sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+
+    # ⚠️ عدّل المسارَين لِما هو موجودٌ على خادمك فعلًا. أيُّ ملفٍّ مفقودٍ هنا يمنع
+    # ‏nginx من الإقلاع — وهذه أوّلُ كتلةٍ تُحمَّل، فالثمنُ كلُّ المواقع.
+    ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
+    ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+
+    # يرفض المصافحةَ لـSNI مجهول — أنظفُ من تقديمِ شهادةٍ زائفةٍ ثمّ رفضِ الطلب.
+    # ‏nginx ≥ 1.19.4. إن كان أقدمَ، احذف السطرَ واكتفِ بـ`return 444`.
+    ssl_reject_handshake on;
+
+    return 444;
+}
