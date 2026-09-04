@@ -12,6 +12,7 @@ L1 يضمن أنّ الرُقَع **طبَّقت على المصدر**؛ L2 يض
 الاستعمال: python tests/bundle/check_injected.py   (يتطلّب بناءً؛ يتخطّى بلطف إن غاب)
 """
 import filecmp
+import glob
 import json
 import os
 import re
@@ -740,6 +741,73 @@ def _built_gallery():
     assert any(urllib.parse.urlparse(d).netloc.lower() == host for d in trusted), \
         (f"نطاقُ السوق ({host}) خارجَ linkProtectionTrustedDomains — كلُّ نقرةٍ في صفحة "
          f"إضافةٍ تستجوب المستخدمَ بحوارِ ثقةٍ في مسارٍ نمرّ به عمدًا")
+
+
+# ── [WEB-01] بناءُ الويب مُعرَّبٌ كالمكتبيّ، لا هيكلًا عربيَّ الاتّجاه بواجهةٍ إنجليزيّة ──
+_WEB_MIN_AR_PCT = 90       # المكتبيُّ يقيس 94%؛ العتبةُ تحت ذلك بهامشٍ لا تحته بمرحلة
+_WEB_MIN_RTL_RULES = 100   # قِيست 130 في الويب والمكتبيّ معًا
+_WEB_JS_PREFIX = "globalThis._VSCODE_NLS_MESSAGES="
+
+
+def _web_dir():
+    """مجلّدُ `vscode-reh-web-*` الوحيد، أو None إن لم يُبنَ."""
+    hits = sorted(glob.glob(os.path.join(ROOT, ".upstream", "vscode-reh-web-*")))
+    hits = [h for h in hits if os.path.isdir(h)]
+    if len(hits) > 1:
+        raise AssertionError(f"وُجد {len(hits)} مجلّدَ ويبٍ — لا يُقاس ما لم يُحدَّد أيُّه المشحون")
+    return hits[0] if hits else None
+
+
+_AR_RE = re.compile(r"[؀-ۿ]")
+
+
+def _ar_ratio(strings):
+    ar = sum(1 for x in strings if isinstance(x, str) and _AR_RE.search(x))
+    return ar, len(strings)
+
+
+@check("محرابُ المتصفّح مُعرَّبٌ ومعكوسُ الاتّجاه [WEB-01]")
+def _web_arabized():
+    web = _web_dir()
+    assert web is not None, (
+        "لا مجلّدَ vscode-reh-web-* في .upstream — البناءُ يُخرجه في كلّ مرّة، فغيابُه "
+        "يعني بناءً ناقصًا لا ميزةً غائبة")
+
+    prod = json.loads(_readtext(os.path.join(web, "product.json")))
+    assert prod.get("nameLong") == "محراب", f"هويّةُ الويب انجرفت: nameLong={prod.get('nameLong')!r}"
+    assert prod.get("defaultLocale") == "ar", f"defaultLocale={prod.get('defaultLocale')!r} لا ar"
+
+    # (1) نواةُ الترجمة — الملفُّ الذي تقرؤه العمليّة
+    msgs = json.loads(_readtext(os.path.join(web, "out", "nls.messages.json")))
+    ar, tot = _ar_ratio(msgs)
+    pct = (ar * 100) // tot if tot else 0
+    assert pct >= _WEB_MIN_AR_PCT, (
+        f"واجهةُ الويب {pct}% عربيّة ({ar}/{tot}) — دون العتبة {_WEB_MIN_AR_PCT}%. "
+        f"خطواتُ ما بعد البناء ربّما عادت مربوطةً بالمكتبيّ وحدَه.")
+
+    # (2) ونسخةُ المتصفّح — الملفُّ الذي **يُخدَم فعلًا** للصفحة. الفصلُ مقصود: خبزُ الأولى
+    # وحدَها تركَ الواجهةَ إنجليزيّةً بالكامل (1/21922) والحارسُ لو قاسها وحدَها لكان أخضر.
+    js = _readtext(os.path.join(web, "out", "nls.messages.js"))
+    assert js.startswith(_WEB_JS_PREFIX), "بنيةُ nls.messages.js تغيّرت — لم تعد تُخبَز حيث تُقرأ"
+    close = js.rfind("]")
+    jar, jtot = _ar_ratio(json.loads(js[len(_WEB_JS_PREFIX):close + 1]))
+    jpct = (jar * 100) // jtot if jtot else 0
+    assert jpct >= _WEB_MIN_AR_PCT, (
+        f"‏nls.messages.js — وهو ما يصل المتصفّح — {jpct}% عربيّة ({jar}/{jtot})")
+
+    # (3) الاتّجاه
+    wcss = os.path.join(web, "out", "vs", "code", "browser", "workbench", "workbench.css")
+    css = _readtext(wcss)
+    n_rtl = css.count("[dir=rtl]")
+    assert n_rtl >= _WEB_MIN_RTL_RULES, f"قواعدُ الاتّجاه في الويب {n_rtl} < {_WEB_MIN_RTL_RULES}"
+
+    # (4) الخطُّ — سياسةُ الويب `font-src 'self' blob:` تخلو من data: كسياسةِ المكتبيّ
+    assert "src:url(kawkab-mono.woff2)" in css, (
+        "خطُّ الويب ما زال data: — تحجبه CSP في المتصفّح [AR-02]")
+    woff = os.path.join(os.path.dirname(wcss), "kawkab-mono.woff2")
+    assert os.path.isfile(woff), f"القاعدةُ تشير إلى ملفٍّ غيرِ موجود: {woff}"
+    with open(woff, "rb") as f:
+        assert f.read(4) == b"wOF2", "ملفُّ خطِّ الويب ليس WOFF2 سليمًا"
 
 
 def main():

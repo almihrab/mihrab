@@ -49,7 +49,13 @@ for _s in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-CSS_REL = os.path.join("out", "vs", "workbench", "workbench.desktop.main.css")
+# ورقتان لا واحدة: المشحونُ المكتبيُّ وبناءُ الويب/الخادم (`vscode-reh-web-*`). والعطبُ
+# نفسُه في الاثنين — سياسةُ الويب `font-src 'self' blob:` (يضعها الخادمُ ترويسةً لا وسمًا)
+# لا تحوي `data:` هي الأخرى. تُختار أوّلُ ورقةٍ موجودة؛ كلُّ شجرةِ خرجٍ فيها واحدةٌ فقط.
+CSS_CANDIDATES = (
+    os.path.join("out", "vs", "workbench", "workbench.desktop.main.css"),
+    os.path.join("out", "vs", "code", "browser", "workbench", "workbench.css"),
+)
 FONT_SRC_REL = os.path.join("extensions", "mihrab-welcome", "media", "kawkab-mono.woff2")
 FONT_NAME = "kawkab-mono.woff2"
 WOFF2_MAGIC = b"wOF2"
@@ -67,9 +73,12 @@ def fail(msg):
 
 
 def main(app_dir):
-    css = os.path.join(app_dir, CSS_REL)
-    if not os.path.isfile(css):
-        fail("لا ورقةَ أنماطٍ محزومة في " + css)
+    found = [os.path.join(app_dir, rel) for rel in CSS_CANDIDATES]
+    found = [p for p in found if os.path.isfile(p)]
+    if not found:
+        fail("لا ورقةَ أنماطٍ محزومة في أيٍّ من: " +
+             " · ".join(CSS_CANDIDATES) + " (تحت " + app_dir + ")")
+    css = found[0]
 
     src = io.open(css, encoding="utf-8", newline="").read()
 

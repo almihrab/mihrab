@@ -3988,7 +3988,15 @@ def _terminal_direction_sheet_and_patch_are_paired():
 
     patcher = os.path.join(BUILD, "patch_xterm_bidi.py")
     have_patch = os.path.isfile(patcher)
-    wired = "patch_xterm_bidi.py" in _read(os.path.join(BUILD, "build.sh"))
+    # موصولٌ لكلِّ شجرةِ خرجٍ تُشحَن — المكتبيُّ **والويب** — لا مرّةً واحدةً في أيِّهما.
+    # ووجودُ الاسم في build.sh لم يعد يكفي: بعد أن صار النداءُ مرّتين، صار مُصابُ PF-03
+    # (‏terminal-bidi-patch-unwired) يفصل نداءَ المكتبيّ والحارسُ يبقى أخضرَ على نداء
+    # الويب — أي حارسٌ يقيس وجودَ اسمٍ لا وصلَ رقعة. فيُطلَب الوجهان بالاسم.
+    _bsh = _read(os.path.join(BUILD, "build.sh"))
+    _targets = ("$APP_DIR", "$WEB_DIR")
+    _unwired = [t for t in _targets
+                if 'patch_xterm_bidi.py" "' + t + '"' not in _bsh]
+    wired = not _unwired
 
     if len(have_sheet) == 3 and have_patch and wired:
         # والرقعةُ مقيّدةٌ بإصدارٍ مثبَّت: المُصغِّرُ يبدّل الأسماءَ بين النسخ.
@@ -4004,7 +4012,7 @@ def _terminal_direction_sheet_and_patch_are_paired():
         "اقترانُ [DR-08] مكسور — والنصفُ أسوأُ من العدم: "
         + ("ناقصٌ من الورقة: " + " · ".join(missing) + ". " if missing else "")
         + ("والمُرقِّع `build/patch_xterm_bidi.py` مفقود. " if not have_patch else "")
-        + ("وغيرُ موصولٍ بـbuild.sh. " if not wired else ""))
+        + ("وغيرُ موصولٍ بـbuild.sh لـ: " + " · ".join(_unwired) + ". " if _unwired else ""))
 
 
 @check("رقعةُ الاتّجاه: جذرُ المحرّر مثبَّتٌ على ltr **بلا شرط** [DR-07]")

@@ -169,6 +169,26 @@ def main() -> int:
         json.dump(result, f, ensure_ascii=False)
     os.replace(tmp, msgs_file)
 
+    # (1ب) بناءُ الويب/الخادم (vscode-reh-web-*) يخدم `out/nls.messages.js` للمتصفّح — ملفٌّ
+    # لا وجودَ له في المشحون المكتبيّ. محتواه `globalThis._VSCODE_NLS_MESSAGES=[…]` ثمّ ذيلُ
+    # sourceMappingURL. فلو خُبِزت الـjson وحدَها بقيت واجهةُ المتصفّح إنجليزيّةً بالكامل
+    # (مقيس: 1/21922 عربيّة). نعيد كتابةَ المصفوفة وحدها ونُبقي الذيلَ كما هو.
+    js_file = os.path.join(out_dir, "nls.messages.js")
+    if os.path.isfile(js_file):
+        with open(js_file, "r", encoding="utf-8", newline="") as f:
+            js_src = f.read()
+        js_prefix = "globalThis._VSCODE_NLS_MESSAGES="
+        close = js_src.rfind("]")
+        if not js_src.startswith(js_prefix) or close < 0:
+            print(f"❌ بنيةٌ غيرُ متوقَّعة في {js_file} — توقّف بلا كتابة.", file=sys.stderr)
+            return 1
+        js_out = js_prefix + json.dumps(result, ensure_ascii=False) + js_src[close + 1:]
+        tmp_js = js_file + ".tmp"
+        with open(tmp_js, "w", encoding="utf-8", newline="") as f:
+            f.write(js_out)
+        os.replace(tmp_js, js_file)
+        print("✅ خُبِزت نسخةُ المتصفّح أيضًا: out/nls.messages.js")
+
     # (2) كتابة main.i18n.json المعاد تخطيطها (مسار كاش حزمة اللغة — الفتحات التالية).
     new_pack = {k: orig[k] for k in orig if k != "contents"}
     new_pack["contents"] = remapped  # مُطبَّعُ الهويّة سلفًا (طُبِّع كلُّ عنصرٍ عند بنائه)
