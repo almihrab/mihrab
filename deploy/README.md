@@ -33,13 +33,39 @@ sad-lang.org  →  nginx · Let's Encrypt (تنتهي 2026-11-04)
 | [`nginx/webview.mihrab.dev.conf`](nginx/webview.mihrab.dev.conf) | ٤ — بعد wildcard بـDNS-01 |
 | [`systemd/mihrab-web.service`](systemd/mihrab-web.service) | ٢ |
 
-## عقبةٌ قائمة: البناءُ ومحتواه
+## بناءُ لينكس — مقيسٌ ناجح
 
-‏`build/build.sh` يشتقّ الهدفَ من نظام المضيف، فبناءُ ويندوز يُخرج
-`vscode-reh-web-win32-x64` وحدَه. **والخادمُ لينكس** ⇒ يلزم بناءٌ على لينكس
-(‏WSL أو حاوية أو الخادمُ نفسُه) يُخرج `vscode-reh-web-linux-x64`. ولا يلزم تعديلُ
-شيءٍ لأجله: خطوةُ التعريب (ط-0د) وحارسُ `[WEB-01]` يلتقطان `vscode-reh-web-*` أيًّا
-كان هدفُها.
+بُني في WSL Ubuntu 24.04 وأُنتِج `vscode-reh-web-linux-x64` (‏370 م.ب). وقِيس:
+
+```
+nameLong = محراب · defaultLocale = ar · version = 1.126.05953
+nls.messages.json  20519/21922 (93%)
+nls.messages.js    20519/21922 (93%)   ← ما يصل المتصفّح
+[dir=rtl] 130 · الخطُّ موصولٌ بملفّ · xterm مُرقَّع · حارسُ [WEB-01] أخضر
+```
+
+وأُقلِع الخادمُ وقِيس في متصفّحٍ حقيقيّ: `dir=rtl`، شريطُ النشاط يمينًا، 665 محرفًا
+عربيًّا من 1089 مرئيّة، ولوحُ الترحيب يعمل ومنتقي المجلّدات يقرأ نظامَ ملفّات لينكس.
+
+**ولم يلزم تعديلُ سطرٍ لأجل لينكس**: خطوةُ التعريب (ط-0د) وحارسُ `[WEB-01]` يلتقطان
+`vscode-reh-web-*` أيًّا كان هدفُها — وهذا ما كان يُرجى من التعميم لا من التخصيص.
+
+### تبعيّاتُ البيئة (خارجَ ما يجلبه `build.sh` بنفسه)
+
+```bash
+apt-get install -y build-essential pkg-config \
+  libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev libnss3 libgbm1 xz-utils
+curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal   # ‏CLI مكتوبٌ بـRust
+```
+
+⚠️ و**لا تبنِ على `/mnt/c`**: طبقةُ 9p أبطأُ بمراتب، والروابطُ الصلبة لا تعبر إليها
+(`git clone --local` يفشل بـ«Invalid cross-device link»). استنسخ إلى نظام ملفّات لينكس.
+
+وثلاثُ تبعيّاتٍ كانت **مبثوثةً لا معلَنة**، كشفتها أربعُ محاولات: `python` في
+`build.sh` عندنا، و`python` في الشيفرة المحقونة، و`rustup`. الأوّلان أُصلِحا في
+المستودع فلا يتكرّران؛ والثالثُ تبعيّةُ بيئةٍ مذكورةٌ أعلاه.
+
+## ما ينقص المحتوى
 
 ⚠️ **وأدواتُ ص ويندوزيّةٌ فقط** (`sad-run.exe` · `sad-lsp.exe` · `sad-build.exe`).
 فبناءُ لينكس يسقط سقوطًا رشيقًا، والحصيلةُ **محرِّرٌ عربيٌّ معكوسُ الاتّجاه يعمل، لكنّه
