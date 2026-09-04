@@ -4,19 +4,40 @@
 > ثمّ روجِعت هندسيًّا فوُجد فيها ثلاثةُ أعطابٍ كانت تُسقِط `sad-lang.org` لحظةَ التطبيق
 > — صُحِّحت. ما قِيس مذكورٌ بوصفه قياسًا، وما لم يُقَس مذكورٌ بوصفه غيرَ مؤكَّد.
 
-## الحالةُ المقيسة (2026-09-05)
+## الحالةُ المقيسة (2026-09-05) — من الخادم نفسِه
 
 ```
 mihrab.dev · www · docs · dl · *.webview  →  176.106.227.73  ✅ منتشرة
 CAA: 0 issue "letsencrypt.org" · 0 issuewild "letsencrypt.org"  ✅
-sad-lang.org  →  nginx · Let's Encrypt (تنتهي 2026-11-04)
-127.0.0.1:14006 — لا شيءَ يستمع بعد
+
+nginx 1.24.0 (Ubuntu) · ستّةُ مواقعَ قائمة:
+   kadah · sad-academy · sad-lang · sad-registry · sad-website · sila-hub
+إدراجُ nginx.conf:  conf.d/*.conf  ثمّ  sites-enabled/*
+لا `default_server` على 443 في أيٍّ منها     ⇒ الأوّلُ أبجديًّا يملك الافتراضيّ
+`kadah` يضع listen 443 ssl http2            ⇒ HTTP/2 مفعَّلٌ سلفًا على المقبس
+certbot: authenticator = nginx (لا webroot)
+14006 مشغولٌ بـ«Node Dashboard» · 14007 حُرّ  ⇒ نستعمل 14007
+لا add_header في http{} — كلُّها داخل كتل المواقع ⇒ لا تعارضَ وراثة
 ```
 
 و`https://mihrab.dev` يقدّم اليومَ الشهادةَ الموقَّعةَ ذاتيًّا `CN=192.168.33.20`
 (الكتلةُ الافتراضيّة). **لا تفتحه في متصفّح**: `.dev` في قائمة HSTS المحمَّلة ⇒ رفضٌ
 قاطعٌ بلا زرِّ تجاوز، وبعضُ المتصفّحات تُبقي أثرَ الفشل فيبدو عطبًا دائمًا بعد
 إصلاح الشهادة. استعمل `http://` أثناء الإعداد.
+
+### ⚠️ أخطرُ ما كشفه القياس: موضعُ الملفّات
+
+`conf.d/` تُحمَّل **قبل** `sites-enabled/`، ولا كتلةَ `default_server` على 443. فأوّلُ
+كتلةٍ بترتيب التحليل تصير الخادمَ الافتراضيَّ لكلّ Host مجهول. ووضعُ كتلِ محرابٍ في
+`conf.d/` يجعلها تسبق المواقعَ الستّةَ **فيصير محرابٌ الافتراضيّ**: كلُّ طلبٍ بترويسة
+Host غيرِ معروفةٍ يُمرَّر إلى محرِّرٍ يفتح طرفيّةً على الخادم.
+
+| يُوضَع في | ماذا |
+|---|---|
+| `conf.d/00-mihrab-shared.conf` | الخريطةُ والمجمَّعُ والحدود — **يجب** أن تسبق |
+| `sites-enabled/mihrab-acme` | كتلةُ 80 |
+| `sites-enabled/mihrab` | كتلُ 443 — و«mihrab» تلي «kadah» أبجديًّا فالترتيبُ سليم |
+| `sites-enabled/mihrab-webview` | المرحلة ٤ |
 
 ## الملفّات — ولماذا هي منفصلة
 
@@ -80,10 +101,11 @@ sudo bash preflight.sh
 tar czf ~/nginx-$(date +%F).tgz /etc/nginx
 
 # ١ · المشتركاتُ وكتلةُ 80 وحدَها ⇒ ثمّ الشهادة
-sudo cp nginx/00-mihrab-shared.conf nginx/01-mihrab-acme.conf /etc/nginx/conf.d/
+sudo cp nginx/00-mihrab-shared.conf /etc/nginx/conf.d/
+sudo cp nginx/01-mihrab-acme.conf   /etc/nginx/sites-available/mihrab-acme
+sudo ln -sf /etc/nginx/sites-available/mihrab-acme /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-sudo mkdir -p /var/www/certbot
-sudo certbot certonly --webroot -w /var/www/certbot -d mihrab.dev -d www.mihrab.dev
+sudo certbot certonly --nginx -d mihrab.dev -d www.mihrab.dev   # مُصادِقُ nginx — مقيس
 sudo certbot certificates          # ⚠️ اقرأ اسمَ السلالة، لا تفترضه
 
 # ٢ · الخدمة (بعد نسخ بناء لينكس إلى /opt/mihrab/web)
@@ -91,7 +113,8 @@ sudo cp systemd/mihrab-web.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now mihrab-web
 
 # ٣ · كتلُ 443
-sudo cp nginx/mihrab.dev.conf /etc/nginx/conf.d/
+sudo cp nginx/mihrab.dev.conf /etc/nginx/sites-available/mihrab
+sudo ln -sf /etc/nginx/sites-available/mihrab /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # ٤ · wildcard ثمّ الـwebview (يحتاج DNS-01)
@@ -103,7 +126,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## الشهادة: قرارٌ واحدٌ يستحقّ الانتباه
 
-‏`mihrab.dev` و`www` بـHTTP-01 كما يجري لـ`sad-lang.org`. أمّا `*.webview.mihrab.dev`
+‏`mihrab.dev` و`www` بمُصادِقِ `nginx` — وهو ما يستعمله `sad-lang.org` فعلًا (مقيسٌ من ملفّ تجديده). أمّا `*.webview.mihrab.dev`
 فـ**يستلزم DNS-01** — ‏HTTP-01 لا يصدر wildcard أصلًا. وواجهةُ Namecheap البرمجيّة
 تشترط قائمةَ IP بيضاءَ فتتعطّل صامتةً عند تغيّر عنوانك، والاكتشافُ يقع بعد انتهاء
 الشهادة. **أوصي بنقل الـDNS إلى Cloudflare** واستعمال `certbot-dns-cloudflare`.

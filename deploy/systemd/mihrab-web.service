@@ -41,7 +41,7 @@ Environment=XDG_CACHE_HOME=/var/lib/mihrab/.cache
 # وجوده أثناء المراجعة؛ القياسُ حسم). إن غاب يومًا فالخدمةُ تفشل عند الإقلاع.
 ExecStart=/opt/mihrab/web/node /opt/mihrab/web/out/server-main.js \
     --host 127.0.0.1 \
-    --port 14006 \
+    --port 14007 \
     --connection-token-file /etc/mihrab/token \
     --server-data-dir /var/lib/mihrab \
     --telemetry-level off \
