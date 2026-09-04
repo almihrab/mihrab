@@ -1,0 +1,57 @@
+# خدمةُ محرابِ الويب — مربوطةٌ بالحلقة المحلّيّة، وnginx وحدَه يواجه العالم.
+#
+# ⚠️ غيرُ مُجرَّبةٍ على الخادم بعد. الخياراتُ مقروءةٌ من `--help` الخادمِ نفسِه
+# (بناء 1.126.05942) لا مفترَضة.
+#
+#   sudo cp deploy/systemd/mihrab-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mihrab-web
+
+[Unit]
+Description=محراب — محرِّرٌ عربيُّ الاتّجاه في المتصفّح
+Documentation=https://mihrab.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mihrab
+Group=mihrab
+WorkingDirectory=/opt/mihrab/web
+
+# ‏**رمزُ الاتّصال ليس اختياريًّا هنا.** الخادمُ يفتح طرفيّةً ونظامَ ملفّاتٍ لمن يصله؛
+# و`--without-connection-token` على منفذٍ يبلغه العالمُ = تنفيذُ شيفرةٍ عن بُعدٍ لأيّ زائر.
+# أنشئ الملفَّ قبل التشغيل:
+#   sudo install -d -m 750 -o mihrab -g mihrab /etc/mihrab
+#   openssl rand -hex 32 | sudo tee /etc/mihrab/token >/dev/null
+#   sudo chown mihrab:mihrab /etc/mihrab/token && sudo chmod 600 /etc/mihrab/token
+ExecStart=/opt/mihrab/web/node /opt/mihrab/web/out/server-main.js \
+    --host 127.0.0.1 \
+    --port 14006 \
+    --connection-token-file /etc/mihrab/token \
+    --server-data-dir /var/lib/mihrab \
+    --telemetry-level off \
+    --accept-server-license-terms
+
+Restart=on-failure
+RestartSec=5s
+
+# تقييدٌ متناسبٌ مع خدمةٍ تُنفِّذ شيفرةَ المستخدم عمدًا: لا نَعِد بعزلٍ لا نملكه،
+# لكن لا نمنحها أكثرَ ممّا تحتاج.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/mihrab /opt/mihrab/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+# مقابسُ WebSocket كثيرةٌ لكلّ جلسة (‏مضيفُ الامتدادات · الطرفيّة · المهامّ).
+LimitNOFILE=65535
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mihrab-web
+
+[Install]
+WantedBy=multi-user.target

@@ -4,7 +4,7 @@
   "version": "1.121.05803",
   "date": "2026-08-30",
   "origin": "https://sad-lang.org/mihrab/",
-  "notes_url": "https://github.com/sadlang/mihrab-ide/releases",
+  "notes_url": "https://github.com/mihrab-org/mihrab/releases",
   "base": "dl/",
   "assets": [
     {

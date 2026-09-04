@@ -151,10 +151,10 @@ FILES = [
              "AppPublisherURL=https://sad-lang.org/mihrab/", 1),
             (("AppSupportURL=https://vscodium.com/",
               "AppSupportURL=https://code.visualstudio.com/"),
-             "AppSupportURL=https://github.com/sadlang/mihrab-ide/issues", 1),
+             "AppSupportURL=https://github.com/mihrab-org/mihrab/issues", 1),
             (("AppUpdatesURL=https://vscodium.com/",
               "AppUpdatesURL=https://code.visualstudio.com/"),
-             "AppUpdatesURL=https://github.com/sadlang/mihrab-ide/releases", 1),
+             "AppUpdatesURL=https://github.com/mihrab-org/mihrab/releases", 1),
         ],
     ),
     # (٤) مواردُ Rust لـ`mihrab-tunnel.exe`. **الوحيدُ الذي يقول «مايكروسوفت» في المشحون**:
