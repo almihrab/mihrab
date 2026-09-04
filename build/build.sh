@@ -77,6 +77,7 @@ fi
   echo "   المُرقِّعاتُ كلُّها بايثون؛ بلا مفسّرٍ لا بناء. اضبط MIHRAB_PYTHON_BIN إن كان في مسارٍ آخر." >&2
   exit 1
 }
+export PY_BIN   # ترثُه شيفرةُ الحقن داخل build.sh المنبع (رُقَعُ النواة كلُّها بايثون)
 
 # تحويلُ مسارٍ إلى صيغة النظام لمستهلكٍ غير POSIX (node-gyp على ويندوز وحده).
 winpath() { if [[ "$IS_WIN" == "yes" ]]; then cygpath -w "$1"; else printf '%s' "$1"; fi; }

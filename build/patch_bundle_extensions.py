@@ -22,7 +22,7 @@ for _s in (sys.stdout, sys.stderr):
 MARK = "محراب: حقن الإضافات المدمجة"  # كاشف عامّ: أيّ حقن محراب سابق (مستقلّ عن الإصدار)
 # وسم الإصدار الحاليّ للرُقَع؛ يجب أن يطابق حرفيًّا الوسم في build.sh والتعليق داخل INJECT أدناه.
 # بدّله عند توسيع كتلة INJECT (وبدّل نظيرَيه) كي يُعاد الترقيع لا أن يُبقى حقنٌ بائت.
-CORE_PATCH_VERSION = "v32"
+CORE_PATCH_VERSION = "v33"
 VERSION_MARK = f"محراب: رُقَع النواة {CORE_PATCH_VERSION}"
 # بصمةُ محتوى INJECT (بلا وسم الإصدار) — تُقاس في L0 وتُقرَن بالإصدار.
 #
@@ -35,11 +35,24 @@ VERSION_MARK = f"محراب: رُقَع النواة {CORE_PATCH_VERSION}"
 #
 # فالبصمةُ تقرن الإصدارَ بالمحتوى: أيُّ تعديلٍ في INJECT بلا رفعِ الإصدار يُحمِّر
 # ‏L0 في ثانيتين بدل أن يمرّ إلى بناءٍ من أربعين دقيقةً يشحن حقنًا ناقصًا.
-INJECT_DIGEST = "94c168a02bc42b55"
+INJECT_DIGEST = "f2c0c38b9f5aa825"
 
 ANCHOR = '  cd vscode || { echo "\'vscode\' dir not found"; exit 1; }'
 
 INJECT = """
+  # محراب: مفسّرُ بايثون يُحلّ هنا أيضًا. هذه الشيفرة تعمل داخل build.sh المنبع، وقد
+  # مات بناءُ لينكس الأوّلُ عندها بـ«python: command not found»: أوبونتو 24.04 لا
+  # ‏`python` فيها، والرسالةُ تشير إلى سطرٍ في المنبع فتبدو عطبًا فيه لا في البيئة.
+  # يُفضَّل ما ورّثه build.sh عندنا، ثمّ يُحلّ ذاتيًّا كي تبقى الرقعةُ قائمةً بنفسها.
+  _MIHRAB_PY="${PY_BIN:-}"
+  if [ -z "${_MIHRAB_PY}" ]; then
+    for _pc in python3 python; do
+      if command -v "${_pc}" >/dev/null 2>&1 && "${_pc}" -c 'import sys; sys.exit(0 if sys.version_info[0]==3 else 1)' 2>/dev/null; then
+        _MIHRAB_PY="${_pc}"; break
+      fi
+    done
+  fi
+  [ -n "${_MIHRAB_PY}" ] || { echo "محراب: لا مفسّرَ بايثون 3 — رُقَع النواة كلُّها بايثون" >&2; exit 1; }
   # محراب: حقن الإضافات المدمجة المُجهَّزة في ../.mihrab-extensions (الطبقة 1).
   # نستعمل if لا «[ -d ] && cmd» (الأخيرة تُفشِل البناء تحت set -e عند غياب التطابق).
   for _mext in ../.mihrab-extensions/*/; do
@@ -50,7 +63,7 @@ INJECT = """
       echo "محراب: حُقِنت إضافة مدمجة ${_mname}"
     fi
   done
-  # محراب: رُقَع النواة v32 (+بيانات نسخة ويندوز [BR-04] +خلط الكتابتَين في إبراز يونيكود [AR-05] +تجدُّد خيارات صندوق الالتزام حيًّا [SC-01] +حجم خطّ شجرة التنقيح [DG-01] +صناديق الإدخال البسيطة [SC-01] +اتّجاه لوح شرح الجولة +ورقة الهويّة [VA-05] +رأس التطبيق + خلفية المحرّر + أصول sessions + زخرفة نجميّة الترحيب + تصريح <html lang>) على مصدر vscode (الطبقة 3) من ملفّات مُجهَّزة تنجو من reset.
+  # محراب: رُقَع النواة v33 (+بيانات نسخة ويندوز [BR-04] +خلط الكتابتَين في إبراز يونيكود [AR-05] +تجدُّد خيارات صندوق الالتزام حيًّا [SC-01] +حجم خطّ شجرة التنقيح [DG-01] +صناديق الإدخال البسيطة [SC-01] +اتّجاه لوح شرح الجولة +ورقة الهويّة [VA-05] +رأس التطبيق + خلفية المحرّر + أصول sessions + زخرفة نجميّة الترحيب + تصريح <html lang>) على مصدر vscode (الطبقة 3) من ملفّات مُجهَّزة تنجو من reset.
   # أيقونة التطبيق وبلاطتا ويندوز: استبدل resources/win32/ (electron.ts:winIcon=resources/win32/code.ico
   # ⇒ أيقونة الـexe؛ code.iss:SetupIconFile ⇒ المُثبِّت؛ code_*x*.png ⇒ بلاطات ابدأ؛ default.ico
   # ⇒ أيقونة المستند). فشل قاتل (لا تخطٍّ صامت) إن غاب أصلٌ متوقَّع كي لا تُشحَن هوية VSCodium
@@ -94,7 +107,7 @@ INJECT = """
     echo "محراب: طُبِّقت أصول مساحة sessions (شعار الحوض + أيقونة + خلفية)"
   fi
   if [ -f ../.mihrab-patch-main-locale.py ]; then
-    python ../.mihrab-patch-main-locale.py src/main.ts || { echo "محراب: فشلت رُقعة اللغة الافتراضيّة" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-main-locale.py src/main.ts || { echo "محراب: فشلت رُقعة اللغة الافتراضيّة" >&2; exit 1; }
   fi
   # رُقعة الاتّجاه RTL-0: انسخ ورقة الأنماط إلى media/ ثمّ رقّع workbench.ts ليستوردها ويضبط dir=rtl.
   # **الشرطُ على المرقِّع وحدَه** [VA-05]: كانت الورقتان داخل شرطٍ يذكر `.mihrab-rtl.css`،
@@ -129,30 +142,30 @@ INJECT = """
     else
       echo "محراب: لا خطّ عربيّ محزوم (kawkab-mono.woff2) — السقوط لبقيّة مكدّس editor.fontFamily"
     fi
-    python ../.mihrab-patch-workbench-rtl.py src/vs/workbench/browser/workbench.ts || { echo "محراب: فشلت رُقعة اتّجاه RTL" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-workbench-rtl.py src/vs/workbench/browser/workbench.ts || { echo "محراب: فشلت رُقعة اتّجاه RTL" >&2; exit 1; }
   fi
   # رُقعة RTL-2: محاذاة منسدلة شريط القوائم يمينًا في RTL (لا تخرج من حافّة النافذة).
   if [ -f ../.mihrab-patch-menubar-rtl.py ]; then
-    python ../.mihrab-patch-menubar-rtl.py src/vs/base/browser/ui/menu/menubar.ts || { echo "محراب: فشلت رُقعة قوائم RTL" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-menubar-rtl.py src/vs/base/browser/ui/menu/menubar.ts || { echo "محراب: فشلت رُقعة قوائم RTL" >&2; exit 1; }
   fi
   # رُقعة RTL-2: تعاقب القائمة الفرعيّة يسارًا في RTL (menu.ts).
   if [ -f ../.mihrab-patch-menu-rtl.py ]; then
-    python ../.mihrab-patch-menu-rtl.py src/vs/base/browser/ui/menu/menu.ts || { echo "محراب: فشلت رُقعة القائمة الفرعيّة RTL" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-menu-rtl.py src/vs/base/browser/ui/menu/menu.ts || { echo "محراب: فشلت رُقعة القائمة الفرعيّة RTL" >&2; exit 1; }
   fi
   # رُقعة RTL-2: وسم splitview الشبكة (يُمكِّن استثناءها في رُقعتَي splitview/sash).
   if [ -f ../.mihrab-patch-gridview-marker.py ]; then
-    python ../.mihrab-patch-gridview-marker.py src/vs/base/browser/ui/grid/gridview.ts || { echo "محراب: فشلت رُقعة وسم الشبكة" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-gridview-marker.py src/vs/base/browser/ui/grid/gridview.ts || { echo "محراب: فشلت رُقعة وسم الشبكة" >&2; exit 1; }
   fi
   # رُقعة RTL-2: اتّجاه SplitView الأفقيّ المستقلّ (كلّ اللوحات، باستثناء splitview الشبكة) + المقبض.
   if [ -f ../.mihrab-patch-splitview-rtl.py ]; then
-    python ../.mihrab-patch-splitview-rtl.py src/vs/base/browser/ui/splitview/splitview.ts || { echo "محراب: فشلت رُقعة SplitView RTL" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-splitview-rtl.py src/vs/base/browser/ui/splitview/splitview.ts || { echo "محراب: فشلت رُقعة SplitView RTL" >&2; exit 1; }
   fi
   if [ -f ../.mihrab-patch-sash-rtl.py ]; then
-    python ../.mihrab-patch-sash-rtl.py src/vs/base/browser/ui/sash/sash.ts || { echo "محراب: فشلت رُقعة المقبض RTL" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-sash-rtl.py src/vs/base/browser/ui/sash/sash.ts || { echo "محراب: فشلت رُقعة المقبض RTL" >&2; exit 1; }
   fi
   # رُقعة إفلات تبويبات المحرّر RTL (البند #18): اتّجاه الإدراج + مؤشّره البصريّ (LTR مطابق بايتًا).
   if [ -f ../.mihrab-patch-tabsdrop-rtl.py ]; then
-    python ../.mihrab-patch-tabsdrop-rtl.py src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts || { echo "محراب: فشلت رُقعة إفلات التبويبات RTL" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-tabsdrop-rtl.py src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts || { echo "محراب: فشلت رُقعة إفلات التبويبات RTL" >&2; exit 1; }
   fi
   # محرّر Monaco RTL: تعديلٌ **منبعيٌّ** كامل (خيار editor.textDirection: auto|ltr|rtl) مُصاغٌ
   # للرفع إلى microsoft/vscode، لا رُقعةً خاصّة. يُطبَّق diff واحدًا بـgit apply --3way (يتسامح
@@ -210,48 +223,48 @@ INJECT = """
   fi
   # رُقعة صفحة الترحيب: شعار القوس + الجملة الاستعاريّة في ترويسة Get Started (شكل الشعار في mihrab-identity.css — ورقةُ الهويّة [VA-05]).
   if [ -f ../.mihrab-patch-welcome-rtl.py ]; then
-    python ../.mihrab-patch-welcome-rtl.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts || { echo "محراب: فشلت رُقعة صفحة الترحيب" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-welcome-rtl.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts || { echo "محراب: فشلت رُقعة صفحة الترحيب" >&2; exit 1; }
   fi
   # رُقعة صفحة الترحيب (ب-١): اتّجاهُ لوح شرح الجولة. اللوحُ إطارُ webview بمستندٍ مستقلّ
   # يخرج بـ<html> عارية، فيرتدّ إلى ltr مهما كانت القشرة (قِسناه حيًّا). ولا مخرجَ من طبقةٍ
   # أدنى: مطهِّرُ الـmarkdown ينزع dir من محتوانا، وورقتُنا لا تعبر حدَّ الـwebview.
   if [ -f ../.mihrab-patch-walkthrough-dir.py ]; then
-    python ../.mihrab-patch-walkthrough-dir.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedDetailsRenderer.ts || { echo "محراب: فشلت رُقعة اتّجاه لوح الجولة" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-walkthrough-dir.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedDetailsRenderer.ts || { echo "محراب: فشلت رُقعة اتّجاه لوح الجولة" >&2; exit 1; }
   fi
   # رُقعة صفحة الترحيب (ب): إسقاط جولات المنبع التعريفيّة (Setup/SetupWeb/Beginner) كي تتصدّر
   # جولة محراب «ابدأ في ٩٠ ثانية». SetupAccessibility وnotebooks تبقيان عمدًا (انظر المرقِّع).
   if [ -f ../.mihrab-patch-walkthroughs-drop.py ]; then
-    python ../.mihrab-patch-walkthroughs-drop.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedService.ts || { echo "محراب: فشلت رُقعة إسقاط جولات المنبع" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-walkthroughs-drop.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedService.ts || { echo "محراب: فشلت رُقعة إسقاط جولات المنبع" >&2; exit 1; }
   fi
   # تصريح لغة المستند: العربيّة مخبوزة في nls الافتراضيّ فلا يحلّ NLS لغةً ⇒ كان <html lang="en"
   # على واجهة عربيّة (يُضلّل قارئات الشاشة ويُبطِل :lang(ar)). نرتدّ إلى product.defaultLocale.
   if [ -f ../.mihrab-patch-html-lang.py ]; then
-    python ../.mihrab-patch-html-lang.py src/vs/code/electron-browser/workbench/workbench.ts || { echo "محراب: فشلت رُقعة تصريح لغة المستند" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-html-lang.py src/vs/code/electron-browser/workbench/workbench.ts || { echo "محراب: فشلت رُقعة تصريح لغة المستند" >&2; exit 1; }
   fi
   # افتراضُ الحوار المشروط: 'native' يعني حوارَ ويندوز بلغته وباتّجاه LTR في لحظة فقدِ عمل.
   # 'custom' يُصيّره الـworkbench فيرث dir=rtl والسلاسلَ العربيّة المخبوزة (نطاقُه APPLICATION
   # فلا تبلغه configurationDefaults من إضافة — قِسناه).
   if [ -f ../.mihrab-patch-dialog-style.py ]; then
-    python ../.mihrab-patch-dialog-style.py src/vs/workbench/electron-browser/desktop.contribution.ts || { echo "محراب: فشلت رُقعة نمط الحوار" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-dialog-style.py src/vs/workbench/electron-browser/desktop.contribution.ts || { echo "محراب: فشلت رُقعة نمط الحوار" >&2; exit 1; }
   fi
 
   # مجلّد إعدادات المشروع: `.محراب` يُكتَب، و`.mihrab` و`.vscode` يُقرآن ويُدمجان تحته.
   # الرقعةُ تشمل ستّةَ عشرَ ملفًّا لأنّ المنبع يكتب '.vscode' حرفيًّا خارج ثابته: لو
   # بُدّل الثابتُ وحده لقرأ محراب من مكانٍ وكتب في آخر — بلا خطأ ولا سجلّ.
   if [ -f ../.mihrab-patch-config-folder.py ]; then
-    python ../.mihrab-patch-config-folder.py . || { echo "محراب: فشلت رُقعة مجلّد الإعدادات" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-config-folder.py . || { echo "محراب: فشلت رُقعة مجلّد الإعدادات" >&2; exit 1; }
   fi
 
   # عناوين لوحة الإعدادات: تُشتَقّ حسابيًّا من اسم المفتاح وقت التشغيل، فلا مدخلَ لها
   # في NLS ولا يمسّها خبزُ العربيّة. التعريبُ يُلحَق بمخرَج wordifyKey.
   if [ -f ../.mihrab-patch-settings-labels.py ]; then
-    python ../.mihrab-patch-settings-labels.py . || { echo "محراب: فشلت رُقعة عناوين الإعدادات" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-settings-labels.py . || { echo "محراب: فشلت رُقعة عناوين الإعدادات" >&2; exit 1; }
   fi
 
   # بياناتُ نسخةِ ويندوز: `CompanyName`/`LegalCopyright` في الثنائيّات المشحونة. تسبق
   # التصريفَ والتحزيمَ لأنّ الحقول تُكتَب وقتَ حزمِ Electron وrcedit وبناءِ CLI.
   if [ -f ../.mihrab-patch-win-metadata.py ]; then
-    python ../.mihrab-patch-win-metadata.py . || { echo "محراب: فشلت رُقعة بيانات نسخة ويندوز" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-win-metadata.py . || { echo "محراب: فشلت رُقعة بيانات نسخة ويندوز" >&2; exit 1; }
   fi"""
 
 
