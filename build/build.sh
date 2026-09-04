@@ -59,6 +59,25 @@ case "$OS_NAME" in
            LAUNCH_REL="" ;;
 esac
 
+# ── مفسّرُ بايثون: يُحلّ مرّةً ولا يُفترَض ────────────────────────────────────
+# ‏`python` المجرَّد **غيرُ موجودٍ على أوبونتو 24.04** (‏python3 وحدَه)، وعلى توزيعاتٍ
+# أقدمَ قد يكون **بايثون 2**. وقد قِيس العطبُ حيًّا: أوّلُ بناءِ لينكس مات بـ127 عند
+# أوّلِ مُرقِّع — رسالةٌ لا تذكر بايثون أصلًا، فبدت عطبًا في المُرقِّع لا في البيئة.
+# وهذا نفسُ ما يحذّر منه رأسُ الملفّ: ويندوزيّةٌ **مبثوثةٌ** لا معلَنة.
+PY_BIN="${MIHRAB_PYTHON_BIN:-}"
+if [[ -z "$PY_BIN" ]]; then
+  for _c in python3 python; do
+    if command -v "$_c" >/dev/null 2>&1 && "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0]==3 else 1)' 2>/dev/null; then
+      PY_BIN="$_c"; break
+    fi
+  done
+fi
+[[ -n "$PY_BIN" ]] || {
+  echo "❌ لا مفسّرَ بايثون 3 في PATH (جُرِّب python3 ثمّ python)." >&2
+  echo "   المُرقِّعاتُ كلُّها بايثون؛ بلا مفسّرٍ لا بناء. اضبط MIHRAB_PYTHON_BIN إن كان في مسارٍ آخر." >&2
+  exit 1
+}
+
 # تحويلُ مسارٍ إلى صيغة النظام لمستهلكٍ غير POSIX (node-gyp على ويندوز وحده).
 winpath() { if [[ "$IS_WIN" == "yes" ]]; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
 
@@ -182,7 +201,7 @@ MSVS_PY="$BUNDLED_GYP/gyp/pylib/gyp/generator/msvs.py"
 [[ -f "$MSVS_PY" ]] || { echo "❌ لم يُعثر على msvs.py في $MSVS_PY — بنية node-gyp غير متوقّعة." >&2; exit 1; }
 if ! grep -q 'spectre_mitigation = "false"' "$MSVS_PY"; then
   log "ترقيع msvs.py لتعطيل SpectreMitigation"
-  python "$ROOT/build/patch_node_gyp_spectre.py" "$MSVS_PY"
+  "$PY_BIN" "$ROOT/build/patch_node_gyp_spectre.py" "$MSVS_PY"
   # امسح أيّ bytecode مخبَّأ للمولِّد القديم حتى يُحمَّل المُرقَّع (احتمال غياب الدليل مقبول).
   find "$BUNDLED_GYP" -name "msvs.cpython-*.pyc" -delete 2>/dev/null || true
 fi
@@ -193,7 +212,7 @@ fi  # ── نهاية إصلاحات ويندوز (د)+(هـ) ──
 PVS="$UP/prepare_vscode.sh"
 if [[ -f "$PVS" ]] && ! grep -q 'محراب م0: تسامح مع غياب .npmrc' "$PVS"; then
   log "ترقيع prepare_vscode.sh (تسامح .npmrc)"
-  python "$ROOT/build/patch_npmrc_tolerance.py" "$PVS"
+  "$PY_BIN" "$ROOT/build/patch_npmrc_tolerance.py" "$PVS"
 fi
 
 # ── (و-2) ترقيع build_cli.sh: «mkdir openssl» (بلا -p) يفشل تحت set -e عند إعادة
@@ -212,7 +231,7 @@ fi
 # (Mihrab — منه اسمُ التنفيذيّ) وnameLong عربيّ (محراب)، فيُبنى «محراب.app»
 # ويُبحَث عن «Mihrab.app». يفشل بعد ست عشرة دقيقة، في آخر خطوة، على macOS وحدها.
 if [[ -f "$UP/build_cli.sh" ]]; then
-  python "$ROOT/build/patch_cli_macapp.py" "$UP/build_cli.sh" "$UP/prepare_assets.sh" \
+  "$PY_BIN" "$ROOT/build/patch_cli_macapp.py" "$UP/build_cli.sh" "$UP/prepare_assets.sh" \
     || { echo "❌ فشل ترقيع مسار حزمة macOS." >&2; exit 1; }
 fi
 
@@ -504,7 +523,7 @@ rm -rf "$BRAND_STAGE"; mkdir -p "$BRAND_STAGE"
 # updateUrl الموروث: البناءُ ينجح والمستخدمُ يرى مشروعًا آخر.
 if [[ -f "$BRAND_SRC/mihrab-mark-color-256.png" ]]; then
   cp -f "$BRAND_SRC/mihrab-mark-color-256.png" "$BRAND_STAGE/code.png"
-  python "$ROOT/build/gen_icns.py" "$BRAND_SRC/mihrab-mark-color-256.png" \
+  "$PY_BIN" "$ROOT/build/gen_icns.py" "$BRAND_SRC/mihrab-mark-color-256.png" \
          "$BRAND_STAGE/code.icns" >/dev/null \
     || { echo "❌ فشل توليد code.icns" >&2; exit 1; }
 fi
@@ -538,7 +557,7 @@ if [[ -f "$BSH" ]] && ! grep -q "محراب: رُقَع النواة $CORE_PATCH
       exit 1
     fi
   fi
-  python "$ROOT/build/patch_bundle_extensions.py" "$BSH"
+  "$PY_BIN" "$ROOT/build/patch_bundle_extensions.py" "$BSH"
 fi
 
 # ── (ز-3) نظّف مجلّد المخرَج السابق مبكّرًا: لو كان مقفولًا (نسخة محراب قيد التشغيل)
@@ -657,7 +676,7 @@ fi
 # إبطال كاش CLP (%APPDATA%/clp) في «التحديث فوق ملفّ تعريف قائم». [[mihrab-stale-clp...]]
 if [[ -d "$APP_DIR/extensions" ]]; then
   log "حقن ترجمة بيانات الامتدادات (contents.package في حزمة اللغة)"
-  python "$ROOT/build/patch_extension_nls.py" "$APP_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_extension_nls.py" "$APP_DIR" || {
     echo "❌ فشل حقن ترجمة بيانات الامتدادات — راجع أعلاه." >&2; exit 1; }
 else
   log "تخطّي حقن بيانات الامتدادات: لا مجلّد extensions في $APP_DIR"
@@ -670,7 +689,7 @@ fi
 # شحنُ الورقة بلا الرقعة يُنتج العطبَ الأسوأ لا نصفَ الإصلاح.
 if [[ -d "$APP_DIR/node_modules/@xterm/xterm" ]]; then
   log "ترقيع اتّجاه أعمدة xterm (فأرة + تحديد)"
-  python "$ROOT/build/patch_xterm_bidi.py" "$APP_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_xterm_bidi.py" "$APP_DIR" || {
     echo "❌ فشل ترقيع اتّجاه xterm — راجع أعلاه. ورقةُ الاتّجاه بلا هذه الرقعة تعني" >&2
     echo "   تحديدًا يقع في غير موضع النقر. لا يُشحَن." >&2; exit 1; }
 else
@@ -685,7 +704,7 @@ fi
 # لا يُجهض البناء: بلا هذا يسقط العرضُ لبقيّة المكدّس — نقصُ جودةٍ لا عطبٌ صامتٌ ضارّ.
 if [[ -f "$APP_DIR/out/vs/workbench/workbench.desktop.main.css" ]]; then
   log "وصلُ الخطّ العربيّ المحزوم بملفٍّ مجاور (بدل data: المحجوبة)"
-  python "$ROOT/build/patch_workbench_font.py" "$APP_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_workbench_font.py" "$APP_DIR" || {
     echo "❌ فشل وصلُ الخطّ العربيّ — راجع أعلاه." >&2; exit 1; }
 else
   log "تخطّي وصلِ الخطّ: لا workbench.desktop.main.css في $APP_DIR"
@@ -694,7 +713,7 @@ fi
 # ── (ط-0ب) خبز الواجهة العربيّة + رفع نسخة حزمة اللغة (يشمل بصمة i18n المحقونة أعلاه) ──
 if [[ -f "$APP_DIR/out/nls.messages.json" ]]; then
   log "خبز الواجهة العربيّة في nls.messages.json"
-  python "$ROOT/build/bake_nls_arabic.py" "$APP_DIR" || {
+  "$PY_BIN" "$ROOT/build/bake_nls_arabic.py" "$APP_DIR" || {
     echo "❌ فشل خبز الترجمة العربيّة — راجع أعلاه." >&2; exit 1; }
 else
   log "تخطّي الخبز: لا nls.messages.json في $APP_DIR (بناء غير مكتمل؟)"
@@ -726,13 +745,13 @@ if [[ -d "${_WEB_DIRS[0]:-}" ]]; then
   fi
   WEB_DIR="${_WEB_DIRS[0]}"
   log "تعريبُ بناء الويب: $(basename "$WEB_DIR")"
-  python "$ROOT/build/patch_extension_nls.py" "$WEB_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_extension_nls.py" "$WEB_DIR" || {
     echo "❌ فشل حقنُ ترجمة الامتدادات في بناء الويب." >&2; exit 1; }
-  python "$ROOT/build/patch_xterm_bidi.py" "$WEB_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_xterm_bidi.py" "$WEB_DIR" || {
     echo "❌ فشل ضبطُ اتّجاه xterm في بناء الويب." >&2; exit 1; }
-  python "$ROOT/build/patch_workbench_font.py" "$WEB_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_workbench_font.py" "$WEB_DIR" || {
     echo "❌ فشل وصلُ الخطّ العربيّ في بناء الويب." >&2; exit 1; }
-  python "$ROOT/build/bake_nls_arabic.py" "$WEB_DIR" || {
+  "$PY_BIN" "$ROOT/build/bake_nls_arabic.py" "$WEB_DIR" || {
     echo "❌ فشل خبزُ العربيّة في بناء الويب." >&2; exit 1; }
 else
   log "لا بناءَ ويبٍ (vscode-reh-web-*) في $UP — تُخطّى خطوةُ تعريبه"
@@ -748,7 +767,7 @@ fi
 # **موضعُه هنا لا في مكانٍ آخر**: كلُّ ما بعده قراءةٌ وتحقّق (ط · ي · ي-2)، فلو سبق
 # خطوةً تكتب لعاد العطبُ صامتًا. أيُّ خطوةِ كتابةٍ تُضاف لاحقًا تسبق هذا السطر.
 log "تحديثُ بصمات النزاهة في product.json المشحون"
-python "$ROOT/build/refresh_checksums.py" "$APP_DIR" || {
+"$PY_BIN" "$ROOT/build/refresh_checksums.py" "$APP_DIR" || {
   echo "❌ فشل تحديثُ بصمات النزاهة — راجع أعلاه." >&2; exit 1; }
 
 # ── (ط) تحقّق المخرَج (اسم المشغِّل = nameShort = Mihrab؛ CLI = applicationName = mihrab) ──
@@ -791,7 +810,7 @@ fi
 #   • و`\|` امتدادُ GNU: grep البِسْديّ (macOS) يقرؤه حرفيًّا فيفشل على بناءٍ سليم.
 #   • ونسبةٌ مجمَّعةٌ تُخفي سقوطَ امتدادٍ كاملٍ ⇒ للبوّابة حدٌّ لكلّ امتدادٍ ذي وزن.
 if [[ -d "$APP_DIR/extensions" ]]; then
-  python "$ROOT/build/patch_extension_nls.py" --verify "$APP_DIR" || {
+  "$PY_BIN" "$ROOT/build/patch_extension_nls.py" --verify "$APP_DIR" || {
     echo "❌ بوّابةُ تعريب بيانات الامتدادات رفضت المخرَج — راجع أعلاه." >&2; exit 1; }
 fi
 # والنصُّ المخبوز (سلاسلُ القشرة): تسرّبُ اسمِ التوزيعة الأمّ فيه عطبٌ كذلك.

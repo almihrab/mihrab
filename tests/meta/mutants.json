@@ -207,8 +207,8 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "build/build.sh",
-      "old": "python \"$ROOT/build/patch_xterm_bidi.py\" \"$APP_DIR\"",
-      "new": "python \"$ROOT/build/patch_xterm_bidi_MUTANT.py\" \"$APP_DIR\"",
+      "old": "\"$PY_BIN\" \"$ROOT/build/patch_xterm_bidi.py\" \"$APP_DIR\"",
+      "new": "\"$PY_BIN\" \"$ROOT/build/patch_xterm_bidi_MUTANT.py\" \"$APP_DIR\"",
       "expect": "اقترانُ [DR-08] مكسور",
       "why": "أخطرُ حالةٍ في DR-08 ليست غيابَ الطرفين بل **وجودَ الورقة بلا الرقعة**: نصٌّ يُقرأ صحيحًا ويُحدَّد خطأً. فالمُصابُ يفصل الرقعةَ عن البناء ويُبقي الورقة."
     },
