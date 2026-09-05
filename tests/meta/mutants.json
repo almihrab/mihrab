@@ -421,6 +421,16 @@
       "new": "    ssl_session_timeout\t1d;\n    ssl_dhparam",
       "expect": "تكرارٌ يمنع nginx من الإقلاع",
       "why": "‏`ssl_session_timeout` مكرَّرًا فوق قصاصة certbot يجعل nginx **يرفض الإقلاع** — أُوقِع على الخادم الحيّ وأنقذته البوّابةُ التلقائيّة. والفاصلُ هنا **جدولةٌ لا مسافة**: الصياغةُ الأولى للحارس كانت `startswith(d + ' ')` فتمرّ الجدولةُ من تحتها، وnginx يقبلها تمامًا."
+    },
+    {
+      "id": "brand-upstream-repo-path",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "export GH_REPO_PATH=\"mihrab-org/mihrab\"",
+      "new": "export GH_REPO_PATH=\"VSCodium/vscodium\"",
+      "expect": "يشير إلى المنبع",
+      "why": "عنوانٌ يُضرَب في الحزمة المصغَّرة وقتَ الترقيع، فلا يراه فحصُ `product.json` ولا فحصُ النصّ المخبوز. وأثرُه أنّ لوحَ الترحيب يجلب `announcements-extra.json` من مستودع المنبع في كلّ فتحةٍ أولى — يُخبِره بزائرِنا ويعرض إعلاناتِه في لوحِنا. قِيس حيًّا على mihrab.dev عبر CDP بعد النشر، لا استُنتج."
     }
   ],
   "uncovered": [

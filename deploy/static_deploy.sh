@@ -28,7 +28,7 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
 SHA_TREE=9bf29511716887470b16f3c44e5809537769dceb48b400f64f9e89690f211552
-SHA_CONF=db7962916cf0e74cfd2a96e92956a4fe66c72e745888086c81f4c1c27fa6f217
+SHA_CONF=4f1bd02d4af33ef9f0253beacca5a66748c2ae96cd782a5015da1e259c8472e6
 
 die() { echo "❌ $*" >&2; exit 1; }
 say() { echo "── $*"; }
@@ -44,7 +44,18 @@ _sha() { sha256sum "$1" | cut -d' ' -f1; }
   || die "بصمةُ كتلة nginx لا تطابق المثبَّتة — لا تُركَّب."
 say "البصمتان مطابقتان"
 
+# ‏`--nginx-only`: تصحيحُ كتلةٍ فوق شجرةٍ منشورةٍ سليمة. بدونه تُفكّ 204 م.ب وتُبدَّل
+# بلا داعٍ، **وتُدفَع الشجرةُ السليمةُ إلى `static.old`** فيضيع ما نتراجع إليه.
+NGINX_ONLY=no
+[[ "${1:-}" == "--nginx-only" ]] && NGINX_ONLY=yes
+
+if [[ $NGINX_ONLY == yes ]]; then
+  [[ -s $LIVE/index.html ]] || die "‏--nginx-only فوق لا شيء: $LIVE بلا صفحة"
+  say "الكتلةُ وحدَها — الشجرةُ المنشورةُ تُترك كما هي"
+fi
+
 # ── (1) الفكّ إلى مجلّدٍ جانبيّ ────────────────────────────────────────────────
+if [[ $NGINX_ONLY == no ]]; then
 say "فكُّ الشجرة إلى $NEW"
 rm -rf "$NEW"
 mkdir -p "$NEW"
@@ -75,6 +86,7 @@ say "التبديل"
 rm -rf "$OLD"
 [[ -d $LIVE ]] && mv "$LIVE" "$OLD"
 mv "$NEW" "$LIVE" || die "فشل التبديل — الشجرةُ القديمةُ في $OLD"
+fi   # NGINX_ONLY
 
 # ── (3) nginx ────────────────────────────────────────────────────────────────
 say "نسخةٌ احتياطيّةٌ من الكتلة الحاليّة ⇐ $BACKUP"
@@ -103,9 +115,27 @@ systemctl disable mihrab-web 2>/dev/null
 
 echo
 echo "✅ نُشِر. تحقّقٌ سريع:"
-for p in / /product.web.js /manifest.json /favicon.ico /out/nls.messages.js; do
-  printf '   %-28s %s\n' "$p" \
-    "$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' "https://127.0.0.1$p")"
-done
+# **والنوعُ يُقاس لا الرمزُ وحدَه.** كتلةُ `types` على مستوى `server` تستبدل الجدولَ
+# الموروثَ ولا توسّعه، فخُدِمت الصفحةُ و`boot.js` والورقةُ `application/octet-stream`
+# — ومع `nosniff` يرفض المتصفّحُ تنفيذَ الوحدات: موقعٌ أبيضُ بلا رسالةِ خطأ، وكلُّ
+# رمزٍ فيه 200. فحصُ الرمز وحدَه كان أخضرَ على موقعٍ مكسور.
+_ct() { curl -sk -I -H 'Host: mihrab.dev' "https://127.0.0.1$1" \
+        | tr -d '\r' | awk 'tolower($1)=="content-type:"{print $2}'; }
+_want() {
+  local got; got="$(_ct "$1")"
+  local code; code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' "https://127.0.0.1$1")"
+  printf '   %-34s %s  %s' "$1" "$code" "${got:-—}"
+  if [[ -n "$2" && "$got" != "$2"* ]]; then printf '   ⚠️ المنتظَر %s' "$2"; RC=1; fi
+  echo
+}
+RC=0
+_want /                    text/html
+_want /boot.js             application/javascript
+_want /product.web.js      application/javascript
+_want /manifest.json       application/json
+_want /favicon.ico         ""
+_want /out/nls.messages.js application/javascript
+_want /out/vs/workbench/workbench.web.main.internal.css text/css
+[[ $RC -eq 0 ]] || echo "   ⛔ نوعُ محتوًى خاطئ — المتصفّحُ لن ينفّذ الوحدات."
 echo
 echo "   الشجرةُ السابقة في $OLD — احذفها بعد التأكّد:  sudo rm -rf $OLD"

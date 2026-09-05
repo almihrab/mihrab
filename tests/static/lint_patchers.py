@@ -4313,6 +4313,34 @@ def _web_patchers_wired_for_both_trees():
         "‏--verify غيرُ مُستدعًى على الشجرة الثابتة — فرضٌ بلا بوّابة"
 
 
+@check("لا وجهةَ منبعٍ مضروبةً في رُقَع البناء [BR-05]")
+def _no_upstream_repo_in_generated_patches():
+    """‏`!!GH_REPO_PATH!!` افتراضُه `VSCodium/vscodium`، ولم نضبطه فورثنا وجهتَه.
+
+    والأثرُ ليس نظريًّا: لوحُ الترحيب كان يجلب `announcements-extra.json` من مستودع
+    المنبع في كلّ فتحةٍ أولى — يُخبِره بكلّ زائرٍ جديد، ويعرض إعلاناتِه داخل لوحِنا
+    لو نُشرت. قِيس حيًّا على mihrab.dev عبر CDP.
+
+    ولم تمسكه طبقةٌ واحدة: عنوانٌ مضروبٌ في الحزمة المصغَّرة لا مفتاحٌ في
+    ‏`product.json` — وبوّاباتُنا تفحص `product.json` والنصَّ المخبوز.
+    """
+    sh = _read(os.path.join(BUILD, "build.sh"))
+    m = re.search(r'export\s+GH_REPO_PATH="([^"]+)"', sh)
+    assert m, ("‏build.sh لا يضبط GH_REPO_PATH — يُورَث `VSCodium/vscodium` "
+               "فيجلب لوحُ الترحيب إعلاناتِ المنبع ويُخبِره بزائرِنا")
+    val = m.group(1)
+    assert "vscodium" not in val.lower() and "microsoft" not in val.lower(), \
+        "‏GH_REPO_PATH يشير إلى المنبع: " + val
+
+    # مرسًى موجب: الرقعةُ التي تستهلك العنصرَ النائبَ ما زالت موجودة. لو زالت،
+    # صار الحارسُ يفرض متغيّرًا بلا أثر — وذلك يوهم بحمايةٍ لم تعد قائمة.
+    pat = os.path.join(ROOT, ".upstream", "patches",
+                       "00-community-add-announcements.patch")
+    if os.path.isfile(pat):
+        assert "!!GH_REPO_PATH!!" in _read(pat), \
+            "رقعةُ الإعلانات لم تعد تستعمل العنصرَ النائب — راجِع ما صارت تجلبه"
+
+
 @check("صفحةُ مضيفِ المتصفّح تفي بما تَعِد [WEB-04]")
 def _web_host_page_contract():
     """أربعةُ عيوبٍ قِيست في `web/` وكلُّها كانت خارج كلّ طبقة — لأنّ الملفّين جديدان.

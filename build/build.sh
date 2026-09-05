@@ -248,6 +248,22 @@ export npm_config_jobs="$JOBS"
 export UV_THREADPOOL_SIZE="$JOBS"
 export NODE_OPTIONS="--max-old-space-size=8192"
 export VSCODE_SKIP_NODE_VERSION_CHECK=yes
+
+# ── مستودعُنا لا مستودعُ المنبع في الرُقَع المُولَّدة [BR-05] ──
+# ‏`.upstream/utils.sh` يستبدل `!!GH_REPO_PATH!!` في رُقَع VSCodium، وافتراضُه
+# `VSCodium/vscodium`. ولم نضبطه، فورثنا وجهتَه: رقعةُ `00-community-add-announcements`
+# تجعل **لوحَ الترحيب** يجلب
+#     https://raw.githubusercontent.com/VSCodium/vscodium/<branch>/announcements-extra.json
+# في كلّ فتحةٍ أولى. أي أنّ محرابًا كان يُخبِر مستودعَ المنبع بكلّ زائرٍ جديد، ويعرض
+# **إعلاناتِ VSCodium داخل لوح ترحيبِ محراب** لو نُشرت.
+#
+# قِيس حيًّا على mihrab.dev عبر CDP (لا استُنتج)، وهو في الأشجار الثلاث. ولم تمسكه
+# أيُّ طبقة: عنوانٌ مضروبٌ في الحزمة المصغَّرة لا مفتاحٌ في `product.json`، وبوّاباتُنا
+# تفحص `product.json` والنصَّ المخبوز.
+#
+# والارتدادُ آمنٌ بحكم الرقعة: فشلُ الجلب (‏404 على مستودعنا) ⇒ `BUILTIN_ANNOUNCEMENTS`.
+export GH_REPO_PATH="mihrab-org/mihrab"
+
 log "vs2022_install=${vs2022_install:-<افتراضيّ>} · python=${npm_config_python:-<النظام>}"
 
 # ── (ز-2) هوية محراب (م1، الطبقة الثانية): ادمج product-overrides/product.json فوق
