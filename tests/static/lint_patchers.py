@@ -4097,6 +4097,69 @@ ASSERT_FREE_WAIVERS = {
 }
 
 
+@check("نطاقُ شهادة الـwildcard محصورٌ في طبقة الـwebview [DEP-01]")
+def _deploy_wildcard_scope_is_contained():
+    """شهادةُ wildcard واحدةٌ تنتحل كلَّ اسمٍ تحتها لو تسرّب مفتاحُها.
+
+    الـwebviews تحتاج wildcard لا مفرّ: كلُّ إطارٍ يُحمَّل على أصلٍ عشوائيّ
+    (`<uuid>.webview.mihrab.dev`) — وذلك عزلُ أمانِ VS Code نفسِه، والأسماءُ
+    تُولَّد وقتَ التشغيل فلا تُسجَّل مسبقًا.
+
+    و`*.mihrab.dev` **أبسطُ وأغرى**: شهادةٌ واحدةٌ تغطّي `www` و`docs` و`dl`
+    والـwebviews معًا. لكنّ ثمنَها أنّ تسرُّبَ مفتاحٍ يُنتحَل به **الموقعُ نفسُه**، لا
+    أصولُ الإطارات وحدَها. ومستوًى إضافيٌّ في الاسم ثمنُه سطرُ DNS، ومكسبُه احتواءُ
+    الأثر في الطبقة التي تُنفِّذ شيفرةً غيرَ موثوقةٍ أصلًا.
+
+    **ولماذا حارسٌ لأمرٍ يُكتب باليد مرّةً:** القرارُ موزَّعٌ على ثلاثة مواضعَ يجب أن
+    تتّفق (سجلُّ DNS · وسيطُ `certbot -d` · مسارُ السلالة في nginx)، ويُنفَّذ بعد
+    شهورٍ من كتابته. و`-d '*.mihrab.dev'` **يعمل تمامًا** فلا شيءَ يصرخ — التوسيعُ
+    الصامتُ هو بالضبط ما لا يمسكه تشغيلٌ ناجح.
+    """
+    dep = os.path.join(ROOT, "deploy")
+    if not os.path.isdir(dep):
+        raise AssertionError("لا مجلّد deploy — الحارسُ يقيس شيئًا غيرَ موجود")
+
+    files = []
+    for base, _dirs, names in os.walk(dep):
+        for n in sorted(names):
+            if n.endswith((".conf", ".example", ".md", ".sh", ".service")):
+                files.append(os.path.join(base, n))
+    assert files, "مجلّد deploy بلا ملفّاتٍ تُقاس"
+
+    # النجمةُ الوحيدةُ المسموحة. أيُّ نجمةٍ أخرى تحت mihrab.dev توسيعٌ للنطاق.
+    ALLOWED = "*.webview.mihrab.dev"
+    WILD = re.compile(r"\*(?:\.[A-Za-z0-9_-]+)*\.mihrab\.dev")
+
+    seen = 0
+    for f in files:
+        rel = os.path.relpath(f, ROOT).replace(os.sep, "/")
+        for i, line in enumerate(_read(f).splitlines(), 1):
+            for hit in WILD.findall(line):
+                seen += 1
+                assert hit == ALLOWED, (
+                    f"نطاقُ wildcard موسَّع: «{hit}» في {rel}:{i}\n"
+                    f"       المسموح: «{ALLOWED}» وحدَه.\n"
+                    f"       تسرُّبُ مفتاحِ «{hit}» يُنتحَل به ما هو أوسعُ من أصول الإطارات.")
+
+    # تفعيلٌ موجبٌ **مرسًى لا عدد**: عتبةٌ رقميّةٌ تتقادم مع كلّ تحريرٍ للوثيقة، أمّا
+    # هذا السطرُ فوجودُه شرطُ عملِ الطبقة أصلًا. لو زال، فالفحصُ لم يعد يقيس شيئًا.
+    wv = os.path.join(dep, "nginx", "webview.mihrab.dev.conf")
+    assert os.path.isfile(wv), f"كتلةُ الـwebview مفقودة: {wv}"
+    body = _read(wv)
+    assert f"server_name {ALLOWED};" in body, (
+        f"لا `server_name {ALLOWED};` في {os.path.relpath(wv, ROOT)} — "
+        f"إمّا أنّ الاسمَ تغيّر (فيُحدَّث الحارس)، أو أنّ الطبقةَ أُلغيت (فيُحذَف صراحةً). "
+        f"لا يُترَك أخضرَ فارغًا.")
+    assert seen >= 1, "المُطابِقُ لم يرَ نجمةً واحدة — تعبيرٌ نمطيٌّ مات صامتًا"
+
+    # وسلالةُ الشهادة منفصلةٌ فعلًا: مفتاحان لا مفتاح. لو أشارت كتلةُ الـwebview
+    # إلى سلالة mihrab.dev، عاد الانتحالُ ممكنًا مهما ضاق اسمُ النجمة.
+    lineages = set(re.findall(r"letsencrypt/live/([^/]+)/", body))
+    assert lineages == {"webview.mihrab.dev"}, (
+        f"سلالةُ شهادة الـwebview ليست منفصلة: {sorted(lineages)} — "
+        f"مشاركةُ سلالةِ الموقع تُلغي الاحتواء.")
+
+
 def _assert_lines():
     return {i + 1 for i, line in enumerate(_read(__file__).splitlines())
             if line.strip().startswith("assert ")}

@@ -331,6 +331,16 @@
       "new": "getSimpleEditorOptions(this.configurationService)",
       "expect": "لا يمرّر معرِّفَه",
       "why": "بلا تمريرِ المعرِّف يسقط الصندوقُ إلى `plaintext` الافتراضيّ، فتصير كتلةُ `[scminput]` **ميّتةً بلا أثر** — وأوّلُ من يكتبها يصدّق أنّها تعمل. وهذا صنفُ الأخضر الكاذب المؤجَّل [SC-01 · DR-02]."
+    },
+    {
+      "id": "deploy-wildcard-scope-widened",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/webview.mihrab.dev.conf",
+      "old": "server_name *.webview.mihrab.dev;",
+      "new": "server_name *.mihrab.dev;",
+      "expect": "نطاقُ wildcard موسَّع",
+      "why": "توسيعُ النجمة من `*.webview.mihrab.dev` إلى `*.mihrab.dev` **يعمل تمامًا** — الشهادةُ تصدر والموقعُ يخدم ولا شيءَ يصرخ. لكنّ تسرُّبَ المفتاح يصير انتحالًا للموقع كلِّه لا لأصول الإطارات وحدَها. أخطرُ صنفٍ من الأعطاب: لا يظهر إلّا يومَ يقع الضرر."
     }
   ],
   "uncovered": [
