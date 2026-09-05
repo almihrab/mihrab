@@ -333,15 +333,24 @@ def _count(path, needle):
 
 _checks = []
 
+# ‏**تخطٍّ مُعلَنٌ لا صامت.** بعد أن صار `DIST` مشتقًّا من المنصّة، صارت فحوصُ
+# ويندوز تعمل على لينكس فتحمرّ على بناءٍ سليم (‏`Mihrab.exe` · `code.ico` ·
+# ‏`VERSIONINFO`). والبديلُ السهل — إعادةُ تثبيت المسار على ويندوز — يُعيد العطبَ
+# الأصليّ: صمتُ الطبقة كلِّها على المنصّة التي تُنتج بناءَ الويب المنشور.
+# فيُعلَن ما يخصّ منصّةً بعينها، ويُطبَع تخطّيه بسببه.
+import platform as _platform
 
-def check(name):
+_IS_WIN = _platform.system() == "Windows"
+
+
+def check(name, win_only=False):
     def deco(fn):
-        _checks.append((name, fn))
+        _checks.append((name, fn, win_only))
         return fn
     return deco
 
 
-@check("Mihrab.exe منتَج")
+@check("Mihrab.exe منتَج", win_only=True)
 def _exe():
     assert os.path.isfile(EXE), f"لا exe: {EXE}"
 
@@ -390,7 +399,7 @@ def _version_fields(path):
             "LegalCopyright": lines[2].strip()}
 
 
-@check("ناشرُ الثنائيّات المشحونة هو ناشرُنا [BR-04]")
+@check("ناشرُ الثنائيّات المشحونة هو ناشرُنا [BR-04]", win_only=True)
 def _binary_publisher():
     """‏`CompanyName` هو ما يعرضه ويندوز ناشرًا، وما تقرؤه أدواتُ الجرد وسياساتُ AppLocker.
 
@@ -431,7 +440,7 @@ def _binary_publisher():
     print(f"  ↳ {probed} ثنائيًّا: CompanyName={_EXPECTED_COMPANY}")
 
 
-@check("هوية بصريّة: كلّ أصول win32 في الحزمة = مصدر محراب (بايتيًّا)")
+@check("هوية بصريّة: كلّ أصول win32 في الحزمة = مصدر محراب (بايتيًّا)", win_only=True)
 def _app_icon():
     for src, target in M.BRANDING_ASSETS:
         sp = os.path.join(ROOT, *src.split("/"))
@@ -853,12 +862,13 @@ def main():
               f"(شغّل build/build.sh أوّلًا).")
         return 0
     failed = 0
+    skipped = 0
     if not packaged:
         # وضعٌ جزئيّ **مُعلَن**: العلامات تُفحَص على ناتج التصغير (المكافئ بايتيًّا)، وفحوص
         # الحزمة (exe/أصول/امتدادات) تُتخطّى صراحةً. لا ندّعي تغطيةً لم تجرِ.
         print(f"  ⏭️  لا حزمة مُغلَّفة — العلامات تُفحَص على {os.path.relpath(MIN_OUT, ROOT)} "
               f"(نسخة حرفيّة منه في الحزمة)، وفحوص الأصول/exe متخطّاة.")
-        for name, fn in _checks:
+        for name, fn, _wo in _checks:
             # استثناءٌ مُعلَن: فحوصُ شجرة الويب لا تقرأ `$APP_DIR` إطلاقًا، فربطُها
             # ببوّابةِ «حزمةٌ مكتبيّةٌ مُغلَّفة» يُسكِتها بلا سبب — وهو ما كان يقع على
             # لينكس حيث تُبنى شجرةُ الويب المنشورة.
@@ -870,7 +880,11 @@ def main():
                 continue
             print(f"  ⏭️  {name} — يحتاج حزمة مُغلَّفة.")
     else:
-        for name, fn in _checks:
+        for name, fn, win_only in _checks:
+            if win_only and not _IS_WIN:
+                skipped += 1
+                print(f"  ⏭️  {name} — يخصّ ويندوز ({_platform.system()}).")
+                continue
             try:
                 fn()
                 print(f"  ✅ {name}")
@@ -887,7 +901,7 @@ def main():
         else:
             failed += 1
             print(f"  ❌ {desc}: «{needle}» غائب عن الحزمة (سقط في التحزيم/التصغير؟)")
-    n = (len(_checks) if packaged else 0) + len(BUNDLE_MARKERS)
+    n = (len(_checks) if packaged else 0) + len(BUNDLE_MARKERS) - skipped
     print(f"─── {n - failed}/{n} نجحت ───")
     return 1 if failed else 0
 
