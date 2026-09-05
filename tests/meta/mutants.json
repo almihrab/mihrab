@@ -491,6 +491,46 @@
       "new": "add_header Cache-Control \"public, max-age=31536000, immutable\" always;",
       "expect": "immutable",
       "why": "‏`/out/*` أسماءٌ **غيرُ مبصومة** (`index.html` يصلها حرفيًّا)، فـ`immutable` سنةً تعني أنّ النشرَ القادم لا يبلغ زائرًا عائدًا: صفحتُه تُجدَّد و`no-cache`، وحزمتُه **لا تُطلَب أصلًا** — حتّى مع `Ctrl+R`. كسرٌ مؤجَّلٌ محقَّق: إصلاحٌ أمنيٌّ يُنشَر اليومَ ولا يصل أحدًا إلى سنةٍ من الآن."
+    },
+    {
+      "id": "web-host-capture-decoy",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/index.html",
+      "old": "      }, true);",
+      "new": "      });\n      addEventListener('scroll', function () {}, true);",
+      "expect": "بلا `capture`",
+      "why": "‏**مُصابُ الشرَك.** أوّلُ صياغةٍ للحارس كانت نافذةَ ١٤٠٠ محرفٍ تنتهي بـ`, true)` — فإسقاطُ `true` من مستمِع `error` **مع إضافةِ أيّ مستمِعٍ آخر بـ`capture` في المدى** كان يبقيها خضراء (المسافةُ إلى `unhandledrejection` ٦٧٧ محرفًا، فالشرَكُ يقع داخلها). المُصابُ يُثبِت أنّ الحارسَ صار يقتطع الاستدعاءَ بموازنة الأقواس ويسأل عن وسيطه الثالث — أي أنّه يقيس **ارتباطًا** لا جِوارًا."
+    },
+    {
+      "id": "deploy-cache-long-maxage-no-immutable",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.static.conf",
+      "old": "add_header Cache-Control \"public, max-age=600, must-revalidate\" always;",
+      "new": "add_header Cache-Control \"public, max-age=31536000\" always;",
+      "expect": "فوق يومٍ واحد",
+      "why": "الحارسُ الأوّل منع **كلمةَ** `immutable` لا الخطر. وسنةٌ من `max-age` بلا الكلمة تُنتج ٩٥٪ من الكسر نفسِه: الزائرُ العائدُ لا يعيد التحقّق إلّا بـ`Ctrl+R`، فإصلاحٌ أمنيٌّ يُنشَر ولا يبلغه. المقياسُ الصحيحُ الحدُّ لا الرمزُ اللفظيّ."
+    },
+    {
+      "id": "deploy-cache-excuse-same-line",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/webview.mihrab.dev.conf",
+      "old": "        # المسارُ **مُعنوَنٌ بالمحتوى** (يحوي `{commit}`) ⇒ لا يتغيّر محتواه أبدًا،",
+      "new": "        # المسارُ ثابتٌ (يحوي `{commit}`) ⇒ لا يتغيّر محتواه أبدًا,",
+      "expect": "بلا تعليلٍ مكتوبٍ **فوقه**",
+      "why": "نافذةُ التعليل كانت `ls[i-4:i]` و`i` مفهرسٌ من 1 — فالسطرُ **نفسُه** داخلها، وتعليلٌ بعد `#` على السطر ذاته كان يُرضيها بينما العقدُ المكتوب يقول «في السطور الثلاثة فوقها». المُصابُ ينزع التعليلَ من فوق السطر ويُثبِت أنّ النافذةَ صارت سابقةً حقًّا."
+    },
+    {
+      "id": "build-web-flag-literal",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "if [[ \"$_BUILD_WEB\" == \"yes\" ]]; then",
+      "new": "if [[ \"${MIHRAB_BUILD_WEB:-yes}\" == \"yes\" ]]; then",
+      "expect": "لا يقرأ الرايةَ المُحلَّلة",
+      "why": "المطابقةُ الحرفيّةُ تجعل `MIHRAB_BUILD_WEB=1` أو `=true` أو `=YES` **يتخطّى البناءَ صامتًا ويطبع «عمدًا»** — والشجرةُ الثابتةُ هي ما يُنشَر. رايةٌ تُقرأ لا تُطابَق، والقيمةُ المجهولةُ تُرفَض لا تُهمَل."
     }
   ],
   "uncovered": [

@@ -34,7 +34,7 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ‏`/tmp` يكتب فيه **أيُّ مستخدم**. وهذا السكربتُ يعمل بجذر، فبين لحظةِ رفع الحمولة
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
-SHA_TREE=ef69aa24f298fe994f8a632edcce7734930ce4964e46508eb3c9df8de419d458
+SHA_TREE=2e27f9bca0c0bc978a9e57d5d93cb6f84fef21ee1cbdad179856ab0539d26588
 SHA_CONF=e54c1b06b7103e35d988739e758b81b66176b69fb3ff2d59c744178f0f3356a3
 
 die() { echo "❌ $*" >&2; exit 1; }
@@ -45,8 +45,16 @@ say() { echo "── $*"; }
 # البصماتُ أدناه لا تحرس شيئًا إن كان هذا الملفُّ نفسُه قابلًا للتبديل. فيُرفض
 # التشغيلُ من مجلّدٍ عامّ الكتابة (‏`/tmp` و`/var/tmp` وأمثالهما).
 _self_dir="$(cd "$(dirname "$0")" && pwd)"
-if [[ -k "$_self_dir" || "$(stat -c '%A' "$_self_dir")" == *w*w* ]]; then
-  die "لا يُشغَّل من مجلّدٍ يكتب فيه الجميع ($_self_dir) — البصمتان بلا معنًى هناك.
+# ‏`%a` لا `%A`، وبِتُّ `o+w` وحدَه لا «حرفا w»: `drwxrwxr-x` (‏root:staff بـumask 002،
+# شائعٌ تحت `/usr/local`) كان يُرفَض كذبًا، والرسالةُ تنصح بنقلٍ إلى مجلّدٍ مثلِه.
+# و`stat -c` صيغةُ GNU حصرًا: على BSD يفشل الأمرُ فتصير القيمةُ فارغةً والشرطُ كاذبًا
+# — أي أنّ **تحقُّقًا أمنيًّا يُعطَّل عند غياب أداته**. فيُجرَّب البديلُ ثمّ يُعلَن العجز.
+_mode="$(stat -c '%a' "$_self_dir" 2>/dev/null || stat -f '%Lp' "$_self_dir" 2>/dev/null || true)"
+if [[ -z "$_mode" ]]; then
+  die "تعذّر قياسُ صلاحيّات $_self_dir (لا stat متوافق) — لا يُشغَّل بجذرٍ بلا قياس."
+fi
+if [[ -k "$_self_dir" ]] || (( (8#$_mode & 8#002) != 0 )); then
+  die "لا يُشغَّل من مجلّدٍ يكتب فيه الجميع ($_self_dir · $_mode) — البصمتان بلا معنًى هناك.
    انقله أوّلًا:  sudo install -D -o root -g root -m 755 $0 /usr/local/lib/mihrab-deploy/$(basename "$0")"
 fi
 [[ -f $STAGE/tree.tgz ]] || die "لا شجرةَ في $STAGE/tree.tgz"
@@ -59,10 +67,18 @@ _sha() { sha256sum "$1" | cut -d' ' -f1; }
   || die "بصمةُ كتلة nginx لا تطابق المثبَّتة — لا تُركَّب."
 say "البصمتان مطابقتان"
 
-# ‏`--nginx-only`: تصحيحُ كتلةٍ فوق شجرةٍ منشورةٍ سليمة. بدونه تُفكّ 204 م.ب وتُبدَّل
+# ‏`--nginx-only`: تصحيحُ كتلةٍ فوق شجرةٍ منشورةٍ سليمة. بدونه تُفكّ ‏≈203 م.ب وتُبدَّل
 # بلا داعٍ، **وتُدفَع الشجرةُ السليمةُ إلى `static.old`** فيضيع ما نتراجع إليه.
 NGINX_ONLY=no
-[[ "${1:-}" == "--nginx-only" ]] && NGINX_ONLY=yes
+# **وسيطٌ غيرُ معروفٍ يُرفَض ولا يُهمَل.** `--nginx_only` أو `-n` كان يمرّ صامتًا
+# فيقع نشرٌ كامل: تُفكّ ‏≈203 م.ب و**تُدفَع الشجرةُ السليمةُ إلى `static.old`** — وهو
+# بعينه ما تقول الوثيقةُ إنّ الرايةَ تمنعه.
+case "${1:-}" in
+  "")            ;;
+  --nginx-only)  NGINX_ONLY=yes ;;
+  *)             die "وسيطٌ غيرُ معروف: ${1} — المعروفُ وحدَه: --nginx-only" ;;
+esac
+(( $# <= 1 )) || die "وسائطُ زائدة: $* — يُقبَل وسيطٌ واحدٌ على الأكثر"
 
 if [[ $NGINX_ONLY == yes ]]; then
   [[ -s $LIVE/index.html ]] || die "‏--nginx-only فوق لا شيء: $LIVE بلا صفحة"
@@ -119,23 +135,75 @@ install -o root -g root -m 644 "$STAGE/mihrab.dev.static.conf" "$AVAIL" \
 # فرابطٌ معلَّقٌ يكسر `nginx -t` لكلّ المواقع لا لموقعنا.
 ln -sfn "$AVAIL" "$LINK"
 
+# ── قياسُ خدمةٍ لا نحوٍ ──
+# ‏`nginx -t` يقول «الإعدادُ سليمٌ نحويًّا» ولا يقول «الموقعُ يخدم»: لا يتحقّق من
+# وجود `root` ولا من نوع المحتوى. وكتلةُ `types` التي كسرت النشرَ الحيَّ مرّت من
+# `nginx -t` ومن سبعةِ رموزِ 200 معًا — وكان الموقعُ أبيض. فالبوّابةُ تقيس **النوع**،
+# وتُستدعى بعد النشر وبعد التراجع كليهما.
+_ct() { curl -sk -I -H 'Host: mihrab.dev' "https://127.0.0.1$1"         | tr -d '
+' | awk 'tolower($1)=="content-type:"{print $2}'; }
+
+verify_serving() {
+  local rc=0 got code
+  local -a paths=(
+    "/|text/html"
+    "/boot.js|application/javascript"
+    "/product.web.js|application/javascript"
+    "/manifest.json|application/json"
+    "/favicon.ico|image/"
+    "/out/nls.messages.js|application/javascript"
+    "/out/vs/workbench/workbench.web.main.internal.css|text/css"
+  )
+  for entry in "${paths[@]}"; do
+    local path="${entry%%|*}" want="${entry##*|}"
+    got="$(_ct "$path")"
+    code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' "https://127.0.0.1$path")"
+    printf '   %-34s %s  %s' "$path" "$code" "${got:-—}"
+    if [[ "$code" != "200" ]]; then printf '   ⚠️ المنتظَر 200'; rc=1
+    elif [[ -n "$want" && "$got" != "$want"* ]]; then printf '   ⚠️ المنتظَر %s' "$want"; rc=1; fi
+    echo
+  done
+  return $rc
+}
+
 # ── التراجعُ يعيد **الاثنين**: الكتلةَ والشجرة ──
 # كان يعيد الكتلةَ وحدَها، فيبقى nginx يخدم الشجرةَ الجديدةَ (‏`root` نفسُه في
 # الكتلتين) — أي أنّ التراجعَ كان يتراجع عن نصفِ ما فعله. التبديلُ ذرّيٌّ في الأمام
 # ويجب أن يكون له نظيرٌ في الخلف.
 rollback() {
-  local why="$1"
+  local why="$1" hurt=0
   echo "⚠️ $why — تراجعٌ تلقائيّ" >&2
-  if [[ -s $BACKUP ]]; then cp -a "$BACKUP" "$AVAIL"; else rm -f "$LINK"; fi
-  if [[ $NGINX_ONLY == no && -d $OLD ]]; then
-    rm -rf "$LIVE.bad" && mv "$LIVE" "$LIVE.bad" && mv "$OLD" "$LIVE" \
-      && echo "↩️ عادت الشجرةُ السابقة (والمرفوضةُ في $LIVE.bad)" >&2
-  fi
-  if nginx -t >/dev/null 2>&1; then
-    systemctl reload nginx 2>/dev/null
-    echo "↩️ عاد الإعدادُ سليمًا وحُمِّل — لم يسقط شيء" >&2
+
+  # ‏**كلُّ خطوةٍ تُفحَص.** `set -uo pipefail` بلا `-e`، فسلسلةُ `&&` التي تنكسر
+  # في منتصفها تُبتلَع بصمت. وكان فشلُ `mv "$OLD" "$LIVE"` (مساحةٌ · مقبضٌ · ACL)
+  # يترك `/opt/mihrab/static` **غيرَ موجود**، ثمّ ينجح `nginx -t` (فهو نحويٌّ لا
+  # يتحقّق من وجود `root`)، فيُطبَع «لم يسقط شيء» والموقعُ يردّ 404 على كلّ مسار.
+  if [[ -s $BACKUP ]]; then
+    cp -a "$BACKUP" "$AVAIL" || { echo "⛔ تعذّرت استعادةُ الكتلة من $BACKUP" >&2; hurt=1; }
   else
-    echo "⛔ الإعدادُ ما زال ساقطًا بعد التراجع — تدخّلٌ يدويٌّ لازم." >&2
+    rm -f "$LINK" || { echo "⛔ تعذّرت إزالةُ الرابط $LINK" >&2; hurt=1; }
+  fi
+
+  if [[ $NGINX_ONLY == no && -d $OLD ]]; then
+    rm -rf "$LIVE.bad"
+    if mv "$LIVE" "$LIVE.bad" && mv "$OLD" "$LIVE"; then
+      echo "↩️ عادت الشجرةُ السابقة (والمرفوضةُ في $LIVE.bad)" >&2
+    else
+      echo "⛔ **فشل إرجاعُ الشجرة.** الحالةُ الآن: $LIVE=$( [[ -d $LIVE ]] && echo موجود || echo مفقود )" >&2
+      hurt=1
+    fi
+  fi
+
+  nginx -t >/dev/null 2>&1 || { echo "⛔ الإعدادُ ما زال ساقطًا بعد التراجع." >&2; hurt=1; }
+  systemctl reload nginx 2>/dev/null || { echo "⛔ فشل تحميلُ nginx بعد التراجع." >&2; hurt=1; }
+
+  # **ولا يُدَّعى النجاحُ إلّا بقياسِ خدمةٍ.** `nginx -t` يقول «الإعدادُ نحويٌّ سليم»
+  # ولا يقول «الموقعُ يخدم». وبوّابةُ النوع موجودةٌ في هذا السكربت — فلتُعَد.
+  if (( hurt == 0 )) && verify_serving >/dev/null 2>&1; then
+    echo "↩️ عاد الموقعُ يخدم — لم يسقط شيء" >&2
+  else
+    echo "⛔ الموقعُ لا يخدم بعد التراجع — تدخّلٌ يدويٌّ لازم:" >&2
+    echo "   sudo ls -ld $LIVE ; sudo nginx -t ; sudo systemctl status nginx" >&2
   fi
   exit 1
 }
@@ -152,34 +220,9 @@ systemctl disable mihrab-web 2>/dev/null
 
 echo
 echo "✅ نُشِر. تحقّقٌ سريع:"
-# **والنوعُ يُقاس لا الرمزُ وحدَه.** كتلةُ `types` على مستوى `server` تستبدل الجدولَ
-# الموروثَ ولا توسّعه، فخُدِمت الصفحةُ و`boot.js` والورقةُ `application/octet-stream`
-# — ومع `nosniff` يرفض المتصفّحُ تنفيذَ الوحدات: موقعٌ أبيضُ بلا رسالةِ خطأ، وكلُّ
-# رمزٍ فيه 200. فحصُ الرمز وحدَه كان أخضرَ على موقعٍ مكسور.
-_ct() { curl -sk -I -H 'Host: mihrab.dev' "https://127.0.0.1$1" \
-        | tr -d '\r' | awk 'tolower($1)=="content-type:"{print $2}'; }
-_want() {
-  local got; got="$(_ct "$1")"
-  local code; code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' "https://127.0.0.1$1")"
-  printf '   %-34s %s  %s' "$1" "$code" "${got:-—}"
-  if [[ -n "$2" && "$got" != "$2"* ]]; then printf '   ⚠️ المنتظَر %s' "$2"; RC=1; fi
-  echo
-}
-RC=0
-_want /                    text/html
-_want /boot.js             application/javascript
-_want /product.web.js      application/javascript
-_want /manifest.json       application/json
-_want /favicon.ico         image/
-_want /out/nls.messages.js application/javascript
-_want /out/vs/workbench/workbench.web.main.internal.css text/css
-
-# **الفحصُ بوّابةٌ لا تقرير.** كان `RC` يُطبَع ولا يُستعمل، وآخرُ أمرٍ `echo` ⇒ خروجٌ
-# بصفرٍ على موقعٍ أبيض. أي أنّ الدرسَ الذي كسر النشرَ الحيَّ (‏`types` تستبدل الجدولَ
-# فيصير كلُّ شيءٍ `octet-stream` مع `nosniff`) لم يكن قد صار بوّابةً بعد.
-if [[ $RC -ne 0 ]]; then
-  echo "   ⛔ نوعُ محتوًى خاطئ — المتصفّحُ لن ينفّذ الوحدات: موقعٌ أبيضُ وكلُّ رمزٍ 200." >&2
-  rollback "نوعُ المحتوى خاطئ"
+if ! verify_serving; then
+  echo "   ⛔ الموقعُ لا يخدم كما يجب — المتصفّحُ لن ينفّذ الوحدات." >&2
+  rollback "فشلَ قياسُ الخدمة بعد النشر"
 fi
 
 echo

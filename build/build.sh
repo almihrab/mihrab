@@ -823,10 +823,23 @@ fi
 #
 # والهدفُ لا يستغرق إلّا ~9 دقائق (قِيس)، لأنّ الشجرةَ مُرقَّعةٌ ومُصرَّفةٌ سلفًا من
 # البناء المكتبيّ — فهذه خطوةُ تحزيمٍ فوقها لا بناءٌ من الصفر.
-if [[ "${MIHRAB_BUILD_WEB:-yes}" == "yes" ]]; then
+# **رايةٌ تُقرأ لا تُطابَق حرفيًّا.** `== "yes"` وحدَها تجعل `MIHRAB_BUILD_WEB=1`
+# أو `=true` أو `=YES` **يتخطّى البناءَ صامتًا** ويطبع «عمدًا» — وهو أسوأُ من رفضٍ.
+case "$(printf '%s' "${MIHRAB_BUILD_WEB:-yes}" | tr 'A-Z' 'a-z')" in
+  yes|y|1|true|on)  _BUILD_WEB=yes ;;
+  no|n|0|false|off) _BUILD_WEB=no  ;;
+  *) echo "❌ قيمةٌ غيرُ مفهومةٍ لـMIHRAB_BUILD_WEB: ${MIHRAB_BUILD_WEB}" >&2
+     echo "   المقبول: yes|no (‏1|0 · true|false · on|off)" >&2; exit 1 ;;
+esac
+if [[ "$_BUILD_WEB" == "yes" ]]; then
   log "بناءُ الشجرة الثابتة (gulp vscode-web-min)"
   if ( cd "$UP/vscode" && node --max-old-space-size=8192 \
          node_modules/gulp/bin/gulp.js vscode-web-min ); then
+    # **طابعُ طزاجةٍ يربط الشجرةَ بهذا البناء.** بدونه لا شيءَ يميّز شجرةً
+    # أُنتجت الآن من شجرةٍ نجت من بناءٍ قديم: كلتاهما مجلّدٌ موجود، فتُعرَّب
+    # وتُحزَم وتُنشَر — وهو العطبُ الأصليُّ نفسُه («ما يُنشَر يُبنى خارج المستودع»)
+    # بحرفيّته. ويُقرأ الطابعُ في (ط-0د2) فيرفض شجرةً ليست من هذه الجولة.
+    date -u +%Y-%m-%dT%H:%M:%SZ > "$UP/vscode-web/.mihrab-built-at"
     log "الشجرةُ الثابتة بُنيت"
   else
     echo "❌ فشل بناءُ الشجرة الثابتة (vscode-web-min) — وهي ما يُنشَر على mihrab.dev." >&2
@@ -839,6 +852,12 @@ fi
 
 _STATIC_DIR="$UP/vscode-web"
 if [[ -d "$_STATIC_DIR" ]]; then
+  # شجرةٌ بلا طابعٍ = شجرةٌ لم تُنتَج في هذه الجولة. تُرفَض بدل أن تُنشَر صامتةً.
+  if [[ "$_BUILD_WEB" == "yes" && ! -f "$_STATIC_DIR/.mihrab-built-at" ]]; then
+    echo "❌ شجرةٌ ثابتةٌ بلا طابعِ بناء ($_STATIC_DIR/.mihrab-built-at) — بقيّةُ" >&2
+    echo "   بناءٍ سابق. احذفها ثمّ أعِد البناء، أو MIHRAB_BUILD_WEB=no عن قصد." >&2
+    exit 1
+  fi
   log "تعريبُ محرابِ المتصفّح الثابت: $(basename "$_STATIC_DIR")"
   "$PY_BIN" "$ROOT/build/patch_web_host.py" "$_STATIC_DIR" || {
     echo "❌ فشل تركيبُ صفحة المضيف وهويّتها." >&2; exit 1; }

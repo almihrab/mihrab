@@ -4313,6 +4313,19 @@ def _web_patchers_wired_for_both_trees():
     # فبناءٌ نظيفٌ لا يُخرجها، وثلاثةُ حرّاسٍ كُتِبوا لها يبقون أخضرَ على غيابها.
     assert "vscode-web-min" in sh and "gulp.js vscode-web-min" in sh, \
         "‏build.sh لا يبني الشجرةَ الثابتة — الحرّاسُ يقيسون نصَّه لا ناتجَه"
+    # ورايتُها **تُقرأ لا تُطابَق حرفيًّا**: `== "yes"` وحدَها تجعل `=1` أو `=true`
+    # يتخطّى البناءَ **صامتًا ويطبع «عمدًا»** — والشجرةُ الثابتةُ هي ما يُنشَر.
+    # ويُقاس **الفرعُ نفسُه** لا وجودُ `case` في مكانٍ ما: إبقاءُ التحليل ثمّ تفريعُ
+    # البناء على المتغيّر الخام يترك الثقبَ مفتوحًا والحارسَ أخضر (قِيس بمُصاب).
+    assert 'if [[ "$_BUILD_WEB" == "yes" ]]' in sh, (
+        "فرعُ بناء الشجرة الثابتة لا يقرأ الرايةَ المُحلَّلة `$_BUILD_WEB` — "
+        "المطابقةُ الخام تجعل `=1` أو `=true` يتخطّى البناءَ صامتًا.")
+    assert re.search(r"case .*MIHRAB_BUILD_WEB", sh), (
+        "رايةُ MIHRAB_BUILD_WEB تُطابَق حرفيًّا — `=1` أو `=true` يتخطّى بناءَ الشجرة "
+        "المنشورة صامتًا. تُقرأ بـcase، والقيمةُ المجهولةُ تُرفَض لا تُهمَل.")
+    # وطابعُ الطزاجة: شجرةٌ نجت من بناءٍ قديمٍ تُعرَّب وتُحزَم وتُنشَر بلا أن يعرف أحد.
+    assert ".mihrab-built-at" in sh, \
+        "لا طابعَ طزاجةٍ للشجرة الثابتة — بقيّةُ بناءٍ سابقٍ تُنشَر كأنّها جديدة"
     # ورايةٌ تُصنَع ولا تُرفَع هي العلّةُ نفسُها: `[WEB-03]` يتخطّى نفسَه بلا هذا.
     wf = os.path.join(ROOT, ".github", "workflows", "build-matrix.yml")
     if os.path.isfile(wf):
@@ -4474,13 +4487,46 @@ def _web_host_page_contract():
     # كانت تقبل تعليقًا مكانَ شيفرة: تعليقُ `// webviewEndpoint: …` يُرضي الحارسَ
     # والحقلُ معطَّلٌ ⇒ ارتدادٌ صامتٌ إلى `vscode-cdn.net`. والتعليقاتُ في هذين
     # الملفّين **تشرح هذه المفاتيحَ بالذات** بحكم موضوعها، فالخطرُ ليس نظريًّا.
+    # وهو **ماشٍ بالمحارف لا تعبيرٌ نمطيّ**. والفرقُ ليس أناقة: الصياغةُ النمطيّةُ
+    # الأولى كان فيها ثقبان قِيسا.
+    #   • `//[^\n\"']*$` يشترط خلوَّ بقيّة السطر من علامة اقتباس، فتعليقٌ مثل
+    #     `// كان webviewEndpoint: 'https://x' معطَّلًا` **ينجو** ويُرضي المِرساة.
+    #     وتعليقاتُ هذين الملفّين تكتب العناوينَ بين علامتَي اقتباس بحكم موضوعها.
+    #   • و`/\*.*?\*/` مع `re.S` يبتلع شيفرةً حقيقيّة: نمطُ glob مثل `'**/*.md'`
+    #     يفتح كتلةً وهميّةً تلتهم كلَّ شيءٍ حتّى `*/` التالي — فتختفي مِرساةٌ سليمة.
+    # فالمشيُ يعرف أنّ ما داخل السلسلة نصٌّ لا بناء.
     def _code(text, html_mode=False):
-        out = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
-        out = re.sub(r"^\s*//.*$", "", out, flags=re.M)
-        out = re.sub(r"(?<![:/])//[^\n\"']*$", "", out, flags=re.M)
-        if html_mode:
-            out = re.sub(r"<!--.*?-->", " ", out, flags=re.S)
-        return out
+        out, i, n = [], 0, len(text)
+        quote = None            # ' أو " أو ` حين نكون داخل سلسلة
+        while i < n:
+            c = text[i]
+            nxt = text[i + 1] if i + 1 < n else ""
+            if quote:
+                out.append(c)
+                if c == "\\" and i + 1 < n:       # هروبٌ داخل سلسلة
+                    out.append(nxt); i += 2; continue
+                if c == quote:
+                    quote = None
+                i += 1
+                continue
+            if c in "'\"`":
+                quote = c; out.append(c); i += 1; continue
+            if c == "/" and nxt == "*":
+                j = text.find("*/", i + 2)
+                i = n if j < 0 else j + 2
+                out.append(" ")
+                continue
+            if c == "/" and nxt == "/":
+                j = text.find("\n", i)
+                i = n if j < 0 else j
+                continue
+            if html_mode and text.startswith("<!--", i):
+                j = text.find("-->", i + 4)
+                i = n if j < 0 else j + 3
+                out.append(" ")
+                continue
+            out.append(c); i += 1
+        return "".join(out)
 
     boot = _code(_read(os.path.join(web, "boot.js")))
     html = _code(_read(os.path.join(web, "index.html")), html_mode=True)
@@ -4535,8 +4581,9 @@ def _web_host_page_contract():
     # (و) وشاشةُ الإقلاع لا تُرسَم فوق ورشةٍ تعمل. الشاشةُ inset:0;z-index:9999.
     assert "document.querySelector('.monaco-workbench')" in html, \
         "‏fail() في index.html بلا حارسِ «الورشةُ ظهرت» — شاشةُ فشلٍ تحجب محرِّرًا يعمل"
-    # تُجرَّد التعليقاتُ أوّلًا: التعليقُ الذي **يشرح** لماذا لا نستعملها ليس استعمالًا.
-    assert not re.search(r"once:\s*true", re.sub(r"//.*", "", html)), \
+    # `html` مجرَّدٌ سلفًا في الأعلى — ولا يُجرَّد ثانيةً: تجريدان مختلفان في ملفٍّ
+    # واحدٍ يعني أنّ الحارسَ يقيس نصَّين لا نصًّا.
+    assert not re.search(r"once:\s*true", html), \
         "‏{ once: true } على مُلتقِط الأخطاء يحرقه على أوّل خطأٍ ثانويّ فيُعمينا عن الحاسم"
 
     # (ز) وثلاثةُ وعودٍ للمستخدم: لا منعَ تكبير (WCAG 1.4.4)، ولا فكَّ وصلٍ للعربيّة،
@@ -4567,9 +4614,30 @@ def _web_host_page_contract():
     #     نوعَ MIME خاطئًا) لا تصعد إلى `window`. ومستمِعٌ بلا `capture` لا يرى العطبَ
     #     الذي نُقلت آلةُ الحالة إلى الصفحة لأجله — قِيس أنّه لم يكن يراه، فبقي
     #     الزائرُ أمام شريطٍ يدور ١٢٠ ثانيةً على نشرٍ ناقص.
-    assert re.search(r"addEventListener\(\s*'error'[\s\S]{0,1400}?\}\s*,\s*true\s*\)", html), \
-        ("مستمِعُ `error` في index.html بلا `capture` — أخطاءُ الموارد لا تصعد إلى "
-         "window، فيبقى الزائرُ أمام شريطٍ يدور حتّى المهلة")
+    #
+    # ويُقاس **الاستدعاءُ نفسُه** لا جِوارُه: أوّلُ صياغةٍ كانت نافذةَ ١٤٠٠ محرفٍ تنتهي
+    # بـ`, true)`. فبإسقاط `true` من مستمِع `error` وإضافةِ أيّ مستمِعٍ آخر بـ`, true)`
+    # في المدى يبقى الحارسُ أخضر (قِيس: المسافةُ إلى `unhandledrejection` ٦٧٧ محرفًا)
+    # — ونموُّ جسمِ المُعالِج فوق الحدّ يُحمِّره كذبًا. فيُقتطَع الاستدعاءُ بموازنة
+    # الأقواس، ويُسأل عن وسيطه الثالث.
+    _at = html.find("addEventListener('error'")
+    if _at < 0:
+        _at = html.find('addEventListener("error"')
+    assert _at >= 0, "لا مستمِعَ `error` في index.html إطلاقًا"
+    _depth, _end = 0, -1
+    for _k in range(html.index("(", _at), len(html)):
+        if html[_k] == "(":
+            _depth += 1
+        elif html[_k] == ")":
+            _depth -= 1
+            if _depth == 0:
+                _end = _k
+                break
+    assert _end > 0, "استدعاءُ `addEventListener` غيرُ مغلق — بنيةٌ لم تُقرأ"
+    _call = html[_at:_end + 1]
+    assert re.search(r",\s*true\s*\)\s*$", _call), (
+        "مستمِعُ `error` في index.html بلا `capture` — أخطاءُ الموارد لا تصعد إلى "
+        "window، فيبقى الزائرُ أمام شريطٍ يدور حتّى المهلة")
 
     # (ح) ولوحُ الترحيب: موجودٌ ومعرَّبٌ في هذه الشجرة، و`'none'` كانت تُخفيه فتترك
     #     الزائرَ الأوّلَ أمام فراغٍ لا يشرح شيئًا.
@@ -4654,18 +4722,35 @@ def _deploy_does_not_expose_editor():
     # ويُسمَح بها **حيث يكون العنوانُ مشتقًّا من المحتوى فعلًا** — وذلك يُقال نصًّا في
     # السطور الثلاثة التي تسبقها، لا يُفترَض. (‏`webview.mihrab.dev.conf` مثالُه: مسارُه
     # يحوي `{commit}`.) وإلزامُ التعليل هو الحارس: من يكتب `immutable` يكتب لماذا.
+    # ويُقاس **الحدُّ** لا الكلمة: `max-age=31536000` بلا `immutable` يُنتج ٩٥٪ من
+    # الكسر نفسِه (لا إعادةَ تحقّقٍ إلّا بـ`Ctrl+R`)، وكان يمرّ صامتًا. والعتبةُ يومٌ
+    # واحد: ما فوقه على اسمٍ غيرِ مبصومٍ يعني نشرًا لا يبلغ زائرًا عائدًا.
+    #
+    # والنافذةُ **قبل السطر فقط**: كانت `ls[i-4:i]` و`i` مفهرسٌ من 1، فالسطرُ نفسُه
+    # داخلَها — وتعليلٌ بعد `#` على السطر ذاته كان يُرضيها. والعقدُ المكتوب يقول
+    # «في السطور الثلاثة فوقها».
     _OK = "مُعنوَنٌ بالمحتوى"
+    _MAX_AGE = 86400
     for n in sorted(os.listdir(ngx_dir)) if os.path.isdir(ngx_dir) else []:
         if not n.endswith(".conf"):
             continue
         ls = _read(os.path.join(ngx_dir, n)).splitlines()
         for i, line in enumerate(ls, 1):
-            if "immutable" not in line.split("#", 1)[0]:
+            code = line.split("#", 1)[0]
+            # ‏`Cache-Control` وحدَها: `Strict-Transport-Security` تحمل `max-age`
+            # بحكم تعريفها، وسنةٌ فيها هي **الصواب** لا العطب.
+            if "Cache-Control" not in code:
                 continue
-            assert any(_OK in x for x in ls[max(0, i - 4):i]), (
-                "‏`immutable` في deploy/nginx/" + n + ":" + str(i) + " بلا تعليلٍ مكتوب. "
-                "مساراتُ `/out/` **غيرُ مبصومة**، فالنشرُ القادم لن يبلغ زائرًا عائدًا. "
-                "إن كان العنوانُ مشتقًّا من المحتوى فعلًا فقُل ذلك في تعليقٍ فوقه "
+            _ma = re.search(r"max-age\s*=\s*(\d+)", code)
+            long_lived = bool(_ma) and int(_ma.group(1)) > _MAX_AGE
+            if "immutable" not in code and not long_lived:
+                continue
+            why = "`immutable`" if "immutable" in code else (
+                "‏max-age=" + _ma.group(1) + " (فوق يومٍ واحد)")
+            assert any(_OK in x for x in ls[max(0, i - 4):i - 1]), (
+                "‏" + why + " في deploy/nginx/" + n + ":" + str(i) + " بلا تعليلٍ مكتوبٍ "
+                "**فوقه**. مساراتُ `/out/` غيرُ مبصومة، فالنشرُ القادم لن يبلغ زائرًا "
+                "عائدًا. إن كان العنوانُ مشتقًّا من المحتوى فعلًا فقُل ذلك في سطرٍ سابق "
                 "(«" + _OK + "»).")
 
     # ── وحدةُ الخدمة **متقاعدةٌ لا لازمة** ──
