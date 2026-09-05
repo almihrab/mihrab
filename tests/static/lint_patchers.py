@@ -4391,6 +4391,32 @@ def _no_upstream_repo_in_generated_patches():
         assert _t in sh, "بوّابةُ [BR-05] لا تشمل " + _t
 
 
+@check("موقعُ التوثيق **يُبنى** [SITE-01]")
+def _site_actually_builds():
+    """أخضرُ يقيس أسماءَ الملفّات لا يُثبِت أنّ الموقعَ يُبنى.
+
+    الحارسُ الوحيدُ الذي كان يلمس `site/content` يقرأ **أسماءً**، فبقي أخضرَ على
+    موقعٍ لا يُبنى إطلاقًا: أُدرِجت ترويسةٌ تحذيريّةٌ **فوق** كتلة `---` في أربع
+    صفحات، و`site/build.py` يرفض ملفًّا بلا front-matter ⇒ خروجٌ بخطأ.
+
+    وهذا من الصنف نفسِه الذي شُخِّص في الالتزام السابق («حارسٌ يحرس نيّةً لا أثرًا»)
+    ثمّ وقعنا فيه في المجلّد المجاور. الدرسُ: **كلُّ ما يُبنى، يُبنى في الفحص** —
+    وإلّا فالخضرةُ تقيس الهواء.
+    """
+    build = os.path.join(ROOT, "site", "build.py")
+    if not os.path.isfile(build):
+        return
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as out:
+        env = dict(os.environ, MIHRAB_SITE_OUT=out, PYTHONIOENCODING="utf-8")
+        r = subprocess.run([sys.executable, build], cwd=ROOT, env=env,
+                           capture_output=True, text=True, errors="replace")
+    assert r.returncode == 0, (
+        "‏site/build.py يخرج بـ" + str(r.returncode) + " — الموقعُ لا يُبنى:\n       "
+        + (r.stdout + r.stderr).strip().splitlines()[-1][:200])
+
+
 @check("وثيقةُ النشر المتقاعد لا تُقرأ تعليمات [DEP-03]")
 def _retired_deploy_doc_is_flagged():
     """‏`deploy/README.md` **ضارٌّ إن نُفِّذ**، لا متقادمٌ فحسب.
@@ -4520,6 +4546,12 @@ def _web_host_page_contract():
                 "‏letter-spacing يبلغ «محراب» فيفكّ وصلَ حروفها — وهي أوّلُ كلمةٍ "
                 "يراها الزائر، وهي العلامةُ نفسُها")
     assert "<noscript>" in html, "لا <noscript> — زائرٌ بلا جافاسكربت يرى مستطيلًا صامتًا"
+    # و`aria-busy` على حاوية الإقلاع **تعكس نيّتَها**: تأمر قارئَ الشاشة بكتم
+    # التحديثات الحيّة في شجرته، و`#mihrab-hint` بداخلها `aria-live` — فتُكتَم
+    # المراحلُ الأربعُ ورسالةُ الفشل معًا. أُضيفت مرّةً بوصفها تحسينًا للوصول.
+    assert "aria-busy" not in html, (
+        "‏`aria-busy` في صفحة المضيف تكتم `aria-live` بداخلها — تحسينُ وصولٍ "
+        "ينقلب صمتًا")
 
     # (ط) والالتقاطُ في طورِ **الالتقاط**: أخطاءُ الموارد (وسمُ script يرجع 404 أو
     #     نوعَ MIME خاطئًا) لا تصعد إلى `window`. ومستمِعٌ بلا `capture` لا يرى العطبَ

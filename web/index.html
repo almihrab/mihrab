@@ -128,8 +128,13 @@
         fail('لم يكتمل تحميلُ محراب. قد يكون الاتّصالُ انقطع، أو منع المتصفّحُ جزءًا من الملفّات.');
       }, 120000);
 
-      // ‏`aria-busy` على الحاوية: قارئُ الشاشة يعرف أنّ ما يليه حالةٌ مؤقّتةٌ لا محتوًى.
-      if (boot) { boot.setAttribute('aria-busy', 'true'); }
+      // ⛔ **لا `aria-busy` على `#mihrab-boot`.** وُضِعت هنا ظنًّا أنّها تُحسِّن
+      //    الوصول، وهي تعكس نيّتَها: `aria-busy="true"` على السلف يأمر قارئَ الشاشة
+      //    بـ**كتم** التحديثات الحيّة في شجرته. و`#mihrab-hint` بداخله يحمل
+      //    `role="status" aria-live="polite"` — فالمراحلُ الأربعُ التي كُتبت لتُطمئن
+      //    الكفيفَ كانت تُكتَم جميعًا، ومعها `role="alert"` عند الفشل (لأنّ الرايةَ
+      //    لا تُرفَع أبدًا). صمتٌ مئةً وعشرين ثانيةً ثمّ صمتٌ آخر.
+      //    والحالةُ تُقال بالنصّ المتدرّج نفسِه؛ لا حاجةَ إلى رايةٍ تكتمه.
 
       function clearTimers() { timers.forEach(clearTimeout); clearTimeout(deadline); }
 
@@ -140,7 +145,7 @@
         performance.mark('mihrab/didLoadWorkbench');
       }
 
-      function fail(msg) {
+      function fail(msg, detail) {
         // ⛔ الشرطُ الحاكم: لا تُرسَم شاشةُ فشلٍ فوق ورشةٍ **تعمل**. الشاشةُ
         // `inset:0; z-index:9999`، فرسمُها على إقلاعٍ سليمٍ يحجب المحرِّرَ حجبًا كاملًا
         // وإلى الأبد بلا مخرج. وأيُّ خطأٍ ثانويٍّ من امتدادٍ كان يفعل ذلك.
@@ -151,6 +156,16 @@
         var h = document.createElement('div'); h.className = 'name'; h.textContent = 'محراب';
         var e = document.createElement('div'); e.className = 'err';
         e.setAttribute('role', 'alert'); e.textContent = msg;
+        // تفصيلٌ تقنيٌّ **دون** الجملة لا داخلَها: يقرأ الإنسانُ الأولى، ويصوّر
+        // المُبلِّغُ الثانية. و`dir=ltr` لأنّ اسمَ الملفّ لاتينيٌّ في سطرٍ عربيّ.
+        if (detail) {
+          var d = document.createElement('div');
+          d.dir = 'ltr';
+          d.style.cssText = 'opacity:.55;font:12px ui-monospace,monospace;direction:ltr';
+          d.textContent = detail;
+          e.appendChild(document.createElement('br'));
+          e.appendChild(d);
+        }
         var b = document.createElement('button');
         b.type = 'button'; b.textContent = 'أعِد المحاولة';
         b.addEventListener('click', function () { location.reload(); });
@@ -174,8 +189,10 @@
           console.error('[محراب] موردٌ لم يُحمَّل:', src);
           // موردٌ من الحزمة ⇒ فشلٌ حاسم. وأصلٌ خارجيٌّ (سوقُ الإضافات) ⇒ لا.
           if (src.indexOf(location.origin) === 0 || src.charAt(0) === '/') {
-            fail('لم تُحمَّل ملفّاتُ المحرِّر (' + src.split('/').pop() + '). '
-                 + 'قد يكون النشرُ ناقصًا أو الاتّصالُ انقطع.');
+            // جملةٌ للإنسان، واسمُ الملفّ للمُبلِّغ في سطرٍ ثانٍ (‏`fail` يرسمه).
+            // اسمُ حزمةٍ داخليٍّ في متن الرسالة يُحمِّل الزائرَ تشخيصَ عطبِ خادمِنا.
+            fail('لم يكتمل تنزيلُ محراب. جرّب إعادةَ التحميل — وإن تكرّر '
+                 + 'فالعطبُ عندنا لا عندك.', src.split('/').pop());
           }
           return;
         }

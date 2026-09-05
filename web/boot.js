@@ -126,13 +126,15 @@ function capabilityNotice() {
   const key = noFolders ? KEY_FS : KEY;
   try { if (localStorage.getItem(key)) { return; } } catch { /* تخزينٌ محجوب */ }
 
-  const text = noFolders
-    // رسالةٌ واحدةٌ لحالةٍ واحدة: خلطُ «لا مجلّدات» بـ«لا طرفيّة» يُنتج جدارَ نصٍّ
-    // لا يُقرأ. والأهمُّ أوّلًا.
+  // سطرٌ رئيسٌ لحالةِ الزائر، وسطرٌ ثانٍ أخفتُ **لا يسقط أبدًا**.
+  // كانت الرسالتان بديلتين، فزائرُ فايرفوكس لا يرى قطُّ «ملفّاتُك تبقى على جهازك» —
+  // وهي أثمنُ ما تقوله الصفحة: قيدُ المجلّدات إزعاج، وأمانُ الملفّات **سببُ البقاء**.
+  // فكان الاعتذارُ يطرد الوعد. وتسعُ كلماتٍ خافتةٍ ليست جدارَ نصّ.
+  const lead = noFolders
     ? 'متصفّحك لا يفتح المجلّدات — تحتاج Chrome أو Edge. '
       + 'ويبقى فتحُ الملفّات المفردة وسحبُها إلى النافذة يعمل.'
-    : 'محرابٌ يعمل في متصفّحك بلا خادم: ملفّاتُك تبقى على جهازك. '
-      + 'ولا طرفيّةَ ولا تشغيل — تلك في نسخة المكتب.';
+    : 'محرابٌ يعمل في متصفّحك بلا خادم — ولا طرفيّةَ ولا تشغيل: تلك في نسخة المكتب.';
+  const tail = 'ملفّاتُك تبقى على جهازك؛ لا خادمَ خلف هذه الصفحة يقرؤها.';
 
   const bar = document.createElement('div');
   bar.setAttribute('role', 'status');
@@ -148,7 +150,13 @@ function capabilityNotice() {
 
   const body = document.createElement('div');
   body.style.flex = '1';
-  body.textContent = text;
+  const l1 = document.createElement('div');
+  l1.textContent = lead;
+  const l2 = document.createElement('div');
+  l2.textContent = tail;
+  l2.style.cssText = 'opacity:.7;font-size:12px';
+  body.appendChild(l1);
+  body.appendChild(l2);
 
   const close = document.createElement('button');
   close.type = 'button';

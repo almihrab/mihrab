@@ -27,7 +27,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CONTENT = os.path.join(HERE, "content")
 ASSETS = os.path.join(HERE, "assets")
 DATA = os.path.join(HERE, "data")
-OUT = os.path.join(HERE, "public")
+# ‏`MIHRAB_SITE_OUT` يسمح بالبناء إلى مجلّدٍ مؤقّت: حارسُ [SITE-01] يبني في
+# كلّ تشغيلٍ للطبقة الساكنة **ليُثبِت أنّ الموقعَ يُبنى**، ولا يجوز أن يدوس
+# مخرَجًا قائمًا لأجل فحص.
+OUT = os.environ.get("MIHRAB_SITE_OUT") or os.path.join(HERE, "public")
 
 UPSTREAM_DOCS = "https://github.com/microsoft/vscode-docs/blob/main/"
 
@@ -494,6 +497,22 @@ def build_landing():
     hero = SITE["hero"]
     trust = "".join("<span>%s</span>" % html.escape(t) for t in hero["trust"])
 
+    # ── بطاقةُ «جرّبه الآن» ──
+    # تسبق «نزِّل وثبِّت» لأنّها أقصرُ طريقٍ إلى تجربةٍ حقيقيّة. والقيودُ **معها لا
+    # بعدها**: القيدُ الذي تُعلنه ميزةُ ثقة، والذي يكتشفه المستخدمُ بنفسه عطبٌ في نظره.
+    br = SITE.get("browser")
+    browser_card = ""
+    if br:
+        lims = "".join("<li>%s</li>" % inline(x) for x in br.get("limits", []))
+        browser_card = (
+            '<section class="section browser-try">'
+            '<h2>%s</h2>' % html.escape(br["title"])
+            + '<p class="sub">%s</p>' % inline(br["body"])
+            + '<p class="cta-row"><a class="btn btn-primary" href="%s">%s</a></p>'
+              % (html.escape(br["url"]), html.escape(br["url"].replace("https://", "")))
+            + ('<ul class="limits">%s</ul>' % lims if lims else "")
+            + '</section>')
+
     feats = "".join(
         '<div class="feature"><h3>%s</h3><p>%s</p></div>'
         % (html.escape(f["title"]), inline(f["body"]))
@@ -523,6 +542,7 @@ def build_landing():
         + '<div class="trust">%s</div>' % trust
         + '</section>'
         + hero_visual().replace('src="../assets/', 'src="./assets/')
+        + browser_card
         + '<section class="section"><h2>لماذا محراب</h2>'
           '<p class="sub">كلُّ دعوى هنا قابلةٌ للفحص في أوّل دقيقة استعمال.</p>'
           '<div class="feature-grid">%s</div></section>' % feats
