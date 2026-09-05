@@ -4391,6 +4391,39 @@ def _no_upstream_repo_in_generated_patches():
         assert _t in sh, "بوّابةُ [BR-05] لا تشمل " + _t
 
 
+@check("وثيقةُ النشر المتقاعد لا تُقرأ تعليمات [DEP-03]")
+def _retired_deploy_doc_is_flagged():
+    """‏`deploy/README.md` **ضارٌّ إن نُفِّذ**، لا متقادمٌ فحسب.
+
+    مراحلُه ٢–٤ تأمر بـ`systemctl enable --now mihrab-web` وبنسخ `mihrab.dev.conf`
+    إلى **المسار نفسِه** الذي يكتب فيه `static_deploy.sh`. فمن يتبعه بعد شهرٍ يدوس
+    الكتلةَ الحيّة ويعيد فتح نظامِ ملفّاتٍ وطرفيّةٍ خلف عنوانٍ عامّ — وهو سطحُ الهجوم
+    الذي أُوقِف النشرُ الأوّلُ لأجله.
+
+    ولا يُحذَف الملفّ: قياسُ الخادم فيه صحيحٌ ومكلفُ الاكتساب، والحذفُ يُغري بإعادة
+    الاختراع. فالحارسُ يفرض **الراية** لا الحذف.
+    """
+    dep = os.path.join(ROOT, "deploy")
+    old = os.path.join(dep, "README.md")
+    if not os.path.isfile(old):
+        return
+    head = _read(old)[:2000]
+    assert "MIHRAB-DEPLOY-RETIRED" in head, (
+        "‏deploy/README.md بلا رايةِ تقاعدٍ في أوّله — وهو يأمر بإعادة تركيب خدمةٍ "
+        "أُوقِفت وكتلةِ وسيطٍ تدوس الكتلةَ الحيّة")
+
+    # ومرسًى موجب: البديلُ موجودٌ ويسمّي ما يُنفَّذ فعلًا. رايةٌ تُحيل إلى فراغٍ
+    # تترك القارئَ حيث وجدَته — فيعود إلى الوثيقة المتقاعدة لأنّها الوحيدة.
+    new = os.path.join(dep, "النشر-الثابت.md")
+    assert os.path.isfile(new), "لا وثيقةَ للمسار القائم — الرايةُ تُحيل إلى لا شيء"
+    txt = _read(new)
+    for needle, why in (
+            ("static_deploy.sh", "لا تذكر سكربتَ النشر"),
+            ("SHA_TREE", "لا تذكر تحديثَ البصمات — أكثرُ خطوةٍ تُنسى، ورسالتُها تُربك"),
+            ("vscode-web-min", "لا تذكر كيف تُنتَج الشجرةُ الثالثة")):
+        assert needle in txt, "‏deploy/النشر-الثابت.md " + why
+
+
 @check("صفحةُ مضيفِ المتصفّح تفي بما تَعِد [WEB-04]")
 def _web_host_page_contract():
     """أربعةُ عيوبٍ قِيست في `web/` وكلُّها كانت خارج كلّ طبقة — لأنّ الملفّين جديدان.
@@ -4400,8 +4433,21 @@ def _web_host_page_contract():
     السمةَ، أو يحجب المحرِّرَ، أو يجلب إطارًا من شبكة المنبع — صامتًا.
     """
     web = os.path.join(ROOT, "web")
-    boot = _read(os.path.join(web, "boot.js"))
-    html = _read(os.path.join(web, "index.html"))
+    # ── التعليقاتُ تُجرَّد **مرّةً واحدةً في الأعلى** ──
+    # كانت تُجرَّد لفحصٍ واحدٍ (`once: true`) والباقي يقرأ الملفَّ خامًا. فأربعُ مراسٍ
+    # كانت تقبل تعليقًا مكانَ شيفرة: تعليقُ `// webviewEndpoint: …` يُرضي الحارسَ
+    # والحقلُ معطَّلٌ ⇒ ارتدادٌ صامتٌ إلى `vscode-cdn.net`. والتعليقاتُ في هذين
+    # الملفّين **تشرح هذه المفاتيحَ بالذات** بحكم موضوعها، فالخطرُ ليس نظريًّا.
+    def _code(text, html_mode=False):
+        out = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+        out = re.sub(r"^\s*//.*$", "", out, flags=re.M)
+        out = re.sub(r"(?<![:/])//[^\n\"']*$", "", out, flags=re.M)
+        if html_mode:
+            out = re.sub(r"<!--.*?-->", " ", out, flags=re.S)
+        return out
+
+    boot = _code(_read(os.path.join(web, "boot.js")))
+    html = _code(_read(os.path.join(web, "index.html")), html_mode=True)
 
     # (أ) اسمُ السمة **حرفيّ**، وانحرافُه يعني ارتدادًا إلى Dark Modern — أي أنّ
     #     محرابَ المتصفّح يبدو VS Code. كان «محراب الداكن» والصوابُ «محراب الداكنة».
@@ -4439,6 +4485,11 @@ def _web_host_page_contract():
     #     والنتيجةُ كانت تتحقّق بالمصادفة لا بالقرار.
     assert "workspaceTrustEnabled:" not in boot, \
         "‏workspaceTrustEnabled ليس في IWorkbenchConstructionOptions — الاسمُ enableWorkspaceTrust"
+    # ونفيُ الخطأ لا يُثبِت الصواب: حذفُ المفتاح كلِّه كان يمرّ، والنتيجةُ تعود
+    # مصادفةً (`disableWorkspaceTrust = !options.enableWorkspaceTrust`) — وهو بعينه
+    # ما يشكو منه التعليقُ في boot.js. فيُطلَب الاسمُ الصحيحُ صراحةً.
+    assert re.search(r"\benableWorkspaceTrust:", boot), \
+        "لا `enableWorkspaceTrust` في boot.js — القرارُ يتحقّق بالمصادفة لا بالقصد"
 
     # (هـ) الاستيرادُ ديناميّ: الساكنُ يُقيَّم قبل أن يُنفَّذ سطرٌ من الملفّ، فلا يبلّغ
     #      أحدٌ حين تفشل الحزمةُ نفسُها — وهو أرجحُ عطبِ نشرٍ ثابت.
@@ -4460,9 +4511,23 @@ def _web_host_page_contract():
     assert vp, "لا <meta viewport> — الصفحةُ تُعرَض بعرضِ سطحِ مكتبٍ على الهاتف"
     assert "user-scalable" not in vp.group(0) and "maximum-scale" not in vp.group(0), \
         "منعُ التكبير في <meta viewport> — مخالفةُ WCAG 1.4.4 (تغييرُ حجم النصّ)"
-    assert not re.search(r"#mihrab-boot \.name \{[^}]*letter-spacing", html), \
-        "‏letter-spacing على «محراب» يفكّ وصلَ حروفها — وهي أوّلُ كلمةٍ يراها الزائر"
+    # ويُقاس **كلُّ ما يورَث إلى الاسم** لا قاعدتُه وحدَها: `letter-spacing` على
+    # `#mihrab-boot` أو على `body` يبلغ `.name` بالوراثة، فتنفصل الحروفُ كما لو
+    # كُتِبت في قاعدته. والمسافةُ قبل `{` ليست مضمونةً كذلك.
+    for _sel in (r"#mihrab-boot\s*\.name\s*\{", r"#mihrab-boot\s*\{", r"\bbody\s*\{"):
+        for _m in re.finditer(_sel + r"[^}]*", html):
+            assert "letter-spacing" not in _m.group(0), (
+                "‏letter-spacing يبلغ «محراب» فيفكّ وصلَ حروفها — وهي أوّلُ كلمةٍ "
+                "يراها الزائر، وهي العلامةُ نفسُها")
     assert "<noscript>" in html, "لا <noscript> — زائرٌ بلا جافاسكربت يرى مستطيلًا صامتًا"
+
+    # (ط) والالتقاطُ في طورِ **الالتقاط**: أخطاءُ الموارد (وسمُ script يرجع 404 أو
+    #     نوعَ MIME خاطئًا) لا تصعد إلى `window`. ومستمِعٌ بلا `capture` لا يرى العطبَ
+    #     الذي نُقلت آلةُ الحالة إلى الصفحة لأجله — قِيس أنّه لم يكن يراه، فبقي
+    #     الزائرُ أمام شريطٍ يدور ١٢٠ ثانيةً على نشرٍ ناقص.
+    assert re.search(r"addEventListener\(\s*'error'[\s\S]{0,1400}?\}\s*,\s*true\s*\)", html), \
+        ("مستمِعُ `error` في index.html بلا `capture` — أخطاءُ الموارد لا تصعد إلى "
+         "window، فيبقى الزائرُ أمام شريطٍ يدور حتّى المهلة")
 
     # (ح) ولوحُ الترحيب: موجودٌ ومعرَّبٌ في هذه الشجرة، و`'none'` كانت تُخفيه فتترك
     #     الزائرَ الأوّلَ أمام فراغٍ لا يشرح شيئًا.
@@ -4539,8 +4604,35 @@ def _deploy_does_not_expose_editor():
                         "‏" + head[0] + " في deploy/nginx/" + n + ":" + str(i)
                         + " مع إدراج options-ssl-nginx.conf — تكرارٌ يمنع nginx من الإقلاع.")
 
+    # ── `immutable` على أسماءٍ غيرِ مبصومة = كسرٌ مؤجَّل ──
+    # ‏`/out/*` أسماءٌ ثابتةٌ بين البناءات (‏`index.html` يصلها حرفيًّا)، فتخزينُها
+    # سنةً بـ`immutable` يعني أنّ النشرَ القادم **لا يبلغ زائرًا عائدًا**: صفحتُه
+    # تُجدَّد (`no-cache`) وحزمتُه لا تُطلَب أصلًا — و`immutable` تُلغي إعادةَ
+    # التحقّق حتّى مع `Ctrl+R`. إصلاحٌ أمنيٌّ يُنشَر اليومَ ولا يصل أحدًا لسنة.
+    # ويُسمَح بها **حيث يكون العنوانُ مشتقًّا من المحتوى فعلًا** — وذلك يُقال نصًّا في
+    # السطور الثلاثة التي تسبقها، لا يُفترَض. (‏`webview.mihrab.dev.conf` مثالُه: مسارُه
+    # يحوي `{commit}`.) وإلزامُ التعليل هو الحارس: من يكتب `immutable` يكتب لماذا.
+    _OK = "مُعنوَنٌ بالمحتوى"
+    for n in sorted(os.listdir(ngx_dir)) if os.path.isdir(ngx_dir) else []:
+        if not n.endswith(".conf"):
+            continue
+        ls = _read(os.path.join(ngx_dir, n)).splitlines()
+        for i, line in enumerate(ls, 1):
+            if "immutable" not in line.split("#", 1)[0]:
+                continue
+            assert any(_OK in x for x in ls[max(0, i - 4):i]), (
+                "‏`immutable` في deploy/nginx/" + n + ":" + str(i) + " بلا تعليلٍ مكتوب. "
+                "مساراتُ `/out/` **غيرُ مبصومة**، فالنشرُ القادم لن يبلغ زائرًا عائدًا. "
+                "إن كان العنوانُ مشتقًّا من المحتوى فعلًا فقُل ذلك في تعليقٍ فوقه "
+                "(«" + _OK + "»).")
+
+    # ── وحدةُ الخدمة **متقاعدةٌ لا لازمة** ──
+    # كان هنا `assert os.path.isfile(unit)`، فصار الحارسُ **يُلزِم ببقاء** ما نريد
+    # إزالته: حذفُ نشرِ الخادم المهجور كان يُحمِّر الطبقةَ الساكنة. الشرطُ الصحيح:
+    # إن بقيت الوحدةُ (وهي تبقى سِجلًّا) فلتكن سليمةً؛ وإن حُذِفت فلا شيءَ يُقاس.
     unit = os.path.join(dep, "systemd", "mihrab-web.service")
-    assert os.path.isfile(unit), "وحدةُ الخدمة مفقودة: " + unit
+    if not os.path.isfile(unit):
+        return
     u = _read(unit)
 
     # **‏systemd لا يعرف التعليقَ الجانبيّ.** `Key=value  # شرح` يجعل القيمةَ كلَّ ما

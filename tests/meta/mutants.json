@@ -451,6 +451,46 @@
       "new": "+\t\t\tthis.searchGitHub('VSCodium/vscodium', title);",
       "expect": "وجهةُ المنبع حرفيّةً في سطرٍ مُضاف",
       "why": "وجهةٌ حرفيّةٌ في سطرٍ مُضافٍ **تتجاوز العنصرَ النائبَ كلَّه**، فيبقى `GH_REPO_PATH` مضبوطًا بلا أثرٍ على هذا الموضع. والأثرُ أنّ مُبلِّغَ الأعطاب يبحث في قضايا المنبع بنصّ عطبِ مستخدمِنا."
+    },
+    {
+      "id": "deploy-retired-doc-unflagged",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/README.md",
+      "old": "> # ⛔ لا تنفّذ ما في هذه الوثيقة. [MIHRAB-DEPLOY-RETIRED]",
+      "new": "> # ملاحظة: هذه الوثيقة قديمة.",
+      "expect": "بلا رايةِ تقاعد",
+      "why": "الوثيقةُ **ضارّةٌ إن نُفِّذت** لا متقادمةٌ فحسب: مراحلُها تأمر بـ`systemctl enable --now mihrab-web` وبنسخ كتلةِ وسيطٍ إلى المسار الذي يكتب فيه `static_deploy.sh`. فمن يتبعها يدوس الكتلةَ الحيّة ويعيد فتح نظامِ ملفّاتٍ وطرفيّةٍ خلف عنوانٍ عامّ — وهو سطحُ الهجوم الذي أُوقِف النشرُ الأوّلُ لأجله. ورايةٌ ليّنةٌ («قديمة») لا تردع تنفيذًا."
+    },
+    {
+      "id": "web-host-error-not-capturing",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/index.html",
+      "old": "      }, true);",
+      "new": "      });",
+      "expect": "بلا `capture`",
+      "why": "أخطاءُ الموارد — وسمُ `<script>` يرجع 404 أو نوعَ MIME خاطئًا — **لا تصعد** إلى `window`؛ تُرى في طور الالتقاط وحدَه. وهذا وقع فعلًا: نُقلت آلةُ الحالة إلى الصفحة خصّيصًا لالتقاط فشلِ تحميل الحزمة، ثمّ لم تلتقطه، فبقي الزائرُ أمام شريطٍ يدور ١٢٠ ثانيةً على نشرٍ ناقص. حرفٌ واحدٌ يفصل بين إصلاحٍ حقيقيٍّ وإصلاحٍ شكليّ."
+    },
+    {
+      "id": "web-host-trust-by-accident",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/boot.js",
+      "old": "    enableWorkspaceTrust: false,",
+      "new": "    // enableWorkspaceTrust: false,",
+      "expect": "بالمصادفة لا بالقصد",
+      "why": "نفيُ الاسم الخاطئ لا يُثبِت الصواب: حذفُ المفتاح كلِّه كان يمرّ، والنتيجةُ تعود مصادفةً (`disableWorkspaceTrust = !options.enableWorkspaceTrust`) — تنقلب يومَ يغيّر المنبعُ الافتراض. والمُصابُ **تعليقٌ** لا حذف: يُثبِت أنّ تجريدَ التعليقات في الحارس يعمل، وأنّ مِرساةً تقرأ الملفَّ خامًا كانت ستمرّ."
+    },
+    {
+      "id": "deploy-cache-immutable-trap",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.static.conf",
+      "old": "add_header Cache-Control \"public, max-age=600, must-revalidate\" always;",
+      "new": "add_header Cache-Control \"public, max-age=31536000, immutable\" always;",
+      "expect": "immutable",
+      "why": "‏`/out/*` أسماءٌ **غيرُ مبصومة** (`index.html` يصلها حرفيًّا)، فـ`immutable` سنةً تعني أنّ النشرَ القادم لا يبلغ زائرًا عائدًا: صفحتُه تُجدَّد و`no-cache`، وحزمتُه **لا تُطلَب أصلًا** — حتّى مع `Ctrl+R`. كسرٌ مؤجَّلٌ محقَّق: إصلاحٌ أمنيٌّ يُنشَر اليومَ ولا يصل أحدًا إلى سنةٍ من الآن."
     }
   ],
   "uncovered": [

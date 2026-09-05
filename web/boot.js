@@ -117,30 +117,38 @@ try {
 // شريطٌ في الصفحة لا إشعارُ ورشة: طبقةُ الإقلاع لا تملك خدماتِ الورشة، وهذا يعمل
 // أيًّا كان ما يجري بالداخل.
 function capabilityNotice() {
+  // **مفتاحان لا مفتاحٌ واحد.** كان الشرطُ `if (!noFolders && seen)`، فزائرُ فايرفوكس
+  // يرى الشريطَ في **كلّ زيارةٍ مهما ضغط «فهمت»** — وزرٌّ لا يفي بوعده يعلّم
+  // المستخدمَ ألّا يثق بالأزرار. فلكلّ رسالةٍ إغلاقُها.
   const KEY = 'mihrab.web.notice.v1';
+  const KEY_FS = 'mihrab.web.notice.nofs.v1';
   const noFolders = !('showDirectoryPicker' in globalThis);
-  try { if (!noFolders && localStorage.getItem(KEY)) { return; } } catch { /* تخزينٌ محجوب */ }
+  const key = noFolders ? KEY_FS : KEY;
+  try { if (localStorage.getItem(key)) { return; } } catch { /* تخزينٌ محجوب */ }
 
-  const lines = [
-    'محرابٌ هنا يعمل بلا خادم: ملفّاتُك تبقى على جهازك، ولا شيءَ يُرفَع.',
-    'ولا طرفيّةَ ولا تشغيل — تلك في نسخة المكتب.'
-  ];
-  if (noFolders) {
-    lines.unshift('متصفّحك لا يفتح المجلّدات: «فتح مجلّد» يحتاج Chrome أو Edge. '
-                  + 'ويبقى فتحُ الملفّات المفردة وسحبُها إلى النافذة يعمل.');
-  }
+  const text = noFolders
+    // رسالةٌ واحدةٌ لحالةٍ واحدة: خلطُ «لا مجلّدات» بـ«لا طرفيّة» يُنتج جدارَ نصٍّ
+    // لا يُقرأ. والأهمُّ أوّلًا.
+    ? 'متصفّحك لا يفتح المجلّدات — تحتاج Chrome أو Edge. '
+      + 'ويبقى فتحُ الملفّات المفردة وسحبُها إلى النافذة يعمل.'
+    : 'محرابٌ يعمل في متصفّحك بلا خادم: ملفّاتُك تبقى على جهازك. '
+      + 'ولا طرفيّةَ ولا تشغيل — تلك في نسخة المكتب.';
 
   const bar = document.createElement('div');
   bar.setAttribute('role', 'status');
   bar.dir = 'rtl';
-  bar.style.cssText = 'position:fixed;inset-inline:0;bottom:0;z-index:9998;'
+  // ⚠️ `bottom: 0` كان **يحجب شريطَ الحالة كاملًا** — ومعه مؤشّرُ «محراب في
+  //    المتصفّح»، أي أنّه يحجب الجملةَ التي يقولها هو نفسُه. وشريطُ حالةِ الورشة
+  //    ‏22px، فنرتفع فوقه. (والحلُّ الصحيحُ بانرٌ داخل تخطيط الورشة — يحتاج امتدادَ
+  //    ويبٍ لا نملكه بعد؛ مسجَّلٌ دَينًا.)
+  bar.style.cssText = 'position:fixed;inset-inline:0;bottom:22px;z-index:9998;'
     + 'background:#13302b;color:#cfe8e3;border-top:1px solid #2ec4a6;'
     + 'padding:.85rem 1.2rem;display:flex;gap:1rem;align-items:center;'
     + 'font:13px/1.9 "Noto Sans Arabic",system-ui,sans-serif';
 
-  const text = document.createElement('div');
-  text.style.flex = '1';
-  text.textContent = lines.join(' ');
+  const body = document.createElement('div');
+  body.style.flex = '1';
+  body.textContent = text;
 
   const close = document.createElement('button');
   close.type = 'button';
@@ -149,10 +157,10 @@ function capabilityNotice() {
     + 'border-radius:4px;padding:.3rem 1rem;cursor:pointer';
   close.addEventListener('click', () => {
     bar.remove();
-    try { localStorage.setItem(KEY, '1'); } catch { /* تخزينٌ محجوب */ }
+    try { localStorage.setItem(key, '1'); } catch { /* تخزينٌ محجوب */ }
   });
 
-  bar.appendChild(text);
+  bar.appendChild(body);
   bar.appendChild(close);
   document.body.appendChild(bar);
 }

@@ -1,3 +1,5 @@
+> **هذه الصفحةُ عن نسخة المكتب.** في [`mihrab.dev`](https://mihrab.dev) لا طرفيّةَ ولا تشغيلَ ولا تصحيح — لا جهازَ خلف الصفحة يُنفّذ.
+
 ---
 description: نقاط التوقّف وتهيئة التشغيل ومراقبة القيم.
 source_path: docs/debugtest/debugging.md

@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # نشرُ محرابٍ الثابت على mihrab.dev — يُشغَّل بجذرٍ **على الخادم**.
 #
-#     sudo bash /tmp/mihrab-static/static_deploy.sh
+#     sudo install -o root -g root -m 755 \
+#          /tmp/mihrab-static/static_deploy.sh \
+#          /usr/local/lib/mihrab-deploy/static_deploy.sh
+#     sudo bash /usr/local/lib/mihrab-deploy/static_deploy.sh
+#
+# ⚠️ **يُنقَل قبل أن يُشغَّل.** تشغيلُه من `/tmp` يُبطِل البصمتين أدناه إبطالًا كاملًا:
+#    من يقدر على تبديل الحمولة يقدر على تبديل السطرين اللذين يحرسانها في السكربت
+#    نفسِه. والسكربتُ يرفض العملَ من مسارٍ يكتب فيه الجميع.
 #
 # ما يفعله، بهذا الترتيب:
 #   1. يفكّ الشجرةَ إلى `/opt/mihrab/static.new` ويتحقّق من صفحة المضيف قبل التبديل.
@@ -27,13 +34,21 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ‏`/tmp` يكتب فيه **أيُّ مستخدم**. وهذا السكربتُ يعمل بجذر، فبين لحظةِ رفع الحمولة
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
-SHA_TREE=46cf737e2a385b7c6ba73fc3512ba52039dd8dd6b4cfd79c17220e1582fd4b5e
-SHA_CONF=4f1bd02d4af33ef9f0253beacca5a66748c2ae96cd782a5015da1e259c8472e6
+SHA_TREE=456f67a00fa26cfb5b43e797264460defb01da1524eb1b75cd678a4116756bb9
+SHA_CONF=e54c1b06b7103e35d988739e758b81b66176b69fb3ff2d59c744178f0f3356a3
 
 die() { echo "❌ $*" >&2; exit 1; }
 say() { echo "── $*"; }
 
 [[ $EUID -eq 0 ]] || die "يحتاج جذرًا: sudo bash $0"
+
+# البصماتُ أدناه لا تحرس شيئًا إن كان هذا الملفُّ نفسُه قابلًا للتبديل. فيُرفض
+# التشغيلُ من مجلّدٍ عامّ الكتابة (‏`/tmp` و`/var/tmp` وأمثالهما).
+_self_dir="$(cd "$(dirname "$0")" && pwd)"
+if [[ -k "$_self_dir" || "$(stat -c '%A' "$_self_dir")" == *w*w* ]]; then
+  die "لا يُشغَّل من مجلّدٍ يكتب فيه الجميع ($_self_dir) — البصمتان بلا معنًى هناك.
+   انقله أوّلًا:  sudo install -o root -g root -m 755 $0 /usr/local/lib/mihrab-deploy/$(basename "$0")"
+fi
 [[ -f $STAGE/tree.tgz ]] || die "لا شجرةَ في $STAGE/tree.tgz"
 [[ -f $STAGE/mihrab.dev.static.conf ]] || die "لا كتلةَ nginx في $STAGE"
 
@@ -104,14 +119,30 @@ install -o root -g root -m 644 "$STAGE/mihrab.dev.static.conf" "$AVAIL" \
 # فرابطٌ معلَّقٌ يكسر `nginx -t` لكلّ المواقع لا لموقعنا.
 ln -sfn "$AVAIL" "$LINK"
 
-if ! nginx -t; then
-  echo "⚠️ سقط الاختبار — تراجعٌ تلقائيّ" >&2
-  if [[ -f $BACKUP ]]; then cp -a "$BACKUP" "$AVAIL"; else rm -f "$LINK"; fi
-  nginx -t && echo "↩️ عاد الإعدادُ سليمًا — لم يسقط شيء" >&2
-  die "لم يُنشَر. الشجرةُ الجديدةُ في $LIVE والقديمةُ في $OLD"
-fi
+# ── التراجعُ يعيد **الاثنين**: الكتلةَ والشجرة ──
+# كان يعيد الكتلةَ وحدَها، فيبقى nginx يخدم الشجرةَ الجديدةَ (‏`root` نفسُه في
+# الكتلتين) — أي أنّ التراجعَ كان يتراجع عن نصفِ ما فعله. التبديلُ ذرّيٌّ في الأمام
+# ويجب أن يكون له نظيرٌ في الخلف.
+rollback() {
+  local why="$1"
+  echo "⚠️ $why — تراجعٌ تلقائيّ" >&2
+  if [[ -s $BACKUP ]]; then cp -a "$BACKUP" "$AVAIL"; else rm -f "$LINK"; fi
+  if [[ $NGINX_ONLY == no && -d $OLD ]]; then
+    rm -rf "$LIVE.bad" && mv "$LIVE" "$LIVE.bad" && mv "$OLD" "$LIVE" \
+      && echo "↩️ عادت الشجرةُ السابقة (والمرفوضةُ في $LIVE.bad)" >&2
+  fi
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx 2>/dev/null
+    echo "↩️ عاد الإعدادُ سليمًا وحُمِّل — لم يسقط شيء" >&2
+  else
+    echo "⛔ الإعدادُ ما زال ساقطًا بعد التراجع — تدخّلٌ يدويٌّ لازم." >&2
+  fi
+  exit 1
+}
 
-systemctl reload nginx || die "فشل تحميلُ nginx"
+nginx -t || rollback "سقط nginx -t"
+
+systemctl reload nginx || rollback "فشل تحميلُ nginx"
 say "‏nginx حُمِّل"
 
 # ── (4) الخدمةُ لم تعد لها وظيفة ─────────────────────────────────────────────
@@ -139,9 +170,17 @@ _want /                    text/html
 _want /boot.js             application/javascript
 _want /product.web.js      application/javascript
 _want /manifest.json       application/json
-_want /favicon.ico         ""
+_want /favicon.ico         image/
 _want /out/nls.messages.js application/javascript
 _want /out/vs/workbench/workbench.web.main.internal.css text/css
-[[ $RC -eq 0 ]] || echo "   ⛔ نوعُ محتوًى خاطئ — المتصفّحُ لن ينفّذ الوحدات."
+
+# **الفحصُ بوّابةٌ لا تقرير.** كان `RC` يُطبَع ولا يُستعمل، وآخرُ أمرٍ `echo` ⇒ خروجٌ
+# بصفرٍ على موقعٍ أبيض. أي أنّ الدرسَ الذي كسر النشرَ الحيَّ (‏`types` تستبدل الجدولَ
+# فيصير كلُّ شيءٍ `octet-stream` مع `nosniff`) لم يكن قد صار بوّابةً بعد.
+if [[ $RC -ne 0 ]]; then
+  echo "   ⛔ نوعُ محتوًى خاطئ — المتصفّحُ لن ينفّذ الوحدات: موقعٌ أبيضُ وكلُّ رمزٍ 200." >&2
+  rollback "نوعُ المحتوى خاطئ"
+fi
+
 echo
 echo "   الشجرةُ السابقة في $OLD — احذفها بعد التأكّد:  sudo rm -rf $OLD"

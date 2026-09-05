@@ -1,3 +1,6 @@
+
+> **في [`mihrab.dev`](https://mihrab.dev):** فتحُ المجلّدات يعمل على Chrome وEdge وحدَهما (واجهة File System Access)، ويُقرأ المجلّدُ من جهازك مباشرةً بلا رفع. وفي فايرفوكس وسفاري: افتح ملفّاتٍ مفردةً أو اسحبها إلى النافذة.
+
 ---
 description: المجلّدات ومساحات العمل متعدّدة الجذور، وأين تعيش الإعدادات.
 source_path: docs/editing/workspaces/workspaces.md

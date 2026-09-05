@@ -887,7 +887,13 @@ def _web_arabized():
 def _static_arabized():
     web = _static_dir()
     if web is None:
-        raise _Skip("لا شجرةَ vscode-web (‏gulp vscode-web-min هدفٌ اختياريّ)")
+        # **التخطّي مسموحٌ محلّيًّا، ممنوعٌ حيث يجب أن تُبنى.** حارسٌ يتخطّى نفسَه في
+        # CI ليس حارسًا: الشجرةُ الثابتةُ هي ما يُنشَر، وغيابُها هناك عطبٌ لا ظرف.
+        if os.environ.get("MIHRAB_REQUIRE_STATIC") == "1":
+            raise AssertionError(
+                "لا شجرةَ vscode-web مع MIHRAB_REQUIRE_STATIC=1 — البناءُ لم يُخرج "
+                "ما يُنشَر على mihrab.dev (راجِع خطوةَ ط-0ج2 في build.sh)")
+        raise _Skip("لا شجرةَ vscode-web (اضبط MIHRAB_REQUIRE_STATIC=1 ليصير غيابُها فشلًا)")
 
     # (1) صفحةُ المضيف وهويّتُها — البوّابةُ نفسُها التي يشغّلها البناء، بلا ازدواج.
     rc = subprocess.call([sys.executable,

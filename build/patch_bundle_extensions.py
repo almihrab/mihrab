@@ -245,6 +245,13 @@ _INJECT_TEMPLATE = """
   if [ -f ../.mihrab-patch-walkthroughs-drop.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-walkthroughs-drop.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedService.ts || { echo "محراب: فشلت رُقعة إسقاط جولات المنبع" >&2; exit 1; }
   fi
+  # بندُ «فتح المستودع» في لوح الترحيب: شرطُه `workspacePlatform == 'webworker'` وهو
+  # متحقّقٌ في البناء الثابت، وأمرُه `remoteHub.openRepository` من إضافةِ مايكروسوفت
+  # المِلكيّة — لا وجودَ لها عندنا ولا في Open VSX. سطرٌ في أوّل ثلاثةٍ يقرؤها الزائر،
+  # ونقرتُه تُنتج «الأمرُ غيرُ معروف».
+  if [ -f ../.mihrab-patch-welcome-web-entries.py ]; then
+    "${_MIHRAB_PY}" ../.mihrab-patch-welcome-web-entries.py . || { echo "محراب: فشلت رُقعة بنود ترحيب الويب" >&2; exit 1; }
+  fi
   # تصريح لغة المستند: العربيّة مخبوزة في nls الافتراضيّ فلا يحلّ NLS لغةً ⇒ كان <html lang="en"
   # على واجهة عربيّة (يُضلّل قارئات الشاشة ويُبطِل :lang(ar)). نرتدّ إلى product.defaultLocale.
   if [ -f ../.mihrab-patch-html-lang.py ]; then

@@ -1,3 +1,5 @@
+> **هذه الصفحةُ عن نسخة المكتب.** في [`mihrab.dev`](https://mihrab.dev) لا طرفيّةَ ولا تشغيلَ ولا تصحيح — لا جهازَ خلف الصفحة يُنفّذ.
+
 ---
 description: أوّلُ ملفٍّ وأوّلُ تشغيل في محراب — في دقيقة.
 source_path: docs/getstarted/getting-started.md

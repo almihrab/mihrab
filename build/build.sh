@@ -485,6 +485,9 @@ fi
 [[ -f "$ROOT/build/patch_welcome_rtl.py" ]] && cp -f "$ROOT/build/patch_welcome_rtl.py" "$UP/.mihrab-patch-welcome-rtl.py"
 [[ -f "$ROOT/build/patch_walkthrough_dir.py" ]] && cp -f "$ROOT/build/patch_walkthrough_dir.py" "$UP/.mihrab-patch-walkthrough-dir.py"
 [[ -f "$ROOT/build/patch_walkthroughs_drop.py" ]] && cp -f "$ROOT/build/patch_walkthroughs_drop.py" "$UP/.mihrab-patch-walkthroughs-drop.py"
+# لوحُ الترحيب لا يَعِد بما لا خلفيّةَ له: بندُ «فتح المستودع» شرطُه `webworker` —
+# وهو متحقّقٌ في بنائنا الثابت — وأمرُه من إضافةِ مايكروسوفت المِلكيّة التي لا نشحنها.
+[[ -f "$ROOT/build/patch_welcome_web_entries.py" ]] && cp -f "$ROOT/build/patch_welcome_web_entries.py" "$UP/.mihrab-patch-welcome-web-entries.py"
 [[ -f "$ROOT/build/patch_html_lang.py" ]] && cp -f "$ROOT/build/patch_html_lang.py" "$UP/.mihrab-patch-html-lang.py"
 [[ -f "$ROOT/build/patch_dialog_style.py" ]] && cp -f "$ROOT/build/patch_dialog_style.py" "$UP/.mihrab-patch-dialog-style.py"
 # مجلّد إعدادات المشروع `.محراب` (بتوافقٍ خلفيّ مع `.vscode`). ينسخ معه وحدتَي TS
@@ -809,6 +812,31 @@ fi
 #     `patch_workbench_font.py`.
 #   • `out/nls.messages.js` فيها يسبقُه إشعارُ حقوقٍ منبعيّ ⇒ `bake_nls_arabic.py`
 #     يبحث عن البادئة ولا يشترط موضِعَها، ويحفظ الرأس.
+# ── (ط-0ج2) الشجرةُ الثالثة **تُبنى** لا تُفترَض ──
+# كان اسمُ الهدف `vscode-web-min` يرد في تعليقٍ واحدٍ ولا يُستدعى قطّ. فبناءٌ نظيفٌ
+# لا يُخرج الشجرةَ الثابتة إطلاقًا، والفرعُ أدناه يطبع «تُخطّى» ويمضي بصفر — و**ثلاثةُ
+# حرّاسٍ كُتِبوا لها يبقون أخضرَ على غيابها**:
+#   • `${STATIC_DIR:+…}` في بوّابتَي التسرّب و[BR-05] تتمدّد إلى لا شيء.
+#   • و[WEB-03] في L2 يرفع `_Skip` فلا يجري على أيّ آلةٍ ولا في CI.
+# أي أنّ ما يُنشَر على mihrab.dev كان يُبنى **يدويًّا خارج المستودع**، والحراسةُ كلُّها
+# تقيس نصَّ هذا الملفّ لا ناتجَه. حارسٌ يحرس نيّةً غيرَ منفَّذة.
+#
+# والهدفُ لا يستغرق إلّا ~9 دقائق (قِيس)، لأنّ الشجرةَ مُرقَّعةٌ ومُصرَّفةٌ سلفًا من
+# البناء المكتبيّ — فهذه خطوةُ تحزيمٍ فوقها لا بناءٌ من الصفر.
+if [[ "${MIHRAB_BUILD_WEB:-yes}" == "yes" ]]; then
+  log "بناءُ الشجرة الثابتة (gulp vscode-web-min)"
+  if ( cd "$UP/vscode" && node --max-old-space-size=8192 \
+         node_modules/gulp/bin/gulp.js vscode-web-min ); then
+    log "الشجرةُ الثابتة بُنيت"
+  else
+    echo "❌ فشل بناءُ الشجرة الثابتة (vscode-web-min) — وهي ما يُنشَر على mihrab.dev." >&2
+    echo "   لتخطّيها عمدًا: MIHRAB_BUILD_WEB=no" >&2
+    exit 1
+  fi
+else
+  log "MIHRAB_BUILD_WEB=no — تُخطّى الشجرةُ الثابتة عمدًا"
+fi
+
 _STATIC_DIR="$UP/vscode-web"
 if [[ -d "$_STATIC_DIR" ]]; then
   log "تعريبُ محرابِ المتصفّح الثابت: $(basename "$_STATIC_DIR")"
