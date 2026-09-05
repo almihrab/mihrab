@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # نشرُ محرابٍ الثابت على mihrab.dev — يُشغَّل بجذرٍ **على الخادم**.
 #
-#     sudo install -o root -g root -m 755 \
+#     sudo install -D -o root -g root -m 755 \
 #          /tmp/mihrab-static/static_deploy.sh \
 #          /usr/local/lib/mihrab-deploy/static_deploy.sh
 #     sudo bash /usr/local/lib/mihrab-deploy/static_deploy.sh
@@ -34,7 +34,7 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ‏`/tmp` يكتب فيه **أيُّ مستخدم**. وهذا السكربتُ يعمل بجذر، فبين لحظةِ رفع الحمولة
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
-SHA_TREE=456f67a00fa26cfb5b43e797264460defb01da1524eb1b75cd678a4116756bb9
+SHA_TREE=ef69aa24f298fe994f8a632edcce7734930ce4964e46508eb3c9df8de419d458
 SHA_CONF=e54c1b06b7103e35d988739e758b81b66176b69fb3ff2d59c744178f0f3356a3
 
 die() { echo "❌ $*" >&2; exit 1; }
@@ -47,7 +47,7 @@ say() { echo "── $*"; }
 _self_dir="$(cd "$(dirname "$0")" && pwd)"
 if [[ -k "$_self_dir" || "$(stat -c '%A' "$_self_dir")" == *w*w* ]]; then
   die "لا يُشغَّل من مجلّدٍ يكتب فيه الجميع ($_self_dir) — البصمتان بلا معنًى هناك.
-   انقله أوّلًا:  sudo install -o root -g root -m 755 $0 /usr/local/lib/mihrab-deploy/$(basename "$0")"
+   انقله أوّلًا:  sudo install -D -o root -g root -m 755 $0 /usr/local/lib/mihrab-deploy/$(basename "$0")"
 fi
 [[ -f $STAGE/tree.tgz ]] || die "لا شجرةَ في $STAGE/tree.tgz"
 [[ -f $STAGE/mihrab.dev.static.conf ]] || die "لا كتلةَ nginx في $STAGE"

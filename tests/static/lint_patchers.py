@@ -4309,6 +4309,16 @@ def _web_patchers_wired_for_both_trees():
     # تُستدعى إلّا إن استُدعي المُرقِّع، فالشرطان معًا لا أحدُهما.
     assert 'patch_web_host.py" "$_STATIC_DIR"' in sh, \
         "‏patch_web_host.py غيرُ موصولٍ بالشجرة الثابتة — تُنشَر بأيقونة VSCodium ومانيفستِه"
+    # والشجرةُ **تُبنى** لا تُفترَض: كان `vscode-web-min` اسمًا في تعليقٍ لا يُستدعى،
+    # فبناءٌ نظيفٌ لا يُخرجها، وثلاثةُ حرّاسٍ كُتِبوا لها يبقون أخضرَ على غيابها.
+    assert "vscode-web-min" in sh and "gulp.js vscode-web-min" in sh, \
+        "‏build.sh لا يبني الشجرةَ الثابتة — الحرّاسُ يقيسون نصَّه لا ناتجَه"
+    # ورايةٌ تُصنَع ولا تُرفَع هي العلّةُ نفسُها: `[WEB-03]` يتخطّى نفسَه بلا هذا.
+    wf = os.path.join(ROOT, ".github", "workflows", "build-matrix.yml")
+    if os.path.isfile(wf):
+        assert "MIHRAB_REQUIRE_STATIC" in _read(wf), \
+            "‏MIHRAB_REQUIRE_STATIC غيرُ مضبوطٍ في CI — [WEB-03] يتخطّى نفسَه في البوّابة"
+
     assert 'patch_web_host.py" --verify "$_STATIC_DIR"' in sh, \
         "‏--verify غيرُ مُستدعًى على الشجرة الثابتة — فرضٌ بلا بوّابة"
 
