@@ -95,34 +95,130 @@ curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal   # ‏CLI مكت
 
 ## الترتيب — ملزِم
 
-```bash
-# ٠ · قِس، ثمّ احتفظ بنسخة
-sudo bash preflight.sh
-tar czf ~/nginx-$(date +%F).tgz /etc/nginx
+كلُّ مرحلةٍ تنتهي بتحقّقٍ يقيس أنّها نجحت. ولا تُبدأ التاليةُ قبل أن يخضرّ.
 
-# ١ · المشتركاتُ وكتلةُ 80 وحدَها ⇒ ثمّ الشهادة
+### ٠ · قِسْ واحتفظ بنسخة
+
+```bash
+sudo bash preflight.sh
+sudo tar czf ~/nginx-$(date +%F).tgz /etc/nginx
+```
+
+التراجعُ في أيّ لحظة: `sudo tar xzf ~/nginx-<التاريخ>.tgz -C / && sudo nginx -t && sudo systemctl reload nginx`
+
+### ١ · المشتركاتُ وكتلةُ 80 ⇒ ثمّ الشهادة
+
+```bash
 sudo cp nginx/00-mihrab-shared.conf /etc/nginx/conf.d/
 sudo cp nginx/01-mihrab-acme.conf   /etc/nginx/sites-available/mihrab-acme
 sudo ln -sf /etc/nginx/sites-available/mihrab-acme /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot certonly --nginx -d mihrab.dev -d www.mihrab.dev   # مُصادِقُ nginx — مقيس
-sudo certbot certificates          # ⚠️ اقرأ اسمَ السلالة، لا تفترضه
 
-# ٢ · الخدمة (بعد نسخ بناء لينكس إلى /opt/mihrab/web)
+sudo certbot certonly --nginx -d mihrab.dev -d www.mihrab.dev
+sudo certbot certificates          # ⚠️ اقرأ اسمَ السلالة، لا تفترضه
+```
+
+**تحقّق:** `curl -I http://mihrab.dev/` ⇒ ‏301 إلى https · و`certbot certificates` يُظهِر
+سلالةً باسم `mihrab.dev` بنطاقَين. **وإن كان اسمُها غيرَ ذلك (مثل `mihrab.dev-0001`)
+فصحِّح المسارَين في `mihrab.dev.conf` قبل المرحلة ٣.**
+
+### ٢ · الخدمة
+
+**٢-أ · مستخدمٌ ببيتٍ حقيقيّ** — بلا بيتٍ يفشل `git` والطرفيّةُ داخل الخدمة:
+
+```bash
+sudo useradd --system --home-dir /var/lib/mihrab --shell /bin/bash mihrab
+```
+
+**٢-ب · رمزُ الاتّصال** — ليس تحسينًا: بدونه كلُّ من يبلغ العنوانَ يحصل على طرفيّة:
+
+```bash
+sudo install -d -m 750 -o mihrab -g mihrab /etc/mihrab
+openssl rand -hex 32 | sudo tee /etc/mihrab/token >/dev/null
+sudo chown mihrab:mihrab /etc/mihrab/token && sudo chmod 600 /etc/mihrab/token
+```
+
+**٢-ج · نقلُ البناء** (‏370 م.ب) — من الجهاز الذي بنى، لا من الخادم:
+
+```bash
+# على جهاز البناء (WSL مثلًا)، حيث المصدر vscode-reh-web-linux-x64:
+rsync -az --delete -e 'ssh -p 2000' \
+  .upstream/vscode-reh-web-linux-x64/ saleh@176.106.227.73:/tmp/mihrab-web/
+
+# ثمّ على الخادم — /opt لا يُكتَب إلّا بـsudo، فنُدرِج عبر /tmp:
+sudo install -d -o mihrab -g mihrab /opt/mihrab
+sudo rsync -a --delete /tmp/mihrab-web/ /opt/mihrab/web/
+sudo install -d -o mihrab -g mihrab /opt/mihrab/data
+sudo chown -R mihrab:mihrab /opt/mihrab/web
+rm -rf /tmp/mihrab-web
+```
+
+**٢-د · التشغيل:**
+
+```bash
 sudo cp systemd/mihrab-web.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now mihrab-web
+```
 
-# ٣ · كتلُ 443
+**تحقّق:**
+
+```bash
+systemctl is-active mihrab-web                      # ⇒ active
+ss -ltn | grep 14007                                # ⇒ يستمع على 127.0.0.1 فقط
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:14007/   # ⇒ 403
+journalctl -u mihrab-web -n 30 --no-pager
+```
+
+**‏403 هو الجواب الصحيح** — قِيس على بناء لينكس نفسِه: الخادمُ يردّ 403 على كلّ مسارٍ
+بلا رمز، و`?tkn=<الرمز>` يردّ 302. **فـ200 هنا يعني أنّ الرمزَ لا يعمل** — أوقف الخدمةَ
+وراجع `/etc/mihrab/token` قبل أن تفتح المرحلةَ ٣.
+
+### ٣ · كتلُ 443
+
+> **طبقةُ العزل آمنة — قِيست.** بناءُ لينكس يردّ **404** على `/issues` و`/license`
+> و`/releases` و`/repo` (برمزٍ صالح)، فلا يخدم شيئًا عليها ⇒ التحويلاتُ لا تحجب وظيفة.
+
+```bash
 sudo cp nginx/mihrab.dev.conf /etc/nginx/sites-available/mihrab
 sudo ln -sf /etc/nginx/sites-available/mihrab /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-
-# ٤ · wildcard ثمّ الـwebview (يحتاج DNS-01)
 ```
 
-**وبعد كلِّ نسخة، بلا استثناء:** `nginx -t && systemctl reload nginx`. ولا `restart`
-إلّا و`nginx -t` نظيف — `reload` يُبقي العمّالَ القدامى يخدمون إن فشل الجديد، و`restart`
-لا يفعل.
+**تحقّق — وهنا يظهر محرابٌ لأوّل مرّة:**
+
+```bash
+curl -sI https://mihrab.dev/ | head -3
+curl -sI https://www.mihrab.dev/ | grep -i location        # ⇒ يحوّل إلى الجذر
+curl -sI https://mihrab.dev/issues | grep -i location      # ⇒ github
+curl -sk -o /dev/null -w '%{http_version}\n' https://mihrab.dev/   # ⇒ 2
+# والأهمُّ: أنّ المواقعَ الستّةَ ما زالت تعمل
+for h in sad-lang.org sila-hub.dev kadah.tech; do
+  printf '%-16s %s\n' "$h" "$(curl -sk -o /dev/null -w '%{http_code}' https://$h/)"
+done
+```
+
+**ثمّ افتح `https://mihrab.dev/?tkn=<الرمز>` في متصفّح.** إن ظهر سطحُ المكتب ثمّ
+**تجمّد**، فالسببُ ترويستا `Upgrade`/`Connection` — راجع `00-mihrab-shared.conf`.
+
+### ٤ · الـwildcard والـwebview
+
+يعتمد على قرارٍ لم يُتَّخذ بعد: ‏Cloudflare أم واجهةُ Namecheap (انظر «الشهادة» أدناه).
+وبعد صدور الشهادة:
+
+```bash
+sudo cp nginx/webview.mihrab.dev.conf /etc/nginx/sites-available/mihrab-webview
+sudo ln -sf /etc/nginx/sites-available/mihrab-webview /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**ثمّ — وليس قبلَه — تعديلُ المستودع:** `webviewContentExternalBaseUrlTemplate` في
+`product-overrides/product.json`، وروابطُ المنتَج إلى `mihrab.dev/issues` وأخواتِها.
+
+---
+
+**وبعد كلِّ نسخة، بلا استثناء:** `sudo nginx -t && sudo systemctl reload nginx`.
+ولا `restart` إلّا و`nginx -t` نظيف — `reload` يُبقي العمّالَ القدامى يخدمون إن فشل
+الجديد، و`restart` لا يفعل، فتسقط المواقعُ الستّةُ معه.
 
 ## الشهادة: قرارٌ واحدٌ يستحقّ الانتباه
 
