@@ -124,19 +124,53 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### ١ · المشتركاتُ وكتلةُ 80 ⇒ ثمّ الشهادة
 
-```bash
-sudo cp nginx/00-mihrab-shared.conf /etc/nginx/conf.d/
-sudo cp nginx/01-mihrab-acme.conf   /etc/nginx/sites-available/mihrab-acme
-sudo ln -sf /etc/nginx/sites-available/mihrab-acme /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+**أوّلًا — نقلُ الملفّات إلى الخادم.** لا نسخةَ من المستودع هناك، والأوامرُ النسبيّةُ
+تفشل (`cp: cannot stat 'nginx/…'`). من جهاز التطوير:
 
-sudo certbot certonly --nginx -d mihrab.dev -d www.mihrab.dev
-sudo certbot certificates          # ⚠️ اقرأ اسمَ السلالة، لا تفترضه
+```bash
+ssh -p 2000 saleh@176.106.227.73 'mkdir -p /tmp/mihrab-deploy'
+scp -P 2000 deploy/nginx/*.conf deploy/systemd/*.service     saleh@176.106.227.73:/tmp/mihrab-deploy/
 ```
 
-**تحقّق:** `curl -I http://mihrab.dev/` ⇒ ‏301 إلى https · و`certbot certificates` يُظهِر
-سلالةً باسم `mihrab.dev` بنطاقَين. **وإن كان اسمُها غيرَ ذلك (مثل `mihrab.dev-0001`)
-فصحِّح المسارَين في `mihrab.dev.conf` قبل المرحلة ٣.**
+**ثمّ على الخادم** — والترتيبُ داخلَ هذه الكتلة ملزِم:
+
+```bash
+# (أ) المشتركات: خريطةُ الترقية والمجمَّع. تُحمَّل قبل كتل الخدمة.
+sudo cp /tmp/mihrab-deploy/00-mihrab-shared.conf /etc/nginx/conf.d/
+
+# (ب) كتلةُ 80 — **الملفُّ قبل الوصلة**. عكسُ الترتيب يُنشئ وصلةً معلَّقةً
+#     (`ln -sf` لا يتحقّق من الهدف) فيفشل `nginx -t` وتُصبح كلُّ مواقعك على
+#     حافّة السقوط عند أوّل restart. أُوقِع فعلًا.
+sudo cp /tmp/mihrab-deploy/01-mihrab-acme.conf /etc/nginx/sites-available/mihrab-acme
+sudo ln -sf /etc/nginx/sites-available/mihrab-acme /etc/nginx/sites-enabled/
+
+# (ج) بوّابة: لا تتابع قبل «syntax is ok» و«test is successful».
+sudo nginx -t && sudo systemctl reload nginx
+
+# (د) الشهادة — بمُصادِقِ nginx (مقيسٌ من ملفّ تجديد sad-lang.org)
+sudo certbot certonly --nginx -d mihrab.dev -d www.mihrab.dev
+sudo certbot certificates
+```
+
+**تحقّق:**
+
+```bash
+curl -sI http://mihrab.dev/ | head -2          # ⇒ 301 إلى https
+for h in sad-lang.org sila-hub.dev kadah.tech; do
+  printf '%-16s %s\n' "$h" "$(curl -sk -o /dev/null -w '%{http_code}' https://$h/)"
+done
+```
+
+> **اسمُ السلالة مقيسٌ سلفًا:** `certbot certificates` على هذا الخادم يُظهِر
+> `sad-lang.org` و`sila-hub.dev` فقط — فلا تصادمَ، والسلالةُ ستكون `mihrab.dev`
+> بالضبط. ومساراتُ `mihrab.dev.conf` صحيحةٌ كما هي.
+
+**التراجعُ عن هذه المرحلة وحدَها:**
+
+```bash
+sudo rm -f /etc/nginx/sites-enabled/mihrab-acme /etc/nginx/conf.d/00-mihrab-shared.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ### ٢ · الخدمة
 
@@ -152,19 +186,18 @@ sudo useradd --system --home-dir /var/lib/mihrab --shell /bin/bash mihrab
 sudo install -d -m 750 -o mihrab -g mihrab /etc/mihrab
 openssl rand -hex 32 | sudo tee /etc/mihrab/token >/dev/null
 sudo chown mihrab:mihrab /etc/mihrab/token && sudo chmod 600 /etc/mihrab/token
+sudo cat /etc/mihrab/token        # احفظه — يلزمك لفتح المحرِّر أوّلَ مرّة
 ```
 
-**٢-ج · نقلُ البناء** (‏370 م.ب) — من الجهاز الذي بنى، لا من الخادم:
+**٢-ج · نقلُ البناء** (‏370 م.ب) — من الجهاز الذي بنى:
 
 ```bash
-# على جهاز البناء (WSL مثلًا)، حيث المصدر vscode-reh-web-linux-x64:
-rsync -az --delete -e 'ssh -p 2000' \
-  .upstream/vscode-reh-web-linux-x64/ saleh@176.106.227.73:/tmp/mihrab-web/
+# على جهاز البناء، حيث المصدر vscode-reh-web-linux-x64:
+rsync -az --delete -e 'ssh -p 2000'   .upstream/vscode-reh-web-linux-x64/ saleh@176.106.227.73:/tmp/mihrab-web/
 
 # ثمّ على الخادم — /opt لا يُكتَب إلّا بـsudo، فنُدرِج عبر /tmp:
-sudo install -d -o mihrab -g mihrab /opt/mihrab
+sudo install -d -o mihrab -g mihrab /opt/mihrab /opt/mihrab/data
 sudo rsync -a --delete /tmp/mihrab-web/ /opt/mihrab/web/
-sudo install -d -o mihrab -g mihrab /opt/mihrab/data
 sudo chown -R mihrab:mihrab /opt/mihrab/web
 rm -rf /tmp/mihrab-web
 ```
@@ -172,7 +205,7 @@ rm -rf /tmp/mihrab-web
 **٢-د · التشغيل:**
 
 ```bash
-sudo cp systemd/mihrab-web.service /etc/systemd/system/
+sudo cp /tmp/mihrab-deploy/mihrab-web.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now mihrab-web
 ```
 
@@ -180,14 +213,14 @@ sudo systemctl daemon-reload && sudo systemctl enable --now mihrab-web
 
 ```bash
 systemctl is-active mihrab-web                      # ⇒ active
-ss -ltn | grep 14007                                # ⇒ يستمع على 127.0.0.1 فقط
+ss -ltn | grep 14007                                # ⇒ 127.0.0.1 فقط
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:14007/   # ⇒ 403
 journalctl -u mihrab-web -n 30 --no-pager
 ```
 
 **‏403 هو الجواب الصحيح** — قِيس على بناء لينكس نفسِه: الخادمُ يردّ 403 على كلّ مسارٍ
-بلا رمز، و`?tkn=<الرمز>` يردّ 302. **فـ200 هنا يعني أنّ الرمزَ لا يعمل** — أوقف الخدمةَ
-وراجع `/etc/mihrab/token` قبل أن تفتح المرحلةَ ٣.
+بلا رمز، و`?tkn=<الرمز>` يردّ 302. **فـ200 هنا يعني أنّ الرمزَ لا يعمل** — أوقف
+الخدمةَ وراجع `/etc/mihrab/token` قبل أن تفتح المرحلةَ ٣.
 
 ### ٣ · كتلُ 443
 
@@ -195,7 +228,7 @@ journalctl -u mihrab-web -n 30 --no-pager
 > و`/releases` و`/repo` (برمزٍ صالح)، فلا يخدم شيئًا عليها ⇒ التحويلاتُ لا تحجب وظيفة.
 
 ```bash
-sudo cp nginx/mihrab.dev.conf /etc/nginx/sites-available/mihrab
+sudo cp /tmp/mihrab-deploy/mihrab.dev.conf /etc/nginx/sites-available/mihrab
 sudo ln -sf /etc/nginx/sites-available/mihrab /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -233,7 +266,7 @@ sudo certbot certonly --dns-cloudflare   --dns-cloudflare-credentials /etc/mihra
 وبعد صدور الشهادة:
 
 ```bash
-sudo cp nginx/webview.mihrab.dev.conf /etc/nginx/sites-available/mihrab-webview
+sudo cp /tmp/mihrab-deploy/webview.mihrab.dev.conf /etc/nginx/sites-available/mihrab-webview
 sudo ln -sf /etc/nginx/sites-available/mihrab-webview /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
