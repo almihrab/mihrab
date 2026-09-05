@@ -97,14 +97,30 @@ curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal   # ‏CLI مكت
 
 كلُّ مرحلةٍ تنتهي بتحقّقٍ يقيس أنّها نجحت. ولا تُبدأ التاليةُ قبل أن يخضرّ.
 
-### ٠ · قِسْ واحتفظ بنسخة
+### ٠ · قِسْ واحتفظ بنسخة — **مُنفَّذة ✅** (2026-09-05)
 
 ```bash
 sudo bash preflight.sh
-sudo tar czf ~/nginx-$(date +%F).tgz /etc/nginx
+# نسخةُ الإعداد. `--exclude=./ssl` مقصود: مفتاحٌ خاصٌّ لا يُقرأ بلا root ولا نلمس
+# المجلّدَ إطلاقًا. وبدونه يخرج tar بـ2 فتكون «نسخةٌ» لا يُوثَق بها.
+tar czf ~/mihrab-nginx-config-$(date +%F-%H%M).tgz --exclude=./ssl -C /etc/nginx .
 ```
 
-التراجعُ في أيّ لحظة: `sudo tar xzf ~/nginx-<التاريخ>.tgz -C / && sudo nginx -t && sudo systemctl reload nginx`
+**ما قِيس:** ‏nginx 1.24.0 · ستّةُ مواقعَ · لا `default_server` على 443 ·
+`kadah` تضع `http2` على المقبس ⇒ مفعَّلٌ سلفًا · `certbot` بمُصادِقِ `nginx` ·
+‏14006 مشغولٌ و14007 حُرّ · لا `add_header` في `http{}` ·
+و`options-ssl-nginx.conf` و`ssl-dhparams.pem` **موجودان** (كان افتراضًا فصار قياسًا).
+
+**والنسخةُ الاحتياطيّةُ لم تُقبَل حتّى استُعيدت فعلًا:** فُكَّت في مجلّدٍ مؤقّتٍ
+وقُورنت بايتيًّا بـ`/etc/nginx` — **26 ملفًّا، صفرُ اختلافات**، والوصلاتُ الستُّ فيها.
+نسخةٌ لم تُجرَّب استعادتُها ليست نسخة.
+
+التراجعُ في أيّ لحظة:
+
+```bash
+sudo tar xzf ~/mihrab-nginx-config-<الطابع>.tgz -C /etc/nginx
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ### ١ · المشتركاتُ وكتلةُ 80 ⇒ ثمّ الشهادة
 
