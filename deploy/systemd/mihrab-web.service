@@ -19,6 +19,11 @@ StartLimitBurst=5
 # تُعلَّم الوحدةُ `condition failed` ولا تدخل حلقةَ إعادة تشغيل.
 ConditionPathExists=/etc/mihrab/token
 
+# ⛔ **لا تعليقَ جانبيًّا في هذا الملفّ.** systemd لا يعرفه: `Key=value  # شرح`
+#    يجعل القيمةَ كلَّ ما بعد `=`، فيُرفَض التوجيهُ **ويُتجاهَل بصمت** — لا خطأ
+#    ولا فشلَ إقلاع، بل تقييدٌ ظننتَه مفعَّلًا وليس كذلك. أُوقِع ثلاثَ مرّاتٍ هنا،
+#    وكشفه محرِّكُ systemd نفسُه في السجلّ. التعليقُ في سطرٍ مستقلٍّ دائمًا.
+#    ويحرسه [DEP-02] في الطبقة الساكنة.
 [Service]
 Type=simple
 User=mihrab
@@ -62,14 +67,18 @@ RestartSec=5s
 # إعادةِ تشغيلٍ أبديّةً كلَّ خمسِ ثوانٍ بلا حالةِ `failed` ⇒ بلا تنبيهٍ لأحد.
 
 # ── تقييدٌ متناسبٌ مع خدمةٍ تُنفِّذ شيفرةَ المستخدم عمدًا ──────────────────────
-NoNewPrivileges=true          # ⇐ يعطّل `sudo` في الطرفيّة المدمجة. مقصودٌ، لا عطب.
-PrivateTmp=true               # ⇐ `/tmp` معزول: وكيلُ SSH وأدواتٌ تتوقّع مشاركتَه لن تراه.
+# ‏NoNewPrivileges يعطّل `sudo` في الطرفيّة المدمجة. مقصودٌ، لا عطب.
+NoNewPrivileges=true
+# ‏`/tmp` معزول: وكيلُ SSH وأدواتٌ تتوقّع مشاركتَه لن تراه.
+PrivateTmp=true
 ProtectHome=tmpfs
 ProtectSystem=full
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-StateDirectory=mihrab         # ينشئ /var/lib/mihrab بالملكيّة الصحيحة تلقائيًّا
+# ينشئ /var/lib/mihrab بالملكيّة الصحيحة تلقائيًّا. **نسبيٌّ لا مطلق**: القيمةُ
+# تُلحَق بـ/var/lib، والمطلقُ يُرفَض («path is absolute, ignoring»).
+StateDirectory=mihrab
 ReadWritePaths=/var/lib/mihrab /opt/mihrab/data
 
 # ملاحظةُ صدق: مع `ProtectSystem=full` يبقى `/var` و`/opt` قابلَين للكتابة أصلًا،

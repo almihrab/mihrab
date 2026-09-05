@@ -4344,6 +4344,24 @@ def _deploy_does_not_expose_editor():
     unit = os.path.join(dep, "systemd", "mihrab-web.service")
     assert os.path.isfile(unit), "وحدةُ الخدمة مفقودة: " + unit
     u = _read(unit)
+
+    # **‏systemd لا يعرف التعليقَ الجانبيّ.** `Key=value  # شرح` يجعل القيمةَ كلَّ ما
+    # بعد `=`، فيُرفَض التوجيهُ **ويُتجاهَل بصمت**: لا خطأً ولا فشلَ إقلاع، بل تقييدٌ
+    # يُظَنُّ مفعَّلًا وليس كذلك. أُوقِع ثلاث مرّاتٍ في ملفٍّ واحد، وكشفه محرِّكُ
+    # ‏systemd في السجلّ لا حارسٌ عندنا:
+    #     Failed to parse boolean value, ignoring: true          # ⇐ …
+    #     StateDirectory= path is absolute, ignoring: /var/lib/mihrab
+    # فسقط `NoNewPrivileges` و`PrivateTmp` و`StateDirectory` من خدمةٍ تُنفِّذ شيفرةَ
+    # المستخدم عمدًا.
+    INLINE = re.compile(r"^[A-Za-z][A-Za-z0-9]*=.*[ 	]#")
+    for i, line in enumerate(u.splitlines(), 1):
+        assert not INLINE.match(line), (
+            "تعليقٌ جانبيٌّ في " + os.path.relpath(unit, ROOT) + ":" + str(i)
+            + " — systemd يبتلعه في القيمة ويتجاهل التوجيهَ صامتًا. ضعه في سطرٍ مستقلّ.")
+    # و`StateDirectory` نسبيٌّ لا مطلق (القيمةُ تُلحَق بـ/var/lib).
+    for line in u.splitlines():
+        if line.startswith("StateDirectory="):
+            assert not line.split("=", 1)[1].strip().startswith("/"),                 "‏StateDirectory مطلقٌ — systemd يرفضه («path is absolute»). اجعله نسبيًّا."
     assert "--connection-token-file" in u, \
         "‏ExecStart بلا --connection-token-file — لا رمزَ يحمي الطرفيّة"
     # ‏`StartLimit*` نُقلا إلى [Unit] منذ systemd 229؛ في [Service] يُهمَلان بصمت،
