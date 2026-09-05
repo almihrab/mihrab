@@ -892,6 +892,29 @@ for _nls in "$APP_DIR/out/nls.messages.json" "$APP_DIR/out/nls.messages.js" \
 done
 log "الهويّةُ نظيفةٌ في النصّ المُصيَّر (المخبوز + بيانات الامتدادات)"
 
+# ── (ي-3) لا وجهةَ مستودعٍ منبعيٍّ في الحزمة المصغَّرة [BR-05] ──
+# صنفٌ لم تحرسه بوّابةٌ قبله: عنوانٌ **يُضرَب في الشيفرة** وقتَ الترقيع، لا مفتاحٌ
+# في `product.json` ولا سلسلةٌ في النصّ المخبوز — وكلُّ ما سبق يفحص هذين.
+# ثلاثةُ مواضعَ قِيست حيّةً على mihrab.dev عبر CDP بعد النشر:
+#   • لوحُ الترحيب يجلب `announcements-extra.json` من مستودع المنبع في كلّ فتحةٍ
+#     أولى — يُخبِره بكلّ زائرٍ جديد، ويعرض إعلاناتِه في لوحِنا لو نُشرت.
+#   • ومُبلِّغُ الأعطاب يبحث في **قضايا المنبع** بنصّ عطبِ مستخدمِنا.
+#   • ورابطان إلى ويكي المنبع في واجهة التبليغ.
+# ومنشؤها واحد: `!!GH_REPO_PATH!!` في رُقَع VSCodium، وافتراضُه `VSCodium/vscodium`.
+# فـ`export GH_REPO_PATH` أعلاه يعالجها جميعًا — وهذه البوّابةُ تقيس **الأثر** لا النيّة.
+for _bundle in "$APP_DIR/out/vs/workbench/workbench.desktop.main.js" \
+               ${WEB_DIR:+"$WEB_DIR/out/vs/workbench/workbench.web.main.internal.js"} \
+               ${STATIC_DIR:+"$STATIC_DIR/out/vs/workbench/workbench.web.main.internal.js"}; do
+  [[ -f "$_bundle" ]] || continue
+  if LC_ALL=C grep -q "VSCodium/vscodium" "$_bundle"; then
+    echo "❌ [BR-05] وجهةُ مستودعِ المنبع مضروبةٌ في $_bundle" >&2
+    echo "   الأثر: لوحُ الترحيب يجلب من مستودعه · ومُبلِّغُ الأعطاب يبحث في قضاياه." >&2
+    echo "   السبب: GH_REPO_PATH لم يصل خطوةَ الترقيع — لا يكفي ضبطُه بعد البناء." >&2
+    exit 1
+  fi
+done
+log "لا وجهةَ مستودعٍ منبعيٍّ في الحزم المصغَّرة [BR-05]"
+
 # ‏--version لا يعمل بلا شاشة على لينكس (Electron يحتاج X/Wayland)، ولا يُشغَّل من
 # داخل حزمة .app بهذه الصورة على macOS. فيُترك لويندوز، والتحقّقُ أعلاه يغني عنه.
 if [[ "$IS_WIN" == "yes" ]]; then

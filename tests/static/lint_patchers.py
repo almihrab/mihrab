@@ -4332,13 +4332,63 @@ def _no_upstream_repo_in_generated_patches():
     assert "vscodium" not in val.lower() and "microsoft" not in val.lower(), \
         "‏GH_REPO_PATH يشير إلى المنبع: " + val
 
-    # مرسًى موجب: الرقعةُ التي تستهلك العنصرَ النائبَ ما زالت موجودة. لو زالت،
-    # صار الحارسُ يفرض متغيّرًا بلا أثر — وذلك يوهم بحمايةٍ لم تعد قائمة.
-    pat = os.path.join(ROOT, ".upstream", "patches",
-                       "00-community-add-announcements.patch")
-    if os.path.isfile(pat):
-        assert "!!GH_REPO_PATH!!" in _read(pat), \
-            "رقعةُ الإعلانات لم تعد تستعمل العنصرَ النائب — راجِع ما صارت تجلبه"
+    # مرسًى موجب: الرُقَعُ التي تستهلك العنصرَ النائبَ ما زالت موجودة. لو زالت، صار
+    # الحارسُ يفرض متغيّرًا بلا أثر — وذلك يوهم بحمايةٍ لم تعد قائمة.
+    pdir = os.path.join(ROOT, ".upstream", "patches")
+    if os.path.isdir(pdir):
+        users = [n for n in sorted(os.listdir(pdir))
+                 if n.endswith(".patch") and "!!GH_REPO_PATH!!" in _read(os.path.join(pdir, n))]
+        assert users, ("لا رقعةَ تستعمل !!GH_REPO_PATH!! — إمّا زالت الرُقَعُ فالمتغيّرُ "
+                       "بلا أثر، وإمّا صارت تكتب وجهةً حرفيّةً فالحارسُ أعمى")
+        # وسطرٌ مُضافٌ يكتب وجهةَ المنبع حرفيًّا يتجاوز العنصرَ النائبَ كلَّه.
+        #
+        # ‏**استثناءٌ واحدٌ مُعلَنٌ بشرطِ رفعه**: `21-policy-use-custom-lib` يكتب
+        # `github.com/VSCodium/vscodium` في ثلاثة حقولٍ من `renderProfileManifest` —
+        # ‏`pfm_app_url` و`pfm_documentation_url` و`PayloadDescription`. وهي بيانُ
+        # ملفِّ سياسةٍ مؤسّسيّ: «This profile manages محراب. For more information
+        # see …/VSCodium». عطبُ هويّةٍ حقيقيّ، لكنّه **نائم**: قِيس أنّ `pfm_app_url`
+        # لا يظهر في أيٍّ من الشجرتين المشحونتين (ولا في الويب)، لأنّها أداةُ بناءٍ
+        # لتوليد ملفّاتِ سياسةٍ لا نولّدها.
+        # ⚠️ يُرفع الاستثناءُ لحظةَ أن يشحن محرابٌ ملفَّ سياسةٍ مؤسّسيّة.
+        POLICY_EXEMPT = "21-policy-use-custom-lib.patch"
+        for n in sorted(os.listdir(pdir)):
+            if not n.endswith(".patch") or n == POLICY_EXEMPT:
+                continue
+            for i, line in enumerate(_read(os.path.join(pdir, n)).splitlines(), 1):
+                if line.startswith("+") and "VSCodium/vscodium" in line:
+                    raise AssertionError(
+                        "وجهةُ المنبع حرفيّةً في سطرٍ مُضافٍ — "
+                        ".upstream/patches/" + n + ":" + str(i)
+                        + " — `GH_REPO_PATH` لا يبلغها")
+
+        # ومرسًى للاستثناء نفسِه: يبقى نائمًا ما دام لا يُشحَن. فإن ظهر في شجرةٍ
+        # مبنيّةٍ يومًا، سقط سببُ الاستثناء وصار عطبًا حيًّا.
+        for tree in (os.path.join(ROOT, ".upstream", "VSCode-win32-x64"),
+                     os.path.join(ROOT, ".upstream", "vscode-web")):
+            hit = os.path.join(tree, "resources", "app", "out")
+            if not os.path.isdir(tree):
+                continue
+            for base, _dirs, files in os.walk(hit if os.path.isdir(hit) else tree):
+                for fn in files:
+                    if not fn.endswith((".js", ".json", ".plist", ".mobileconfig")):
+                        continue
+                    try:
+                        with open(os.path.join(base, fn), "rb") as f:
+                            if b"pfm_app_url" in f.read():
+                                raise AssertionError(
+                                    "ملفُّ السياسة صار يُشحَن (" + fn + ") — سقط سببُ "
+                                    "استثناء " + POLICY_EXEMPT + "، وهو يحمل وجهةَ المنبع")
+                    except OSError:
+                        pass
+
+    # وبوّابةُ الأثر في `build.sh`: المتغيّرُ نيّةٌ، والحزمةُ هي ما يُشحَن. ويُقاس
+    # **جسمُ البوّابة** لا وسمُها: أوّلُ صياغةٍ قبلت `"[BR-05]" in sh`، والوسمُ يرد
+    # في التعليق أعلاه — فحذفُ البوّابة كلِّها كان يمرّ. كشفه مُصابُ PF-03.
+    assert 'grep -q "VSCodium/vscodium" "$_bundle"' in sh, \
+        "لا بوّابةَ تقيس الحزمةَ المصغَّرة — ضبطُ المتغيّر وحدَه لا يُثبِت أنّه وصل الترقيع"
+    for _t in ("$APP_DIR/out/vs/workbench/workbench.desktop.main.js",
+               "$STATIC_DIR/out/vs/workbench/workbench.web.main.internal.js"):
+        assert _t in sh, "بوّابةُ [BR-05] لا تشمل " + _t
 
 
 @check("صفحةُ مضيفِ المتصفّح تفي بما تَعِد [WEB-04]")

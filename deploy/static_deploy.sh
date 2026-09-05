@@ -27,7 +27,7 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ‏`/tmp` يكتب فيه **أيُّ مستخدم**. وهذا السكربتُ يعمل بجذر، فبين لحظةِ رفع الحمولة
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
-SHA_TREE=9bf29511716887470b16f3c44e5809537769dceb48b400f64f9e89690f211552
+SHA_TREE=46cf737e2a385b7c6ba73fc3512ba52039dd8dd6b4cfd79c17220e1582fd4b5e
 SHA_CONF=4f1bd02d4af33ef9f0253beacca5a66748c2ae96cd782a5015da1e259c8472e6
 
 die() { echo "❌ $*" >&2; exit 1; }
@@ -75,6 +75,12 @@ grep -q '"name": "محراب"' "$NEW/manifest.json" \
   || die "المانيفست ليس مانيفستَ محراب — أيقونةُ التبويب واسمُ التثبيت ليسا لنا"
 grep -qi 'vscodium' "$NEW/manifest.json" "$NEW/index.html" "$NEW/boot.js" \
   && die "تسرّبُ اسمِ المنبع في ملفٍّ يُخدَم للزائر"
+# ‏[BR-05]: وجهةُ مستودعِ المنبع مضروبةٌ في الحزمة المصغَّرة — لا مفتاحٌ في إعدادٍ،
+# فلا تراها بوّاباتُ `product.json` ولا النصِّ المخبوز. كان لوحُ الترحيب يجلب
+# `announcements-extra.json` من مستودع المنبع في كلّ فتحةٍ أولى، ومُبلِّغُ الأعطاب
+# يبحث في قضاياه بنصّ عطبِ مستخدمِنا. قِيس حيًّا بعد أوّل نشرٍ لا قبله.
+grep -q 'VSCodium/vscodium' "$NEW/out/vs/workbench/workbench.web.main.internal.js" \
+  && die "[BR-05] وجهةُ مستودعِ المنبع في الحزمة — شجرةٌ بُنيت قبل إصلاح GH_REPO_PATH"
 
 chown -R root:root "$NEW"
 find "$NEW" -type d -exec chmod 755 {} +

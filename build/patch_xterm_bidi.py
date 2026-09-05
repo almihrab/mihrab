@@ -108,14 +108,24 @@ def main(app_dir):
     meta = os.path.join(pkg_dir, "package.json")
     if not os.path.isfile(lib):
         fail("لا حزمةَ xterm مشحونة في " + lib)
-    if not os.path.isfile(meta):
-        fail("لا package.json لـxterm في " + meta)
 
-    version = json.load(io.open(meta, encoding="utf-8")).get("version")
-    if version != SUPPORTED_VERSION:
-        fail("‏xterm " + str(version) + " لا " + SUPPORTED_VERSION + " — الرقعةُ مقيسةٌ "
-             "على هذا الإصدار وحدَه، والمُصغِّرُ يبدّل الأسماءَ بين النسخ. "
-             "أعِد قياسَ المراسي ثمّ حدِّث SUPPORTED_VERSION.")
+    # البناءُ الثابت (`vscode-web`) يشحن `lib/` و`css/` **بلا `package.json`** — قِيس
+    # على 1.126: مجلّدان فقط. فسقوطُ الإصدار ليس سقوطَ الحزمة.
+    #
+    # ولا يُتخطّى الترقيعُ لذلك: **المراسي أصدقُ من رقم الإصدار**. شرطُ «وقعت مرّةً
+    # واحدةً بالضبط» أدناه يرفض أيَّ حزمةٍ ليست ما قِيس — والمُصغِّرُ يبدّل الأسماءَ
+    # بين النسخ فيسقط العددُ فورًا. فحصُ الإصدارِ فحصٌ رخيصٌ سابق، لا الفحصَ الحاسم.
+    version = None
+    if os.path.isfile(meta):
+        version = json.load(io.open(meta, encoding="utf-8")).get("version")
+        if version != SUPPORTED_VERSION:
+            fail("‏xterm " + str(version) + " لا " + SUPPORTED_VERSION + " — الرقعةُ مقيسةٌ "
+                 "على هذا الإصدار وحدَه، والمُصغِّرُ يبدّل الأسماءَ بين النسخ. "
+                 "أعِد قياسَ المراسي ثمّ حدِّث SUPPORTED_VERSION.")
+    else:
+        version = SUPPORTED_VERSION + " (غيرُ معلَن)"
+        print("  ℹ️ لا package.json في هذه الشجرة — بوّابةُ الإصدار متخطّاةٌ بسببٍ "
+              "معلَن، وعدُّ المراسي أدناه هو الفحصُ الحاسم.")
 
     src = io.open(lib, encoding="utf-8", newline="").read()
     if MARK in src:

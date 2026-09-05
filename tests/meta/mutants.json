@@ -431,6 +431,26 @@
       "new": "export GH_REPO_PATH=\"VSCodium/vscodium\"",
       "expect": "يشير إلى المنبع",
       "why": "عنوانٌ يُضرَب في الحزمة المصغَّرة وقتَ الترقيع، فلا يراه فحصُ `product.json` ولا فحصُ النصّ المخبوز. وأثرُه أنّ لوحَ الترحيب يجلب `announcements-extra.json` من مستودع المنبع في كلّ فتحةٍ أولى — يُخبِره بزائرِنا ويعرض إعلاناتِه في لوحِنا. قِيس حيًّا على mihrab.dev عبر CDP بعد النشر، لا استُنتج."
+    },
+    {
+      "id": "brand-no-bundle-gate",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "  if LC_ALL=C grep -q \"VSCodium/vscodium\" \"$_bundle\"; then",
+      "new": "  if false; then",
+      "expect": "لا بوّابةَ تقيس الحزمةَ المصغَّرة",
+      "why": "ضبطُ `GH_REPO_PATH` **نيّة**؛ وصولُه إلى خطوة الترقيع هو الأثر. وقد سبق أن ضُبط متغيّرٌ ولم يصل، فبقي الحارسُ أخضرَ على بناءٍ يحمل العطب. وأوّلُ صياغةٍ لهذا الحارس قاست **وسمَ** `[BR-05]` — وهو يرد في التعليق فوق البوّابة، فحذفُ البوّابة كلِّها كان يمرّ. المُصابُ كشف ذلك، والحارسُ صار يقيس جسمَها."
+    },
+    {
+      "id": "brand-literal-repo-in-patch",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": ".upstream/patches/00-ui-report-issue.patch",
+      "old": "+\t\t\tthis.searchGitHub('!!GH_REPO_PATH!!', title);",
+      "new": "+\t\t\tthis.searchGitHub('VSCodium/vscodium', title);",
+      "expect": "وجهةُ المنبع حرفيّةً في سطرٍ مُضاف",
+      "why": "وجهةٌ حرفيّةٌ في سطرٍ مُضافٍ **تتجاوز العنصرَ النائبَ كلَّه**، فيبقى `GH_REPO_PATH` مضبوطًا بلا أثرٍ على هذا الموضع. والأثرُ أنّ مُبلِّغَ الأعطاب يبحث في قضايا المنبع بنصّ عطبِ مستخدمِنا."
     }
   ],
   "uncovered": [
