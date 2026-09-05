@@ -531,7 +531,11 @@ done
 BSH="$UP/build.sh"
 # مصدر حقيقة واحد لإصدار الرُقَع: يُشتَقّ CORE_PATCH_VERSION من patch_bundle_extensions.py
 # فيبقى الحارس هنا والوسم في المرقِّع متّسقين تلقائيًّا (رفع الإصدار في موضع واحد يكفي).
-CORE_PATCH_VERSION="$(sed -n 's/.*CORE_PATCH_VERSION[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/build/patch_bundle_extensions.py" | head -1)"
+# **يُسأل المُرقِّعُ ولا يُقرَأ نصُّه**: كان `sed` يلتقط `CORE_PATCH_VERSION = "v33"`
+# حرفيًّا. ثمّ صار الوسمُ مشتقًّا من بصمة المحتوى فاختفى الثابتُ من النصّ، فسقط
+# البناءُ بـ«تعذّر الاشتقاق» — والطبقاتُ الأربعُ خضراء، لأنّها تستورد الوحدةَ
+# ولا تقرأ نصَّها. لا يمسك هذا إلّا بناءٌ فعليّ، وقد أمسكه.
+CORE_PATCH_VERSION="$("$PY_BIN" -c "import importlib.util,sys; s=importlib.util.spec_from_file_location('m', sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.CORE_PATCH_VERSION)" "$ROOT/build/patch_bundle_extensions.py" 2>/dev/null)"
 [[ -z "$CORE_PATCH_VERSION" ]] && { echo "❌ تعذّر اشتقاق CORE_PATCH_VERSION من patch_bundle_extensions.py." >&2; exit 1; }
 # الوسم يتضمّن إصدار الحقن؛ بدّله (في المرقِّع) عند توسيع الرُقَع كي يُعاد الترقيع على build.sh نظيف.
 if [[ -f "$BSH" ]] && ! grep -q "محراب: رُقَع النواة $CORE_PATCH_VERSION" "$BSH"; then

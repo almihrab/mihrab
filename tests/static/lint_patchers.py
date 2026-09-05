@@ -310,6 +310,18 @@ def _core_patch_version_embedded():
     assert mod._derive_mark(mutated) != mod.VERSION_MARK,         "الاشتقاقُ لا يتأثّر بتغيّر المحتوى — دالّةٌ ميّتة"
     del hashlib
 
+    # **وما يقرؤه `build.sh` فعلًا.** الطبقةُ تستورد الوحدةَ، و`build.sh` كان يقرأ
+    # نصَّها بـ`sed` بحثًا عن `CORE_PATCH_VERSION = "…"`. فلمّا صار الوسمُ مشتقًّا
+    # اختفى الثابتُ من النصّ وسقط البناءُ بـ«تعذّر الاشتقاق» — والطبقاتُ الأربعُ
+    # خضراء. صار `build.sh` **يسأل الوحدةَ** لا يقرأ نصَّها؛ وهذا يشترط بقاءَ ذلك.
+    sh = _read(os.path.join(BUILD, "build.sh"))
+    assert "sed -n 's/.*CORE_PATCH_VERSION" not in sh, (
+        "‏build.sh يقرأ CORE_PATCH_VERSION من نصّ الملفّ — والثابتُ مشتقٌّ لا مكتوب. "
+        "اسأل الوحدةَ باستيرادها.")
+    assert "m.CORE_PATCH_VERSION" in sh, (
+        "‏build.sh لا يشتقّ CORE_PATCH_VERSION من الوحدة — مصدرُ الحقيقة انفصل، "
+        "فيحرس البناءُ وسمًا غيرَ الذي يُحقَن.")
+
 
 # ───────── L0-2ب: قائمة الجولات المُسقَطة (لا تبتلع محتوى الوصول) ─────────
 @check("إسقاط جولات المنبع: القائمة مقصورة على التعريفيّة ولا تمسّ SetupAccessibility")
