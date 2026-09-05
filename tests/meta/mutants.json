@@ -381,6 +381,46 @@
       "new": "\"releaseNotesUrl\": \"https://github.com/sadlang/mihrab-ide/releases\"",
       "expect": "مرجعٌ بائتٌ للمستودع القديم",
       "why": "رابطٌ يصل المستخدمَ في «ملاحظات الإصدار» ويُطبَع في ثنائيّاتٍ موقَّعة. يعمل اليومَ بتحويل GitHub، ويسقط يومَ يُعاد استعمالُ الاسم القديم."
+    },
+    {
+      "id": "web-host-theme-drift",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/boot.js",
+      "old": "'workbench.colorTheme': 'محراب الداكنة'",
+      "new": "'workbench.colorTheme': 'محراب الداكن'",
+      "expect": "ليست من سمات mihrab-themes",
+      "why": "هذا العطبُ **وقع فعلًا وشُحِن**: حرفٌ ناقصٌ في اسمِ سمةٍ حرفيّ. لا يُسقِط بناءً ولا يرمي خطأً — الورشةُ ترتدّ إلى Dark Modern بصمت، أي أنّ محرابَ المتصفّح يبدو VS Code. والصنفُ كلُّه (سلسلةٌ حرفيّةٌ يجب أن تطابق بياناتِ امتدادٍ آخر) لا يمسكه إلّا مقارنةٌ بالمصدر."
+    },
+    {
+      "id": "web-host-webview-to-upstream",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/boot.js",
+      "old": "    webviewEndpoint: new URL(",
+      "new": "    _webviewEndpoint: new URL(",
+      "expect": "vscode-cdn.net",
+      "why": "‏**الصمتُ هنا ليس محايدًا**: بلا هذا الحقل يرتدّ المنبعُ إلى `{{uuid}}.vscode-cdn.net`، فيُرسَل عنوانُ كلّ زائرٍ إلى شبكة المنبع عند كلّ معاينةِ Markdown ثمّ يرجع 404. وقد كُتب في تعليقٍ سابقٍ أنّ تركَه فارغًا يخدم الـwebviews محلّيًّا — وكان عكسَ الواقع. مُصابٌ يمنع عودةَ الوهم."
+    },
+    {
+      "id": "web-static-tree-unwired",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "bake_nls_arabic.py\" \"$_STATIC_DIR\"",
+      "new": "bake_nls_arabic.py\" \"$_STATIC_DIR_DISABLED\"",
+      "expect": "غيرُ موصولة",
+      "why": "الشجرةُ الثابتةُ هي **ما يُنشَر فعلًا**، وقد عاشت خارجَ خطّ البناء كلِّه بينما الطبقاتُ الخمسُ خضراء. حذفُ سطرٍ واحدٍ يعيدها إنجليزيّةً بالكامل — والمُصابُ يُثبِت أنّ الحلقةَ صارت ثلاثيّةً لا ثنائيّة."
+    },
+    {
+      "id": "deploy-ssl-duplicate-tab",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.conf",
+      "old": "    ssl_dhparam",
+      "new": "    ssl_session_timeout\t1d;\n    ssl_dhparam",
+      "expect": "تكرارٌ يمنع nginx من الإقلاع",
+      "why": "‏`ssl_session_timeout` مكرَّرًا فوق قصاصة certbot يجعل nginx **يرفض الإقلاع** — أُوقِع على الخادم الحيّ وأنقذته البوّابةُ التلقائيّة. والفاصلُ هنا **جدولةٌ لا مسافة**: الصياغةُ الأولى للحارس كانت `startswith(d + ' ')` فتمرّ الجدولةُ من تحتها، وnginx يقبلها تمامًا."
     }
   ],
   "uncovered": [

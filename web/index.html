@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<!--
+  محرابٌ في المتصفّح — صفحةُ المضيف.
+
+  ‏`vscode-web` المنبعيُّ **مكتبةٌ لا موقع**: لا `index.html` فيه ولا `product.json`.
+  يُصدِّر `create()` وينتظر أن تكتب أنت الصفحةَ التي تُقلِعه وتمرّر إعدادَ المنتَج.
+  هكذا يعمل `vscode.dev` نفسُه — مايكروسوفت تكتب صفحتَه.
+
+  وهذا مكسبٌ لا عائق: نتحكّم بالعنوان والخطّ وشاشة الإقلاع وهويّةِ محرابٍ كاملةً،
+  بدل أن نرقّع صفحةً منبعيّة.
+
+  ولا خادمَ خلف هذه الصفحة: ملفّاتٌ ثابتةٌ فقط. لا نظامَ ملفّاتٍ مكشوف، ولا طرفيّة،
+  ولا عمليّةَ تعمل — والملفّاتُ من جهاز الزائر عبر File System Access.
+
+  ⚠️ هذا الملفُّ مصدرُ الحقيقة. ‏`build/patch_web_host.py` ينسخه إلى شجرة `vscode-web`
+     في كلّ بناء، ويؤكّد التطابقَ في `--verify`. لا يُحرَّر في الشجرة المبنيّة.
+-->
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <!-- ‏`maximum-scale`/`user-scalable` محذوفان عمدًا: منعُ التكبير مخالفةُ WCAG 1.4.4،
+       وقفزةُ تكبيرِ اللمس التي يمنعانها لا توازي حرمانَ ضعيفِ البصر منه. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="محراب">
+  <meta name="theme-color" content="#0d1f1c">
+  <meta name="description" content="محراب — محرِّرُ شيفرةٍ عربيُّ الاتّجاه، يعمل في متصفّحك بلا تثبيت.">
+  <title>محراب</title>
+
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="code-192.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="out/vs/workbench/workbench.web.main.internal.css">
+
+  <style>
+    /* شاشةُ إقلاعٍ عربيّة: الحزمةُ نحو 17 م.ب، فأوّلُ تحميلٍ بارد يستغرق ثوانيَ — بل
+       دقيقتين على اتّصالٍ متواضع. صفحةٌ بيضاءُ صامتةٌ في تلك المدّة تُقرأ عطبًا. */
+    html, body { height: 100%; margin: 0; background: #0d1f1c; color: #cfe8e3; }
+    #mihrab-boot {
+      position: fixed; inset: 0; display: flex; align-items: center;
+      justify-content: center; flex-direction: column; gap: 1.25rem;
+      /* خطُّ النظام عمدًا: `Kawkab Mono` يسكن `@font-face` داخل ورقةِ الورشة الثقيلة،
+         فالوعدُ به هنا يعني رسمًا بخطٍّ احتياطيٍّ ثمّ قفزةً حين تصل. ولا نَعِد بما يتأخّر. */
+      font-family: "Noto Sans Arabic", "Segoe UI", system-ui, sans-serif;
+      transition: opacity .35s ease; z-index: 9999;
+    }
+    /* ⛔ لا `letter-spacing` هنا: يفكّ وصلَ الحروف العربيّة — و«محراب» أوّلُ كلمةٍ
+       يراها الزائر، وهي العلامةُ نفسُها. */
+    #mihrab-boot .name { font-size: 2.4rem; }
+    #mihrab-boot .hint { font-size: .95rem; opacity: .72; max-width: 30rem;
+                         text-align: center; line-height: 1.9; padding: 0 1.5rem; }
+    #mihrab-boot .bar {
+      width: 12rem; height: 2px; background: #1d3b36; overflow: hidden; border-radius: 2px;
+    }
+    #mihrab-boot .bar i {
+      display: block; height: 100%; width: 35%; background: #2ec4a6;
+      animation: mihrab-slide 1.1s ease-in-out infinite;
+    }
+    /* يمينًا ثمّ يسارًا — لأنّ القراءةَ كذلك. */
+    @keyframes mihrab-slide { 0% { margin-right: -35% } 100% { margin-right: 100% } }
+    /* وشريطٌ لا يتحرّك يكذب بالإيحاء: يبدو ممتلئًا أو عالقًا. فيُخفى، ويكفي النصُّ
+       المتدرّجُ وحدَه — وهو أصدقُ من شريطٍ بلا مرجعٍ أصلًا. */
+    @media (prefers-reduced-motion: reduce) {
+      #mihrab-boot .bar { display: none }
+      #mihrab-boot { transition: none }
+    }
+    #mihrab-boot.gone { opacity: 0; pointer-events: none; }
+    #mihrab-boot .err { color: #ff9b8a; max-width: 34rem; text-align: center; line-height: 1.9; }
+    #mihrab-boot button {
+      font: inherit; color: #0d1f1c; background: #2ec4a6; border: 0; border-radius: 4px;
+      padding: .5rem 1.4rem; cursor: pointer;
+    }
+    #mihrab-boot button:focus-visible { outline: 2px solid #cfe8e3; outline-offset: 2px; }
+  </style>
+</head>
+
+<body aria-label="محراب">
+  <noscript>
+    <div style="padding:2rem;text-align:center;line-height:2">
+      <strong style="font-size:1.6rem">محرابٌ يحتاج جافاسكربت.</strong><br>
+      فعِّلها في متصفّحك ثمّ أعِد تحميل الصفحة.
+    </div>
+  </noscript>
+
+  <div id="mihrab-boot">
+    <div class="name">محراب</div>
+    <div class="bar" role="progressbar" aria-label="تقدّمُ التحميل"><i></i></div>
+    <div class="hint" id="mihrab-hint" role="status" aria-live="polite">يُهيَّأ المحراب…</div>
+  </div>
+
+  <script>
+    // لازمٌ **قبل** أيّ وحدة: الحزمةُ تحلّ مساراتِ العمّال والأصولِ منه.
+    globalThis._VSCODE_FILE_ROOT = new URL('out/', document.baseURI).toString();
+    // ولغةُ النواة: `out/nls.messages.js` مخبوزٌ عربيًّا، فليُعلَن ذلك. بدونه تعود
+    // `platform.language` إلى `'en'` فوق واجهةٍ عربيّة — واختلافُهما يقلب قراراتٍ
+    // تعتمد اللغةَ لا الاتّجاه.
+    globalThis._VSCODE_NLS_LANGUAGE = 'ar';
+    performance.mark('mihrab/willLoadWorkbench');
+
+    // ── شاشةُ الإقلاع: آلةُ حالةٍ صغيرةٌ **مضمَّنةٌ هنا لا في `boot.js`** ──
+    // والسببُ واحدٌ حاسم: أخطرُ عطبِ نشرٍ ثابتٍ هو ألّا تُحمَّل الحزمةُ أصلًا (404 أو
+    // نوعُ MIME خاطئ). عندها لا يُنفَّذ `boot.js` إطلاقًا — فلو سكن المُلتقِطُ فيه لَما
+    // وُجد من يبلّغ، ورأى الزائرُ شريطًا يدور إلى الأبد.
+    (function () {
+      var hint = document.getElementById('mihrab-hint');
+      var boot = document.getElementById('mihrab-boot');
+      var done = false, failed = false;
+
+      // مراحلُ صادقةٌ بلا ادّعاءِ نسبة: لا نعرف كم نزل، فنقول ما نعرف فقط.
+      var STAGES = [
+        [3000,  'تُحمَّل الحزمة — نحو ١٧ م.ب في أوّل زيارة.'],
+        [15000, 'ما زال التحميل جاريًا. تُخزَّن الحزمةُ في متصفّحك، فلن تتكرّر هذه الانتظارة.'],
+        [60000, 'طال الأمر أكثر من المعتاد — الاتّصال بطيءٌ على ما يبدو. الانتظارُ ما زال مُجديًا.']
+      ];
+      var timers = STAGES.map(function (s) {
+        return setTimeout(function () {
+          if (!done && !failed && hint) { hint.textContent = s[1]; }
+        }, s[0]);
+      });
+
+      // 120 ثانيةً لا 30: 17 م.ب على 1 م.ب/ث ≈ 136 ثانية. مهلةٌ أقصرُ تقتل إقلاعًا
+      // سليمًا على اتّصالٍ عاديٍّ ثمّ تلوم المستخدم.
+      var deadline = setTimeout(function () {
+        fail('لم يكتمل تحميلُ محراب. قد يكون الاتّصالُ انقطع، أو منع المتصفّحُ جزءًا من الملفّات.');
+      }, 120000);
+
+      function clearTimers() { timers.forEach(clearTimeout); clearTimeout(deadline); }
+
+      function ok() {
+        if (done) { return; }
+        done = true; clearTimers();
+        if (boot) { boot.classList.add('gone'); setTimeout(function () { boot.remove(); }, 400); }
+        performance.mark('mihrab/didLoadWorkbench');
+      }
+
+      function fail(msg) {
+        // ⛔ الشرطُ الحاكم: لا تُرسَم شاشةُ فشلٍ فوق ورشةٍ **تعمل**. الشاشةُ
+        // `inset:0; z-index:9999`، فرسمُها على إقلاعٍ سليمٍ يحجب المحرِّرَ حجبًا كاملًا
+        // وإلى الأبد بلا مخرج. وأيُّ خطأٍ ثانويٍّ من امتدادٍ كان يفعل ذلك.
+        if (done || failed || document.querySelector('.monaco-workbench')) { return; }
+        failed = true; clearTimers();
+        if (!boot) { return; }
+        boot.innerHTML = '';
+        var h = document.createElement('div'); h.className = 'name'; h.textContent = 'محراب';
+        var e = document.createElement('div'); e.className = 'err';
+        e.setAttribute('role', 'alert'); e.textContent = msg;
+        var b = document.createElement('button');
+        b.type = 'button'; b.textContent = 'أعِد المحاولة';
+        b.addEventListener('click', function () { location.reload(); });
+        boot.appendChild(h); boot.appendChild(e); boot.appendChild(b);
+        b.focus();
+      }
+
+      // بلا `{ once: true }`: أوّلُ خطأٍ ليس بالضرورة الخطأَ الحاسم، وحرقُ المُلتقِط
+      // عليه يُعمينا عن الفشل الحقيقيّ. والحراسةُ في `fail` هي التي تمنع الإنذارَ الكاذب.
+      addEventListener('error', function (ev) {
+        console.error('[محراب]', ev.message || ev);
+        fail('تعذّر تحميلُ المحرِّر. جرّب إعادةَ التحميل.');
+      });
+      addEventListener('unhandledrejection', function (ev) {
+        console.error('[محراب]', (ev.reason && ev.reason.message) || ev.reason);
+        fail('تعذّر تحميلُ المحرِّر. جرّب إعادةَ التحميل.');
+      });
+
+      globalThis.__mihrabBoot = { ok: ok, fail: fail };
+    })();
+  </script>
+
+  <!-- الإنجليزيّةُ أساسًا، ثمّ العربيّةُ المخبوزةُ تدوسها. الترتيبُ مقصودٌ ومنبعيّ.
+       ووسمٌ واحدٌ لا اثنان كالمنبع: `bake_nls_arabic.py` يخبز العربيّةَ **في** ملفِّ
+       الاحتياط نفسِه، فلا ملفَّ لغةٍ ثانٍ يُحمَّل فوقه. -->
+  <script type="module" src="out/nls.messages.js"></script>
+
+  <!-- هويّةُ محراب مشتقّةً من `product-overrides/product.json` في البناء — لا مكتوبةً
+       هنا مرّةً ثانية. يولّده `build/patch_web_host.py`. -->
+  <script src="product.web.js"></script>
+  <script type="module" src="boot.js"></script>
+</body>
+</html>

@@ -24,7 +24,16 @@
 idempotent: يحفظ الإنجليزيّة الأصليّة في nls.messages.en.json ويقرأ منها مصدرَ
 الارتداد، فإعادة التشغيل لا تُضاعِف الخبز.
 
-الاستعمال: python bake_nls_arabic.py <مسار resources/app>
+ثلاثُ أشجارٍ لا واحدة، والأداةُ نفسُها للثلاث:
+  • المكتبيّ (`resources/app`) — `out/nls.messages.json` وحدَه.
+  • بناءُ الخادم (`vscode-reh-web-*`) — ومعه `out/nls.messages.js`، وهو ما يصل المتصفّح.
+  • البناءُ الثابت (`vscode-web`) — كسابقِه، غير أنّ `nls.messages.js` فيه **يسبقه
+    إشعارُ حقوقٍ منبعيّ**. فالبادئةُ `globalThis._VSCODE_NLS_MESSAGES=` تُبحَث ولا
+    يُشترَط موضعُها، ويُحفَظ الرأسُ كما هو — إشعارُ حقوقِ غيرِنا لا يُحذَف.
+وذيلُ الملفّ **يُكتَب لا يُنسَخ**: القديمُ كان يحمل `sourceMappingURL` إلى إصدارات
+VSCodium — اسمُ منبعٍ يُخدَم للزائر، وجلبٌ من طرفٍ ثالثٍ عند فتح أدوات المطوّر.
+
+الاستعمال: python bake_nls_arabic.py <مسار الشجرة>
 """
 import hashlib
 import json
@@ -184,16 +193,21 @@ def main() -> int:
         with open(js_file, "r", encoding="utf-8", newline="") as f:
             js_src = f.read()
         js_prefix = "globalThis._VSCODE_NLS_MESSAGES="
+        # **يُبحَث عنه ولا يُشترَط في الموضع صفر.** بناءُ `vscode-reh-web` يبدأ به،
+        # وبناءُ `vscode-web` الثابت يسبقه بإشعارِ حقوقٍ منبعيّ — فسقط الخبزُ على
+        # شجرةٍ سليمة. والرأسُ يُحفَظ كما هو: إشعارُ حقوقِ غيرِنا لا يُحذَف.
+        at = js_src.find(js_prefix)
         close = js_src.rfind("]")
-        if not js_src.startswith(js_prefix) or close < 0:
+        if at < 0 or close <= at:
             print(f"❌ بنيةٌ غيرُ متوقَّعة في {js_file} — توقّف بلا كتابة.", file=sys.stderr)
             return 1
+        js_head = js_src[:at]
         # **الذيلُ يُكتَب لا يُستنسَخ.** كان `js_src[close+1:]` يُبقي سطرَ
         # `sourceMappingURL` كما هو — وهو يشير إلى **إصدارات VSCodium**. فيُخدَم
         # اسمُ المنبع للمتصفّح في ملفٍّ نحن نكتبه، ويُجلَب من طرفٍ ثالثٍ عند فتح
         # أدوات المطوّر. وبوّابةُ الهويّة كانت تفحص الـjson المكتبيّة وحدَها فلم ترَه.
         # ولا بديلَ لدينا نشير إليه (لا ننشر خرائطَ مصدر)، فيُحذَف السطر.
-        js_out = js_prefix + json.dumps(result, ensure_ascii=False) + ";\n"
+        js_out = js_head + js_prefix + json.dumps(result, ensure_ascii=False) + ";\n"
 
         tmp_js = js_file + ".tmp"
         with open(tmp_js, "w", encoding="utf-8", newline="") as f:

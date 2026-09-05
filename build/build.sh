@@ -759,12 +759,12 @@ fi
 # يمينًا، 545 محرفًا عربيًّا من 779 مرئيّة، و`Kawkab Mono:loaded` بلا خرقِ CSP —
 # وسياسةُ الويب `font-src 'self' blob:` تخلو من `data:` كسياسةِ المكتبيّ، فرقعةُ [AR-02]
 # لازمةٌ هنا كذلك.
-_WEB_DIRS=("$UP"/vscode-reh-web-*)
-if [[ -d "${_WEB_DIRS[0]:-}" ]]; then
-  if (( ${#_WEB_DIRS[@]} != 1 )); then
-    echo "❌ وُجد ${#_WEB_DIRS[@]} مجلّدَ ويبٍ في $UP — لا يُعرَّب ما لم يُقرأ." >&2; exit 1
+_REH_DIRS=("$UP"/vscode-reh-web-*)
+if [[ -d "${_REH_DIRS[0]:-}" ]]; then
+  if (( ${#_REH_DIRS[@]} != 1 )); then
+    echo "❌ وُجد ${#_REH_DIRS[@]} مجلّدَ ويبٍ في $UP — لا يُعرَّب ما لم يُقرأ." >&2; exit 1
   fi
-  WEB_DIR="${_WEB_DIRS[0]}"
+  WEB_DIR="${_REH_DIRS[0]}"
   log "تعريبُ بناء الويب: $(basename "$WEB_DIR")"
   reforce_identity "$WEB_DIR" "الويب" || exit 1
   "$PY_BIN" "$ROOT/build/patch_extension_nls.py" "$WEB_DIR" || {
@@ -778,6 +778,39 @@ if [[ -d "${_WEB_DIRS[0]:-}" ]]; then
   assert_identity "$WEB_DIR" "الويب" || exit 1
 else
   log "لا بناءَ ويبٍ (vscode-reh-web-*) في $UP — تُخطّى خطوةُ تعريبه"
+fi
+
+# ── (ط-0د2) الشجرةُ الثالثة: محرابٌ الثابت بلا خادم (`vscode-web`) [WEB-03] ──
+# `gulp vscode-web-min` يُخرج شجرةً ثالثةً هي **ما يُنشَر فعلاً** بعد أن أُوقِف النشرُ
+# بخادم. وكانت خارجَ كلّ ما سبق: لا تعريبَ ولا هويّةَ ولا حارس — لأنّ الحلقةَ
+# أعلاه مربوطةٌ بـ`vscode-reh-web-*` حرفيّاً. والطبقاتُ الخمسُ تبقى خضراءَ
+# على شجرةٍ تُنشَر بواجهةٍ إنجليزيّةٍ كاملةٍ وهويّةِ VSCodium الموروثة.
+#
+# وثلاثةُ فروقٍ عن أختِها، كلُّها **معالَجةٌ في الأدوات لا هنا**:
+#   • لا `product.json` إطلاقاً ⇒ لا (ط-0ز) ولا `assert_identity`. الهويّةُ تسكن
+#     صفحةَ المضيف، ويفرضها `patch_web_host.py` مشتقّةً من ملفّ التجاوزات نفسِه.
+#   • ورقتُها `out/vs/workbench/workbench.web.main.internal.css` — ثالثةُ مرشّحات
+#     `patch_workbench_font.py`.
+#   • `out/nls.messages.js` فيها يسبقُه إشعارُ حقوقٍ منبعيّ ⇒ `bake_nls_arabic.py`
+#     يبحث عن البادئة ولا يشترط موضِعَها، ويحفظ الرأس.
+_STATIC_DIR="$UP/vscode-web"
+if [[ -d "$_STATIC_DIR" ]]; then
+  log "تعريبُ محرابِ المتصفّح الثابت: $(basename "$_STATIC_DIR")"
+  "$PY_BIN" "$ROOT/build/patch_web_host.py" "$_STATIC_DIR" || {
+    echo "❌ فشل تركيبُ صفحة المضيف وهويّتها." >&2; exit 1; }
+  "$PY_BIN" "$ROOT/build/patch_extension_nls.py" "$_STATIC_DIR" || {
+    echo "❌ فشل حقنُ ترجمة الامتدادات في البناء الثابت." >&2; exit 1; }
+  "$PY_BIN" "$ROOT/build/patch_xterm_bidi.py" "$_STATIC_DIR" || {
+    echo "❌ فشل ضبطُ اتّجاه xterm في البناء الثابت." >&2; exit 1; }
+  "$PY_BIN" "$ROOT/build/patch_workbench_font.py" "$_STATIC_DIR" || {
+    echo "❌ فشل وصلُ الخطّ العربيّ في البناء الثابت." >&2; exit 1; }
+  "$PY_BIN" "$ROOT/build/bake_nls_arabic.py" "$_STATIC_DIR" || {
+    echo "❌ فشل خبزُ العربيّة في البناء الثابت." >&2; exit 1; }
+  "$PY_BIN" "$ROOT/build/patch_web_host.py" --verify "$_STATIC_DIR" || {
+    echo "❌ بوّابةُ هويّةِ صفحة المضيف رفضت البناءَ الثابت." >&2; exit 1; }
+  STATIC_DIR="$_STATIC_DIR"
+else
+  log "لا بناءَ ثابتٍ (vscode-web) في $UP — تُخطّى خطوةُ تعريبه"
 fi
 
 # ── (ط-0ج) بصماتُ النزاهة تُحدَّث **بعد** آخرِ خطوةٍ تكتب في `out/` [PK-01] ──
@@ -833,7 +866,8 @@ fi
 # رابطَ sourceMappingURL إلى إصدارات VSCodium — اسمُ منبعٍ يُخدَم للزائر، وجلبٌ من
 # طرفٍ ثالثٍ عند فتح أدوات المطوّر. وكان خارجَ كلّ بوّابة.
 for _nls in "$APP_DIR/out/nls.messages.json" "$APP_DIR/out/nls.messages.js" \
-            ${WEB_DIR:+"$WEB_DIR/out/nls.messages.json"} ${WEB_DIR:+"$WEB_DIR/out/nls.messages.js"}; do
+            ${WEB_DIR:+"$WEB_DIR/out/nls.messages.json"} ${WEB_DIR:+"$WEB_DIR/out/nls.messages.js"} \
+            ${STATIC_DIR:+"$STATIC_DIR/out/nls.messages.json"} ${STATIC_DIR:+"$STATIC_DIR/out/nls.messages.js"}; do
   [[ -f "$_nls" ]] || continue
   if LC_ALL=C grep -qi "vscodium" "$_nls"; then
     echo "❌ تسرّبُ هويّة: اسمُ التوزيعة الأمّ في $_nls — لا يُشحَن." >&2

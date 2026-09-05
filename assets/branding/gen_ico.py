@@ -118,6 +118,27 @@ def _render(theme):
     return img
 
 
+# ── أيقونتا PWA لمحرابِ المتصفّح ──
+# غيرُ شفّافتين عمدًا: «تثبيتُ التطبيق» يضع الأيقونةَ على خلفيّةِ نظامٍ مجهولةِ اللون،
+# والقوسُ المفرَّغ يختفي على داكن. والأرضيّةُ هي أرضيّةُ شاشة الإقلاع نفسُها (`#0d1f1c`)
+# فلا تُرى قفزةُ لونٍ بين الأيقونة وأوّلِ إطار.
+# والعلامةُ عند 60% من الضلع: منطقةُ الأمان القناعيّة (maskable) تقتطع حتّى 20% من كلّ
+# حافّة، فما دون ذلك يُقصّ طرفا القوس على أندرويد.
+PWA_SIZES = [192, 512]
+PWA_GROUND = (0x0D, 0x1F, 0x1C, 255)
+PWA_MARK_FRACTION = 0.60
+
+
+def _pwa(master, px):
+    """العلامةُ الداكنةُ مركزيّةً على أرضيّةِ محرابٍ الصلبة، بمقاسِ أيقونةِ PWA."""
+    canvas = Image.new("RGBA", (px, px), PWA_GROUND)
+    side = int(round(px * PWA_MARK_FRACTION))
+    mark = master.resize((side, side), Image.LANCZOS)
+    off = (px - side) // 2
+    canvas.alpha_composite(mark, (off, off))
+    return canvas
+
+
 def main():
     out = Path(__file__).parent
     for theme in THEMES:
@@ -133,6 +154,10 @@ def main():
             for px in (150, 70):
                 master.resize((px, px), Image.LANCZOS).save(out / f"mihrab_{px}x{px}.png")
                 print(f"✓ mihrab_{px}x{px}.png")
+        if theme == "dark":                                 # أيقونتا PWA لمحرابِ المتصفّح
+            for px in PWA_SIZES:
+                _pwa(master, px).save(out / f"mihrab-pwa-{px}.png")
+                print(f"✓ mihrab-pwa-{px}.png")
 
 
 if __name__ == "__main__":

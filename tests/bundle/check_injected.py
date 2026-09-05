@@ -343,6 +343,14 @@ import platform as _platform
 _IS_WIN = _platform.system() == "Windows"
 
 
+class _Skip(Exception):
+    """تخطٍّ **معلَن** من داخل الفحص: شرطُه غيرُ متحقّقٍ في هذه الشجرة.
+
+    يُميَّز عن الفشل عمدًا، ويُطبَع بسببِه ويُخصَم من العدّ — فلا نَدَّعي تغطيةً لم تجرِ
+    ولا نُحمِّر بناءً سليمًا لم يُخرِج هدفًا اختياريًّا.
+    """
+
+
 def check(name, win_only=False):
     def deco(fn):
         _checks.append((name, fn, win_only))
@@ -788,12 +796,31 @@ def _web_dir():
     return hits[0] if hits else None
 
 
+def _static_dir():
+    """شجرةُ `vscode-web` الثابتة — هدفٌ اختياريٌّ لا يُخرجه البناءُ الافتراضيّ."""
+    d = os.path.join(ROOT, ".upstream", "vscode-web")
+    return d if os.path.isdir(d) else None
+
+
 _AR_RE = re.compile(r"[؀-ۿ]")
 
 
 def _ar_ratio(strings):
     ar = sum(1 for x in strings if isinstance(x, str) and _AR_RE.search(x))
     return ar, len(strings)
+
+
+def _nls_js_array(js):
+    """مصفوفةُ الرسائل من `nls.messages.js` — والبادئةُ تُبحَث ولا يُشترَط موضعُها.
+
+    البناءُ الثابت يسبقها بإشعارِ حقوقٍ منبعيٍّ يُحفَظ عمدًا، وشرطُ `startswith` كان
+    يُحمِّر شجرةً سليمةً لهذا وحدَه.
+    """
+    at = js.find(_WEB_JS_PREFIX)
+    assert at >= 0, "بنيةُ nls.messages.js تغيّرت — لم تعد تُخبَز حيث تُقرأ"
+    close = js.rfind("]")
+    assert close > at, "مصفوفةُ الرسائل غيرُ مغلقة في nls.messages.js"
+    return json.loads(js[at + len(_WEB_JS_PREFIX):close + 1])
 
 
 @check("محرابُ المتصفّح مُعرَّبٌ ومعكوسُ الاتّجاه [WEB-01]")
@@ -826,9 +853,7 @@ def _web_arabized():
     # (2) ونسخةُ المتصفّح — الملفُّ الذي **يُخدَم فعلًا** للصفحة. الفصلُ مقصود: خبزُ الأولى
     # وحدَها تركَ الواجهةَ إنجليزيّةً بالكامل (1/21922) والحارسُ لو قاسها وحدَها لكان أخضر.
     js = _readtext(os.path.join(web, "out", "nls.messages.js"))
-    assert js.startswith(_WEB_JS_PREFIX), "بنيةُ nls.messages.js تغيّرت — لم تعد تُخبَز حيث تُقرأ"
-    close = js.rfind("]")
-    jar, jtot = _ar_ratio(json.loads(js[len(_WEB_JS_PREFIX):close + 1]))
+    jar, jtot = _ar_ratio(_nls_js_array(js))
     jpct = (jar * 100) // jtot if jtot else 0
     assert jpct >= _WEB_MIN_AR_PCT, (
         f"‏nls.messages.js — وهو ما يصل المتصفّح — {jpct}% عربيّة ({jar}/{jtot})")
@@ -854,6 +879,63 @@ def _web_arabized():
         assert f.read(4) == b"wOF2", "ملفُّ خطِّ الويب ليس WOFF2 سليمًا"
 
 
+# ── [WEB-03] محرابٌ الثابت (`vscode-web`) — الشجرةُ التي تُنشَر فعلًا ──
+# بُنيت هذه الشجرةُ وعاشت خارجَ كلّ حارس: L2 يقيس `product.json`، ولا `product.json`
+# فيها. فكانت تُنشَر بواجهةٍ إنجليزيّةٍ كاملةٍ وأيقونةِ VSCodium ومانيفستٍ باسمه —
+# والطبقاتُ الخمسُ خضراء.
+@check("محرابُ المتصفّح الثابت مُعرَّبٌ وهويّتُه هويّتُنا [WEB-03]")
+def _static_arabized():
+    web = _static_dir()
+    if web is None:
+        raise _Skip("لا شجرةَ vscode-web (‏gulp vscode-web-min هدفٌ اختياريّ)")
+
+    # (1) صفحةُ المضيف وهويّتُها — البوّابةُ نفسُها التي يشغّلها البناء، بلا ازدواج.
+    rc = subprocess.call([sys.executable,
+                          os.path.join(ROOT, "build", "patch_web_host.py"),
+                          "--verify", web])
+    assert rc == 0, "بوّابةُ صفحة المضيف رفضت الشجرة (التفصيلُ أعلاه)"
+
+    # (2) نواةُ الترجمة، ثمّ **ما يصل المتصفّح**. الفصلُ مقصود: خبزُ الأولى وحدَها
+    # ترك الواجهةَ إنجليزيّةً بالكامل مرّةً سابقة.
+    msgs = json.loads(_readtext(os.path.join(web, "out", "nls.messages.json")))
+    ar, tot = _ar_ratio(msgs)
+    pct = (ar * 100) // tot if tot else 0
+    assert pct >= _WEB_MIN_AR_PCT, (
+        f"الشجرةُ الثابتة {pct}% عربيّة ({ar}/{tot}) — دون العتبة {_WEB_MIN_AR_PCT}%. "
+        f"ربّما عادت خطوةُ (ط-0د2) مربوطةً بشجرتين لا بثلاث.")
+
+    js = _readtext(os.path.join(web, "out", "nls.messages.js"))
+    jar, jtot = _ar_ratio(_nls_js_array(js))
+    jpct = (jar * 100) // jtot if jtot else 0
+    assert jpct >= _WEB_MIN_AR_PCT, (
+        f"‏nls.messages.js الثابت — وهو ما يصل المتصفّح — {jpct}% عربيّة ({jar}/{jtot})")
+    for _leak in ("vscodium", "VSCodium"):
+        assert _leak not in js, f"«{_leak}» في nls.messages.js الثابت"
+
+    # (3) الاتّجاهُ والخطُّ في **الورقة التي تحمّلها الصفحةُ فعلًا** — لا في ورقةٍ
+    # أخرى. الحارسُ السابقُ كان يقيس `vs/code/browser/workbench/workbench.css`،
+    # ولا وجودَ لها في هذه الشجرة.
+    wcss = os.path.join(web, "out", "vs", "workbench", "workbench.web.main.internal.css")
+    assert os.path.isfile(wcss), (
+        "ورقةُ الورشة الثابتة مفقودة — والصفحةُ تصلها بـ<link>، فغيابُها واجهةٌ بلا أنماط")
+    css = _readtext(wcss)
+    n_rtl = css.count("[dir=rtl]")
+    assert n_rtl >= _WEB_MIN_RTL_RULES, f"قواعدُ الاتّجاه في الثابت {n_rtl} < {_WEB_MIN_RTL_RULES}"
+    assert "src:url(kawkab-mono.woff2)" in css, (
+        "خطُّ الشجرة الثابتة ما زال data: — و`patch_workbench_font` لا يعرف ورقتَها [AR-02]")
+    woff = os.path.join(os.path.dirname(wcss), "kawkab-mono.woff2")
+    assert os.path.isfile(woff), f"القاعدةُ تشير إلى ملفٍّ غيرِ موجود: {woff}"
+    with open(woff, "rb") as f:
+        assert f.read(4) == b"wOF2", "ملفُّ خطِّ الشجرة الثابتة ليس WOFF2 سليمًا"
+
+    # (4) وأصولُ الـwebview مشحونةٌ معنا — `boot.js` يوجّه إليها بدل شبكة المنبع،
+    # ووجهةٌ فارغةٌ تعني إطارًا أبيضَ في كلّ معاينة.
+    pre = os.path.join(web, "out", "vs", "workbench", "contrib", "webview",
+                       "browser", "pre", "index.html")
+    assert os.path.isfile(pre), (
+        "أصولُ الـwebview غائبةٌ عن الشجرة — و`webviewEndpoint` يشير إليها")
+
+
 def main():
     print("═══ L2: تأكيدات الحزمة المشحونة ═══")
     packaged = os.path.isdir(OUT)
@@ -863,6 +945,7 @@ def main():
         return 0
     failed = 0
     skipped = 0
+    ran = 0        # ما جرى فعلًا — لا ما كان يمكن أن يجري
     if not packaged:
         # وضعٌ جزئيّ **مُعلَن**: العلامات تُفحَص على ناتج التصغير (المكافئ بايتيًّا)، وفحوص
         # الحزمة (exe/أصول/امتدادات) تُتخطّى صراحةً. لا ندّعي تغطيةً لم تجرِ.
@@ -872,11 +955,13 @@ def main():
             # استثناءٌ مُعلَن: فحوصُ شجرة الويب لا تقرأ `$APP_DIR` إطلاقًا، فربطُها
             # ببوّابةِ «حزمةٌ مكتبيّةٌ مُغلَّفة» يُسكِتها بلا سبب — وهو ما كان يقع على
             # لينكس حيث تُبنى شجرةُ الويب المنشورة.
-            if "[WEB-01]" in name:
+            if "[WEB-01]" in name or "[WEB-03]" in name:
                 try:
-                    fn(); print(f"  ✅ {name}")
+                    fn(); ran += 1; print(f"  ✅ {name}")
+                except _Skip as e:
+                    skipped += 1; print(f"  ⏭️  {name} — {e}")
                 except Exception as e:  # noqa: BLE001
-                    failed += 1; print(f"  ❌ {name}: {e}")
+                    ran += 1; failed += 1; print(f"  ❌ {name}: {e}")
                 continue
             print(f"  ⏭️  {name} — يحتاج حزمة مُغلَّفة.")
     else:
@@ -887,8 +972,13 @@ def main():
                 continue
             try:
                 fn()
+                ran += 1
                 print(f"  ✅ {name}")
+            except _Skip as e:
+                skipped += 1
+                print(f"  ⏭️  {name} — {e}")
             except Exception as e:  # noqa: BLE001
+                ran += 1
                 failed += 1
                 print(f"  ❌ {name}: {e}")
     for desc, path, needle, minc in BUNDLE_MARKERS:
@@ -901,8 +991,11 @@ def main():
         else:
             failed += 1
             print(f"  ❌ {desc}: «{needle}» غائب عن الحزمة (سقط في التحزيم/التصغير؟)")
-    n = (len(_checks) if packaged else 0) + len(BUNDLE_MARKERS) - skipped
-    print(f"─── {n - failed}/{n} نجحت ───")
+    # العدُّ من الواقع لا من النيّة: `len(_checks)` كان يَعِد بفحوصٍ لم تُشغَّل أصلًا
+    # في الوضع غير المُغلَّف، ويطرح المتخطَّى منها فيختلّ الطرفان معًا.
+    n = ran + len(BUNDLE_MARKERS)
+    _sk = f" · {skipped} متخطًّى بسببٍ معلَن" if skipped else ""
+    print(f"─── {n - failed}/{n} نجحت{_sk} ───")
     return 1 if failed else 0
 
 

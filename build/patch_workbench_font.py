@@ -49,14 +49,24 @@ for _s in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-# ورقتان لا واحدة: المشحونُ المكتبيُّ وبناءُ الويب/الخادم (`vscode-reh-web-*`). والعطبُ
-# نفسُه في الاثنين — سياسةُ الويب `font-src 'self' blob:` (يضعها الخادمُ ترويسةً لا وسمًا)
-# لا تحوي `data:` هي الأخرى. تُختار أوّلُ ورقةٍ موجودة؛ كلُّ شجرةِ خرجٍ فيها واحدةٌ فقط.
+# ثلاثُ أوراقٍ لا واحدة — بعددِ الأشجار التي تُشحَن: المكتبيّ، وبناءُ الخادم
+# (`vscode-reh-web-*`)، والبناءُ الثابت (`vscode-web`). والعطبُ نفسُه في الثلاث —
+# سياسةُ الويب `font-src 'self' blob:` لا تحوي `data:` هي الأخرى.
+#
+# والثالثةُ أُضيفت متأخّرة، وكان غيابُها صامتًا مرّتين: الأداةُ تخرج بـ«لا ورقةَ أنماطٍ
+# محزومة»، والحارسُ في L2 كان يعدّ قواعدَ الاتّجاه في **ورقةٍ لا تحمّلها الصفحةُ
+# الثابتة أصلًا** فيبقى أخضر. يُختار كلُّ موجودٍ لا أوّلُه.
 CSS_CANDIDATES = (
     os.path.join("out", "vs", "workbench", "workbench.desktop.main.css"),
     os.path.join("out", "vs", "code", "browser", "workbench", "workbench.css"),
+    os.path.join("out", "vs", "workbench", "workbench.web.main.internal.css"),
 )
 FONT_SRC_REL = os.path.join("extensions", "mihrab-welcome", "media", "kawkab-mono.woff2")
+# احتياطٌ من المستودع نفسِه: البناءُ الثابت (`vscode-web`) لا يشحن `mihrab-welcome`
+# (يحتاج Node) فلا نسخةَ للخطّ في شجرته — والخطُّ لازمٌ فيها كما في أختَيها.
+FONT_SRC_REPO = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "patches", "fonts", "kawkab-mono.woff2")
 FONT_NAME = "kawkab-mono.woff2"
 WOFF2_MAGIC = b"wOF2"
 
@@ -108,8 +118,10 @@ def _patch_one(css, app_dir):
 
     font_src = os.path.join(app_dir, FONT_SRC_REL)
     if not os.path.isfile(font_src):
-        fail("القاعدةُ محقونةٌ ولا ملفَّ خطٍّ لنسخه: " + font_src +
-             " — لا يُترك مصدرٌ يشير إلى ملفٍّ غيرِ موجود.")
+        font_src = FONT_SRC_REPO
+    if not os.path.isfile(font_src):
+        fail("القاعدةُ محقونةٌ ولا ملفَّ خطٍّ لنسخه: " + os.path.join(app_dir, FONT_SRC_REL) +
+             " ولا " + FONT_SRC_REPO + " — لا يُترك مصدرٌ يشير إلى ملفٍّ غيرِ موجود.")
     with io.open(font_src, "rb") as f:
         head = f.read(4)
     if head != WOFF2_MAGIC:

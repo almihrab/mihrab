@@ -4269,7 +4269,7 @@ def _no_bare_python_invocation():
         "‏build.sh لا يستدعي resolve_py_bin — الحلُّ موجودٌ وغيرُ موصول"
 
 
-@check("مُرقِّعاتُ التعريب الأربعةُ موصولةٌ بالشجرتين معًا [WEB-02]")
+@check("مُرقِّعاتُ التعريب موصولةٌ بالأشجار الثلاث [WEB-02]")
 def _web_patchers_wired_for_both_trees():
     """حذفُ سطرٍ واحدٍ يعيد العطبَ الأصليّ: 1 سلسلة عربيّة من 21922.
 
@@ -4281,7 +4281,10 @@ def _web_patchers_wired_for_both_trees():
     PATCHERS = ("patch_extension_nls.py", "patch_xterm_bidi.py",
                 "patch_workbench_font.py", "bake_nls_arabic.py")
     missing = []
-    for target in ("$APP_DIR", "$WEB_DIR"):
+    # ثلاثٌ لا اثنتان: `vscode-web` الثابتةُ هي **ما يُنشَر فعلًا** بعد تقاعد النشر
+    # بخادم، وكانت خارجَ الحلقة وخارجَ هذا الحارس معًا — فبقي أخضرَ على شجرةٍ تُنشَر
+    # بواجهةٍ إنجليزيّةٍ كاملة.
+    for target in ("$APP_DIR", "$WEB_DIR", "$_STATIC_DIR"):
         for pat in PATCHERS:
             needle = pat + '" "' + target + '"'
             if needle not in sh:
@@ -4292,11 +4295,101 @@ def _web_patchers_wired_for_both_trees():
 
     # وإعادةُ فرض الهويّة كذلك: نجا `serverDownloadUrlTemplate` في الويب لأنّها
     # كانت مربوطةً بالمكتبيّ وحدَه — عطبٌ قِيس في المشحون لا استُنتج.
+    #
+    # والشجرةُ الثابتةُ **مستثناةٌ هنا بسببٍ لا بسهو**: لا `product.json` فيها إطلاقًا،
+    # فالدالّتان تعودان صفرًا بلا عمل. هويّتُها تسكن صفحةَ المضيف، ويفرضها
+    # `patch_web_host.py` — ويحرسه الشرطُ الذي يلي.
     for target in ('"$APP_DIR"', '"$WEB_DIR"'):
         assert ("reforce_identity " + target) in sh, \
             "‏reforce_identity غيرُ مُستدعاةٍ لـ" + target + " — الهويّةُ تسقط في شجرةٍ تُشحَن"
         assert ("assert_identity " + target) in sh, \
             "‏assert_identity غيرُ مُستدعاةٍ لـ" + target + " — شجرةٌ تُشحَن بلا بوّابة"
+
+    # وهويّةُ الشجرة الثابتة: تُفرَض ثمّ **تُفحَص** في البناء نفسِه. والبوّابةُ لا
+    # تُستدعى إلّا إن استُدعي المُرقِّع، فالشرطان معًا لا أحدُهما.
+    assert 'patch_web_host.py" "$_STATIC_DIR"' in sh, \
+        "‏patch_web_host.py غيرُ موصولٍ بالشجرة الثابتة — تُنشَر بأيقونة VSCodium ومانيفستِه"
+    assert 'patch_web_host.py" --verify "$_STATIC_DIR"' in sh, \
+        "‏--verify غيرُ مُستدعًى على الشجرة الثابتة — فرضٌ بلا بوّابة"
+
+
+@check("صفحةُ مضيفِ المتصفّح تفي بما تَعِد [WEB-04]")
+def _web_host_page_contract():
+    """أربعةُ عيوبٍ قِيست في `web/` وكلُّها كانت خارج كلّ طبقة — لأنّ الملفّين جديدان.
+
+    الشجرةُ الثابتةُ بلا `product.json`، فصفحةُ المضيف هي الهويّةُ كلُّها **وسلوكُ
+    الإقلاع كلُّه**. وخطأٌ حرفيٌّ واحدٌ فيها لا يُسقِط بناءً ولا يُحمِّر فحصًا: يُسقِط
+    السمةَ، أو يحجب المحرِّرَ، أو يجلب إطارًا من شبكة المنبع — صامتًا.
+    """
+    web = os.path.join(ROOT, "web")
+    boot = _read(os.path.join(web, "boot.js"))
+    html = _read(os.path.join(web, "index.html"))
+
+    # (أ) اسمُ السمة **حرفيّ**، وانحرافُه يعني ارتدادًا إلى Dark Modern — أي أنّ
+    #     محرابَ المتصفّح يبدو VS Code. كان «محراب الداكن» والصوابُ «محراب الداكنة».
+    m = re.search(r"'workbench\.colorTheme':\s*'([^']+)'", boot)
+    assert m, "‏boot.js بلا سمةٍ افتراضيّة — الورشةُ ترتدّ إلى سمة المنبع"
+    theme = m.group(1)
+    pkg = json.loads(_read(os.path.join(ROOT, "extensions", "mihrab-themes", "package.json")))
+    labels = [t.get("label") for t in pkg.get("contributes", {}).get("themes", [])]
+    assert theme in labels, (
+        "سمةُ boot.js «" + theme + "» ليست من سمات mihrab-themes " + str(labels)
+        + " — الورشةُ سترتدّ إلى سمة المنبع بلا شكوى")
+
+    # (ب) الهويّةُ تُقرأ ولا تُكتَب مرّتين. مفاتيحُ المنتَج الحرفيّةُ هنا تعني نسخةً
+    #     ثانيةً من `product-overrides/product.json` تفترق عنها بصمت — وقد افترقت.
+    assert "_MIHRAB_PRODUCT" in boot, \
+        "‏boot.js لا يقرأ الهويّةَ المشتقّة — عاد يكتبها بنفسه؟"
+    for key in ("nameLong", "extensionsGallery", "documentationUrl", "licenseUrl"):
+        assert ('"' + key + '"') not in boot and ("'" + key + "'") not in boot \
+            and (key + ":") not in boot, \
+            "«" + key + "» مكتوبٌ حرفيًّا في boot.js — هويّةٌ ثانيةٌ تنحرف عن product-overrides"
+    assert "product.web.js" in html, \
+        "‏index.html لا يصل product.web.js — الصفحةُ تُقلِع بلا هويّة"
+
+    # (ج) وجهةُ الـwebview: تركُها فارغةً **لا** يخدمها محلّيًّا — المنبعُ يرتدّ إلى
+    #     ‏`{{uuid}}.vscode-cdn.net`. أي أنّ الصمتَ هنا يعني شبكةَ مايكروسوفت.
+    # ‏`\b…:` لا `in`: أوّلُ صياغةٍ قبلت `_webviewEndpoint:` — أي أنّ تعطيلَ الحقل
+    # بحرفٍ واحدٍ كان يمرّ من تحتها. كشفه مُصابُ PF-03 لا القراءة.
+    assert re.search(r"\bwebviewEndpoint:", boot), (
+        "لا `webviewEndpoint` في boot.js — والمنبعُ يرتدّ إلى vscode-cdn.net، "
+        "فمعاينةُ Markdown تُرسل عنوانَ الزائر إلى شبكة المنبع ثمّ ترجع 404")
+    assert "webviewContentExternalBaseUrlTemplate" not in boot, \
+        "مفتاحان لوجهةٍ واحدة — `webviewEndpoint` يسبقه فيصير الثاني وهمًا"
+
+    # (د) الاسمُ الصحيحُ للخيار: `workspaceTrustEnabled` ليس في الـAPI فيُتجاهَل صامتًا،
+    #     والنتيجةُ كانت تتحقّق بالمصادفة لا بالقرار.
+    assert "workspaceTrustEnabled:" not in boot, \
+        "‏workspaceTrustEnabled ليس في IWorkbenchConstructionOptions — الاسمُ enableWorkspaceTrust"
+
+    # (هـ) الاستيرادُ ديناميّ: الساكنُ يُقيَّم قبل أن يُنفَّذ سطرٌ من الملفّ، فلا يبلّغ
+    #      أحدٌ حين تفشل الحزمةُ نفسُها — وهو أرجحُ عطبِ نشرٍ ثابت.
+    assert "await import(" in boot, \
+        "استيرادٌ ساكنٌ في boot.js — فشلُ الحزمة يترك الزائرَ أمام شريطٍ يدور إلى الأبد"
+
+    # (و) وشاشةُ الإقلاع لا تُرسَم فوق ورشةٍ تعمل. الشاشةُ inset:0;z-index:9999.
+    assert "document.querySelector('.monaco-workbench')" in html, \
+        "‏fail() في index.html بلا حارسِ «الورشةُ ظهرت» — شاشةُ فشلٍ تحجب محرِّرًا يعمل"
+    # تُجرَّد التعليقاتُ أوّلًا: التعليقُ الذي **يشرح** لماذا لا نستعملها ليس استعمالًا.
+    assert not re.search(r"once:\s*true", re.sub(r"//.*", "", html)), \
+        "‏{ once: true } على مُلتقِط الأخطاء يحرقه على أوّل خطأٍ ثانويّ فيُعمينا عن الحاسم"
+
+    # (ز) وثلاثةُ وعودٍ للمستخدم: لا منعَ تكبير (WCAG 1.4.4)، ولا فكَّ وصلٍ للعربيّة،
+    #     ولا صمتَ أمام زائرٍ بلا جافاسكربت.
+    # يُقاس **وسمُ viewport نفسُه** لا الملفُّ كلُّه: التعليقُ الذي يشرح لماذا حُذفا
+    # يذكرهما بحكم موضوعه، ومنعُه يجعل الحارسَ يعاقب التوثيق.
+    vp = re.search(r'<meta\s+name="viewport"[^>]*>', html)
+    assert vp, "لا <meta viewport> — الصفحةُ تُعرَض بعرضِ سطحِ مكتبٍ على الهاتف"
+    assert "user-scalable" not in vp.group(0) and "maximum-scale" not in vp.group(0), \
+        "منعُ التكبير في <meta viewport> — مخالفةُ WCAG 1.4.4 (تغييرُ حجم النصّ)"
+    assert not re.search(r"#mihrab-boot \.name \{[^}]*letter-spacing", html), \
+        "‏letter-spacing على «محراب» يفكّ وصلَ حروفها — وهي أوّلُ كلمةٍ يراها الزائر"
+    assert "<noscript>" in html, "لا <noscript> — زائرٌ بلا جافاسكربت يرى مستطيلًا صامتًا"
+
+    # (ح) ولوحُ الترحيب: موجودٌ ومعرَّبٌ في هذه الشجرة، و`'none'` كانت تُخفيه فتترك
+    #     الزائرَ الأوّلَ أمام فراغٍ لا يشرح شيئًا.
+    assert "'workbench.startupEditor': 'none'" not in boot, \
+        "‏startupEditor='none' يُخفي لوحَ ترحيبٍ **مبنيًّا ومعرَّبًا** — فراغٌ بلا سبب"
 
 
 @check("إعدادُ النشر لا يسلّم المحرِّرَ لزائرٍ مجهول [DEP-02]")
@@ -4340,6 +4433,33 @@ def _deploy_does_not_expose_editor():
             assert "default_server" not in code, (
                 "‏`default_server` في " + rel + ":" + str(i)
                 + " — كتلةُ محرابٍ افتراضيّةً تستقبل كلَّ Host مجهول.")
+
+    # **لا تكرارَ لما تضعه قصاصةُ certbot.** كتلةٌ تُدرِج
+    # `options-ssl-nginx.conf` ثمّ تعيد توجيهًا فيها ⇒ nginx يرفض بـ«directive is
+    # duplicate» **ولا يقلع**. أُوقِع فعلًا على الخادم، وأنقذته البوّابةُ التلقائيّة.
+    # والقائمةُ مقروءةٌ من الخادم لا مفترَضة (`options-ssl-nginx.conf` القياسيّة).
+    # وضعناها ظنًّا أنّها تحصينٌ من السقوط إلى الافتراضيّات — والقصاصةُ تكفلها،
+    # فكانت تعطيلًا لا تحصينًا.
+    SNIPPET_SETS = ("ssl_session_cache", "ssl_session_timeout", "ssl_session_tickets",
+                    "ssl_protocols", "ssl_prefer_server_ciphers", "ssl_ciphers")
+    # وثقبان أُغلِقا بعد قياسِهما لا بعد تخيّلهما:
+    #   • `startswith(d + " ")` يشترط **مسافةً حرفيّة**، و`ssl_session_cache<tab>…`
+    #     مقبولٌ في nginx تمامًا ⇒ يمرّ من تحت الحارس. صار الفصلُ بأيّ فراغ.
+    #   • والفحصُ كان مشروطًا بأن يذكر الملفُّ `options-ssl-nginx.conf` **نصًّا**،
+    #     فتكرارٌ في `00-mihrab-shared.conf` (وهو محمَّلٌ في السياق نفسِه ولا يذكرها)
+    #     كان خارجَ التغطية. صار السؤالُ عن المجلّد لا عن الملفّ.
+    ngx_dir = os.path.join(dep, "nginx")
+    if os.path.isdir(ngx_dir):
+        confs = [n for n in sorted(os.listdir(ngx_dir)) if n.endswith(".conf")]
+        snippet_used = any("options-ssl-nginx.conf" in _read(os.path.join(ngx_dir, n))
+                           for n in confs)
+        for n in confs if snippet_used else []:
+            for i, line in enumerate(_read(os.path.join(ngx_dir, n)).splitlines(), 1):
+                head = line.split("#", 1)[0].strip().split(None, 1)
+                if head and head[0] in SNIPPET_SETS:
+                    raise AssertionError(
+                        "‏" + head[0] + " في deploy/nginx/" + n + ":" + str(i)
+                        + " مع إدراج options-ssl-nginx.conf — تكرارٌ يمنع nginx من الإقلاع.")
 
     unit = os.path.join(dep, "systemd", "mihrab-web.service")
     assert os.path.isfile(unit), "وحدةُ الخدمة مفقودة: " + unit
