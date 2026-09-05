@@ -34,7 +34,28 @@ import patch_manifest as M  # noqa: E402
 # وجهة التوزيع. الافتراضيّ هو ما ينتجه build/build.sh؛ و`MIHRAB_DIST_ROOT` يسمح بفحص
 # حزمةٍ غُلِّفت في مجلّد آخر — لزِمنا حين حجب قفلُ نظام ملفّات (مقبض مُسرَّب لا تملكه أيّ
 # عمليّة) المجلّدَ المعتاد، فغلّفنا جانبًا. لا يغيّر ما يُفحَص، بل أين يُقرأ.
-DIST = os.environ.get("MIHRAB_DIST_ROOT") or os.path.join(ROOT, ".upstream", "VSCode-win32-x64")
+# **يُشتقّ من المنصّة لا يُثبَّت.** كان `VSCode-win32-x64` حرفيًّا، فعلى لينكس — وهي
+# المنصّةُ التي تُنتج بناءَ الويب المنشور — لا يوجد المجلّدُ فيصير `packaged=False`
+# فتُتخطّى **كلُّ** فحوص `@check` وتُحسَب نجاحًا. أي أنّ خمسةً وسبعين حارسًا يصمتون
+# على المنصّة التي يهمّ فيها أن يتكلّموا. والاصطلاحُ يطابق `build/build.sh`.
+def _default_dist():
+    import platform
+    sysname = platform.system()
+    arch = {"AMD64": "x64", "x86_64": "x64", "arm64": "arm64", "aarch64": "arm64"}.get(
+        platform.machine(), "x64")
+    name = {"Windows": f"VSCode-win32-{arch}",
+            "Linux":   f"VSCode-linux-{arch}",
+            "Darwin":  f"VSCode-darwin-{arch}"}.get(sysname, f"VSCode-win32-{arch}")
+    return os.path.join(ROOT, ".upstream", name)
+
+
+DIST = os.environ.get("MIHRAB_DIST_ROOT") or _default_dist()
+# macOS: المخرَجُ حزمةُ `.app` واسمُها عربيٌّ مشتقٌّ من nameLong، فيُحلّ بالبحث.
+if not os.path.isdir(os.path.join(DIST, "resources")) and os.path.isdir(DIST):
+    import glob as _g
+    _apps = _g.glob(os.path.join(DIST, "*.app", "Contents", "Resources", "app"))
+    if _apps:
+        DIST = os.path.dirname(os.path.dirname(_apps[0]))
 APP = os.path.join(DIST, "resources", "app")
 OUT = os.path.join(APP, "out")
 # **مصدر بديل لعلامات الحزمة — مكافئ لا تنازل.** مهمّة L2 المُعلَنة أعلاه هي أنّ الحقن
@@ -776,6 +797,14 @@ def _web_arabized():
     prod = json.loads(_readtext(os.path.join(web, "product.json")))
     assert prod.get("nameLong") == "محراب", f"هويّةُ الويب انجرفت: nameLong={prod.get('nameLong')!r}"
     assert prod.get("defaultLocale") == "ar", f"defaultLocale={prod.get('defaultLocale')!r} لا ar"
+    # ‏**مفتاحان قِيسا ناجيَين بقيمة المنبع** في شجرة الويب على 1.126.05942، لأنّ خطوةَ
+    # إعادة فرض الهويّة (ط-0ز) كانت مربوطةً بالمكتبيّ وحدَه. وكان هذا الفحصُ أخضرَ
+    # عليهما لأنّه لم يسألهما — يفحص اسمًا ولغةً ويسكت عن وجهةِ التنزيل.
+    assert prod.get("updateUrl") in (None, "null"),         f"updateUrl في الويب ليس null: {prod.get('updateUrl')!r} — تحديثٌ يجرّ منبعًا"
+    _sdl = str(prod.get("serverDownloadUrlTemplate") or "")
+    assert not any(k in _sdl.lower() for k in ("vscodium", "microsoft")), (
+        f"serverDownloadUrlTemplate يشير إلى المنبع: {_sdl[:90]} — "
+        f"محرابٌ المنشور يوزّع المنبعَ باسمه")
 
     # (1) نواةُ الترجمة — الملفُّ الذي تقرؤه العمليّة
     msgs = json.loads(_readtext(os.path.join(web, "out", "nls.messages.json")))
@@ -794,6 +823,12 @@ def _web_arabized():
     jpct = (jar * 100) // jtot if jtot else 0
     assert jpct >= _WEB_MIN_AR_PCT, (
         f"‏nls.messages.js — وهو ما يصل المتصفّح — {jpct}% عربيّة ({jar}/{jtot})")
+    # وتسرّبُ الهويّة في **الملفّ الذي يصل المتصفّح**: كان ذيلُه يحمل رابطَ
+    # ‏sourceMappingURL إلى إصدارات VSCodium، وبوّابةُ (ي-2) تفحص الـjson المكتبيّة
+    # وحدَها فلم ترَه. اسمُ منبعٍ يُخدَم للزائر، وجلبٌ من طرفٍ ثالثٍ عند فتح الأدوات.
+    for _leak in ("vscodium", "VSCodium"):
+        assert _leak not in js, (
+            f"«{_leak}» في out/nls.messages.js — الملفُّ الذي يصل المتصفّح يحمل اسمَ المنبع")
 
     # (3) الاتّجاه
     wcss = os.path.join(web, "out", "vs", "code", "browser", "workbench", "workbench.css")
@@ -824,6 +859,15 @@ def main():
         print(f"  ⏭️  لا حزمة مُغلَّفة — العلامات تُفحَص على {os.path.relpath(MIN_OUT, ROOT)} "
               f"(نسخة حرفيّة منه في الحزمة)، وفحوص الأصول/exe متخطّاة.")
         for name, fn in _checks:
+            # استثناءٌ مُعلَن: فحوصُ شجرة الويب لا تقرأ `$APP_DIR` إطلاقًا، فربطُها
+            # ببوّابةِ «حزمةٌ مكتبيّةٌ مُغلَّفة» يُسكِتها بلا سبب — وهو ما كان يقع على
+            # لينكس حيث تُبنى شجرةُ الويب المنشورة.
+            if "[WEB-01]" in name:
+                try:
+                    fn(); print(f"  ✅ {name}")
+                except Exception as e:  # noqa: BLE001
+                    failed += 1; print(f"  ❌ {name}: {e}")
+                continue
             print(f"  ⏭️  {name} — يحتاج حزمة مُغلَّفة.")
     else:
         for name, fn in _checks:

@@ -32,12 +32,16 @@ fi
 ORIGIN="${MIHRAB_SITE_ORIGIN:-https://sad-lang.org/mihrab/}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# مفسّرُ بايثون يُحلّ ولا يُفترَض: `python` المجرَّد غائبٌ عن أوبونتو 24.04.
+. "$HERE/build/lib/pybin.sh"
+resolve_py_bin || exit 1
 SSH=(ssh -p "$PORT" -o BatchMode=yes)
 
 (( $# >= 2 )) || { echo "الاستعمال: $0 <الإصدار> <معرّف:مسار> [معرّف:مسار …]" >&2; exit 2; }
 VERSION="$1"; shift
 
-VALID=$(python - "$HERE/site/data/site.json" <<'PY'
+VALID=$("$PY_BIN" - "$HERE/site/data/site.json" <<'PY'
 import json, sys
 print(" ".join(p["id"] for p in json.load(open(sys.argv[1], encoding="utf-8"))["platforms"]))
 PY

@@ -17,6 +17,9 @@ ALIF_URL="https://github.com/SalehKadah/alif-vscode/releases/download/v${ALIF_VE
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # الحسابُ في دالّةٍ مشتركةٍ لأنّه يُختبَر (tests/static/check_extra_ext_dirs.sh).
 . "$ROOT/build/lib/sha256.sh"
+# مفسّرُ بايثون يُحلّ ولا يُفترَض: `python` المجرَّد غائبٌ عن أوبونتو 24.04.
+. "$ROOT/build/lib/pybin.sh"
+resolve_py_bin || exit 1
 DEST="$ROOT/.preview-extensions/alif-lang"
 TMP="$ROOT/.preview-extensions/.alif.vsix"
 
@@ -38,7 +41,7 @@ rm -rf "$DEST"; mkdir -p "$DEST"
 # vsix أرشيفُ zip، ومحتوى الإضافةِ كلُّه تحت extension/ — تُنقل إلى الجذر لأنّ
 # ماسحَ الإضافاتِ المدمجةِ يتوقّع package.json في أعلى المجلّد.
 # <<VSIX_EXTRACT — سياجٌ يقرأ منه tests/static/check_extra_ext_dirs.sh هذا الفكَّ نفسَه.
-python - "$TMP" "$DEST" <<'PY'
+"$PY_BIN" - "$TMP" "$DEST" <<'PY'
 import sys, zipfile, os
 src, dest = sys.argv[1], os.path.realpath(sys.argv[2])
 with zipfile.ZipFile(src) as z:
@@ -97,7 +100,7 @@ echo "   ✅ البصمة مطابقة: $got"
 
 rm -rf "$DEST/bin"; mkdir -p "$DEST/bin"
 # <<RUNTIME_EXTRACT — سياجٌ يقرأ منه tests/static/check_extra_ext_dirs.sh هذا الفكَّ نفسَه.
-python - "$RT_TMP" "$DEST/bin" <<'RUNTIME_PY'
+"$PY_BIN" - "$RT_TMP" "$DEST/bin" <<'RUNTIME_PY'
 import os, sys, tarfile, zipfile
 
 src, dest = sys.argv[1], os.path.realpath(sys.argv[2])

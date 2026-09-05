@@ -12,6 +12,12 @@ Description=محراب — محرِّرٌ عربيُّ الاتّجاه في ا�
 Documentation=https://mihrab.dev
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# بلا رمزٍ لا خدمة: الشرطُ أرخصُ من اكتشافِ أنّ المحرِّرَ عملَ مفتوحًا. وحين يفشل،
+# تُعلَّم الوحدةُ `condition failed` ولا تدخل حلقةَ إعادة تشغيل.
+ConditionPathExists=/etc/mihrab/token
 
 [Service]
 Type=simple
@@ -50,8 +56,10 @@ ExecStart=/opt/mihrab/web/node /opt/mihrab/web/out/server-main.js \
 # ‏`on-failure` لا يغطّي الخروجَ النظيف بـ0 ⇒ 502 حتّى تدخّلٍ يدويّ.
 Restart=always
 RestartSec=5s
-StartLimitIntervalSec=60
-StartLimitBurst=5
+# ‏StartLimit* موضعُهما [Unit] أعلاه — نُقلا إليه منذ systemd 229، وفي [Service]
+# يسجّل systemd «Unknown key name» ويتجاهلهما. والأثرُ ليس تجميليًّا: مع
+# `Restart=always` تصير خدمةٌ تسقط عند الإقلاع (رمزٌ مفقود، منفذٌ مشغول) حلقةَ
+# إعادةِ تشغيلٍ أبديّةً كلَّ خمسِ ثوانٍ بلا حالةِ `failed` ⇒ بلا تنبيهٍ لأحد.
 
 # ── تقييدٌ متناسبٌ مع خدمةٍ تُنفِّذ شيفرةَ المستخدم عمدًا ──────────────────────
 NoNewPrivileges=true          # ⇐ يعطّل `sudo` في الطرفيّة المدمجة. مقصودٌ، لا عطب.

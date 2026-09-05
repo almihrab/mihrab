@@ -291,12 +291,24 @@ def _core_patch_version_embedded():
     # قِيس يوم 2026-09-04: أُضيفت رقعةُ بيانات نسخةِ ويندوز إلى INJECT بلا رفعِ الإصدار،
     # فبُني ‎1.126.05942‎ كاملًا والثنائيّاتُ ما زالت تقول «VSCodium» و«Microsoft
     # Corporation». وما كشفه إلّا حارسُ L2 الذي كُتب للرقعة نفسِها.
+    # **لا بصمةَ مكتوبةً بيد بعد اليوم.** حُرِس هذا الموضعُ ببصمةٍ ثابتةٍ ثمّ بسجلٍّ
+    # بالإصدارات، وكلاهما يسأل «هل حدّثتَ الثابت؟» لا «هل تغيّر المحتوى؟» — وجُرِّب
+    # المسارُ الذي يُبطلهما (تغييرُ الحقن ثمّ نسخُ البصمة الجديدة من رسالة الخطأ)
+    # فمرّ أخضرَ والوسمُ لم يتحرّك. فصار الوسمُ **مشتقًّا من المحتوى**، والخطوةُ
+    # اليدويّةُ التي كانت تُنسى لم تعد موجودة.
+    #
+    # فما يبقى للحارس شيئان: أنّ الاشتقاق يعمل، وأنّ الوسمَ فعلًا داخلَ الحقن.
     import hashlib
-    body = mod.INJECT.replace(mod.VERSION_MARK, "")
-    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
-    assert digest == mod.INJECT_DIGEST, (
-        f"محتوى INJECT تغيّر ({digest} ≠ {mod.INJECT_DIGEST}) — ارفع CORE_PATCH_VERSION "
-        "وحدّث INJECT_DIGEST معًا، وإلّا تخطّى المرقِّعُ حقنَك صامتًا على build.sh مُرقَّعٍ سلفًا.")
+    expect = mod._derive_mark(mod._INJECT_TEMPLATE)
+    assert mod.VERSION_MARK == expect, (
+        f"الوسمُ ليس مشتقًّا من القالب ({mod.VERSION_MARK} ≠ {expect}) — "
+        f"أُعيد إلى الكتابة اليدويّة، فعاد بابُ «حقنٍ يُتخطّى صامتًا».")
+    assert "{MARK}" not in mod.INJECT, "موضعُ الوسم لم يُستبدَل — سيُحقَن `{MARK}` حرفيًّا"
+    assert mod._INJECT_TEMPLATE.count("{MARK}") == 1,         "موضعُ الوسم ليس واحدًا في القالب — الاشتقاقُ يفترض موضعًا واحدًا"
+    # وحسّاسيّةٌ فعليّة: حرفٌ واحدٌ يغيّر الوسم.
+    mutated = mod._INJECT_TEMPLATE.replace("محراب:", "محراب :", 1)
+    assert mod._derive_mark(mutated) != mod.VERSION_MARK,         "الاشتقاقُ لا يتأثّر بتغيّر المحتوى — دالّةٌ ميّتة"
+    del hashlib
 
 
 # ───────── L0-2ب: قائمة الجولات المُسقَطة (لا تبتلع محتوى الوصول) ─────────
@@ -4102,62 +4114,294 @@ def _deploy_wildcard_scope_is_contained():
     """شهادةُ wildcard واحدةٌ تنتحل كلَّ اسمٍ تحتها لو تسرّب مفتاحُها.
 
     الـwebviews تحتاج wildcard لا مفرّ: كلُّ إطارٍ يُحمَّل على أصلٍ عشوائيّ
-    (`<uuid>.webview.mihrab.dev`) — وذلك عزلُ أمانِ VS Code نفسِه، والأسماءُ
-    تُولَّد وقتَ التشغيل فلا تُسجَّل مسبقًا.
+    (`<uuid>.webview.mihrab.dev`) — عزلُ أمانِ VS Code نفسِه، والأسماءُ تُولَّد وقتَ
+    التشغيل فلا تُسجَّل مسبقًا. و`*.mihrab.dev` أبسطُ وأغرى، لكنّ تسرُّبَ مفتاحه
+    يُنتحَل به **الموقعُ نفسُه** لا أصولُ الإطارات وحدَها.
 
-    و`*.mihrab.dev` **أبسطُ وأغرى**: شهادةٌ واحدةٌ تغطّي `www` و`docs` و`dl`
-    والـwebviews معًا. لكنّ ثمنَها أنّ تسرُّبَ مفتاحٍ يُنتحَل به **الموقعُ نفسُه**، لا
-    أصولُ الإطارات وحدَها. ومستوًى إضافيٌّ في الاسم ثمنُه سطرُ DNS، ومكسبُه احتواءُ
-    الأثر في الطبقة التي تُنفِّذ شيفرةً غيرَ موثوقةٍ أصلًا.
+    **والنسخةُ الأولى من هذا الحارس كانت تقيس النجمةَ وحدَها — فمرّت أخطرُ صياغة:**
 
-    **ولماذا حارسٌ لأمرٍ يُكتب باليد مرّةً:** القرارُ موزَّعٌ على ثلاثة مواضعَ يجب أن
-    تتّفق (سجلُّ DNS · وسيطُ `certbot -d` · مسارُ السلالة في nginx)، ويُنفَّذ بعد
-    شهورٍ من كتابته. و`-d '*.mihrab.dev'` **يعمل تمامًا** فلا شيءَ يصرخ — التوسيعُ
-    الصامتُ هو بالضبط ما لا يمسكه تشغيلٌ ناجح.
+        certbot certonly -d '*.webview.mihrab.dev' -d mihrab.dev -d www.mihrab.dev
+
+    نجمةٌ ضيّقةٌ فيمرّ الفحص، والشهادةُ الناتجةُ مفتاحٌ واحدٌ يغطّي الموقعَ كلَّه — وهي
+    **أغرى** من `*.mihrab.dev` لأنّها تبدو محترمةً للاحتواء. فصار المقياسُ الأمرَ
+    كلَّه لا الوسيطَ الواحد.
     """
     dep = os.path.join(ROOT, "deploy")
     if not os.path.isdir(dep):
         raise AssertionError("لا مجلّد deploy — الحارسُ يقيس شيئًا غيرَ موجود")
 
+    # **كلُّ ملفٍّ لا امتداداتٍ مختارة**: أوّلُ `Makefile` أو `renew.cron` أو
+    # `cloudflare.ini` يُضاف يخرج من المسح بلا أن ينتبه أحد.
     files = []
-    for base, _dirs, names in os.walk(dep):
+    for base, dirs, names in os.walk(dep):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
         for n in sorted(names):
-            if n.endswith((".conf", ".example", ".md", ".sh", ".service")):
-                files.append(os.path.join(base, n))
+            files.append(os.path.join(base, n))
     assert files, "مجلّد deploy بلا ملفّاتٍ تُقاس"
 
-    # النجمةُ الوحيدةُ المسموحة. أيُّ نجمةٍ أخرى تحت mihrab.dev توسيعٌ للنطاق.
     ALLOWED = "*.webview.mihrab.dev"
-    WILD = re.compile(r"\*(?:\.[A-Za-z0-9_-]+)*\.mihrab\.dev")
+    # ‏IGNORECASE: أسماءُ النطاقات غيرُ حسّاسةٍ للحالة، و`*.Mihrab.dev` كان يمرّ.
+    WILD = re.compile(r"\*(?:\.[A-Za-z0-9_-]+)*\.mihrab\.dev", re.IGNORECASE)
+    # وصيغةُ nginx الأخرى للشمول: نقطةٌ بادئة = النطاقُ وكلُّ ما تحته.
+    DOTPREFIX = re.compile(r"server_name\s+[^;]*(?<![A-Za-z0-9_.-])\.mihrab\.dev", re.IGNORECASE)
+    NAME_ARG = re.compile(r"-d\s+['\"]?([^\s'\"]+)")
 
     seen = 0
     for f in files:
         rel = os.path.relpath(f, ROOT).replace(os.sep, "/")
-        for i, line in enumerate(_read(f).splitlines(), 1):
+        try:
+            text = _read(f)
+        except (UnicodeDecodeError, OSError):
+            continue  # ثنائيٌّ لا يحمل إعدادًا
+        for i, line in enumerate(text.splitlines(), 1):
             for hit in WILD.findall(line):
                 seen += 1
-                assert hit == ALLOWED, (
-                    f"نطاقُ wildcard موسَّع: «{hit}» في {rel}:{i}\n"
-                    f"       المسموح: «{ALLOWED}» وحدَه.\n"
-                    f"       تسرُّبُ مفتاحِ «{hit}» يُنتحَل به ما هو أوسعُ من أصول الإطارات.")
+                assert hit.lower() == ALLOWED, (
+                    "نطاقُ wildcard موسَّع: «" + hit + "» في " + rel + ":" + str(i)
+                    + " — المسموح: «" + ALLOWED + "» وحدَه.")
+            assert not DOTPREFIX.search(line), (
+                "‏`server_name .mihrab.dev` في " + rel + ":" + str(i)
+                + " — النقطةُ البادئة تشمل النطاقَ وكلَّ ما تحته، وهي wildcard بصيغةٍ أخرى.")
 
-    # تفعيلٌ موجبٌ **مرسًى لا عدد**: عتبةٌ رقميّةٌ تتقادم مع كلّ تحريرٍ للوثيقة، أمّا
-    # هذا السطرُ فوجودُه شرطُ عملِ الطبقة أصلًا. لو زال، فالفحصُ لم يعد يقيس شيئًا.
+            # **الأمرُ كلُّه لا الوسيطُ الواحد**: أيُّ سطرِ certbot يطلب شهادةَ الـwebview
+            # يجب ألّا يجمع معها اسمًا آخر — الشهادةُ الواحدة مفتاحٌ واحد.
+            if "certbot" in line and "webview" in line:
+                names = NAME_ARG.findall(line)
+                assert len(names) == 1 and names[0].lower() == ALLOWED, (
+                    "شهادةُ الـwebview تجمع أسماءً أخرى في " + rel + ":" + str(i)
+                    + ": " + repr(names)
+                    + " — مفتاحٌ واحدٌ لأسماءٍ متعدّدة يُنتحَل بتسرُّبه كلُّها."
+                    + " أَصدِرها وحدَها: -d '" + ALLOWED + "'")
+
+    # تفعيلٌ موجبٌ **مرسًى لا عدد**: عتبةٌ رقميّةٌ تتقادم مع كلّ تحرير، أمّا هذا
+    # السطرُ فوجودُه شرطُ عملِ الطبقة أصلًا.
     wv = os.path.join(dep, "nginx", "webview.mihrab.dev.conf")
-    assert os.path.isfile(wv), f"كتلةُ الـwebview مفقودة: {wv}"
+    assert os.path.isfile(wv), "كتلةُ الـwebview مفقودة: " + wv
     body = _read(wv)
-    assert f"server_name {ALLOWED};" in body, (
-        f"لا `server_name {ALLOWED};` في {os.path.relpath(wv, ROOT)} — "
-        f"إمّا أنّ الاسمَ تغيّر (فيُحدَّث الحارس)، أو أنّ الطبقةَ أُلغيت (فيُحذَف صراحةً). "
-        f"لا يُترَك أخضرَ فارغًا.")
+    assert ("server_name " + ALLOWED + ";") in body, (
+        "لا `server_name " + ALLOWED + ";` في " + os.path.relpath(wv, ROOT)
+        + " — إمّا أنّ الاسمَ تغيّر (فيُحدَّث الحارس)، أو أنّ الطبقةَ أُلغيت (فيُحذَف صراحةً).")
     assert seen >= 1, "المُطابِقُ لم يرَ نجمةً واحدة — تعبيرٌ نمطيٌّ مات صامتًا"
 
-    # وسلالةُ الشهادة منفصلةٌ فعلًا: مفتاحان لا مفتاح. لو أشارت كتلةُ الـwebview
-    # إلى سلالة mihrab.dev، عاد الانتحالُ ممكنًا مهما ضاق اسمُ النجمة.
-    lineages = set(re.findall(r"letsencrypt/live/([^/]+)/", body))
-    assert lineages == {"webview.mihrab.dev"}, (
-        f"سلالةُ شهادة الـwebview ليست منفصلة: {sorted(lineages)} — "
-        f"مشاركةُ سلالةِ الموقع تُلغي الاحتواء.")
+    # والأمرُ الذي يُتَّخذ فيه القرارُ فعلًا يجب أن يكون **مكتوبًا** كي يُحرَس. كان
+    # غائبًا («المرحلةُ ٤ تعتمد على قرارٍ لم يُتَّخذ»)، فكان الحارسُ يفحص موضعَين من
+    # ثلاثةٍ ويترك الثالثَ — وهو الحاسم — بلا رقيب.
+    readme = _read(os.path.join(dep, "README.md"))
+    assert re.search(r"certbot[^\n]*webview", readme), (
+        "لا أمرَ certbot للـwildcard في deploy/README.md — الموضعُ الذي يُتَّخذ فيه "
+        "القرارُ غيرُ مكتوب، فلا يُحرَس. اكتبه ولو معلَّقًا بانتظار اختيار المزوّد.")
+
+    # وسلالتان لا سلالة، **في الاتّجاهين**: كتلةُ الـwebview لا تستعمل سلالةَ الموقع،
+    # وكتلُ الموقع لا تستعمل سلالةَ الـwebview. أيُّ مشاركةٍ تُلغي الاحتواء.
+    LIN = re.compile(r"letsencrypt/live/([^/]+)/")
+    wv_lin = set(LIN.findall(body))
+    assert wv_lin == {"webview.mihrab.dev"}, (
+        "سلالةُ شهادة الـwebview ليست منفصلة: " + repr(sorted(wv_lin)))
+    site_lin = set(LIN.findall(_read(os.path.join(dep, "nginx", "mihrab.dev.conf"))))
+    assert "webview.mihrab.dev" not in site_lin, (
+        "كتلُ الموقع تستعمل سلالةَ الـwebview: " + repr(sorted(site_lin))
+        + " — الاحتواءُ يعمل في الاتّجاهين أو لا يعمل.")
+
+
+@check("لا نداءَ `python` مجرَّدًا في أيّ سكربت [PY-01]")
+def _no_bare_python_invocation():
+    """الصنفُ الذي كسر بناءَ لينكس **مرّتين في ساعة**، وبقي بعدهما في خمسة ملفّات.
+
+    ‏`python` المجرَّد غائبٌ عن أوبونتو 24.04، وعلى توزيعاتٍ أقدمَ هو بايثون 2 —
+    والثانيةُ أخبثُ لأنّ الأمرَ يوجد فيفشل المُرقِّعُ بخطأِ صياغةٍ في ملفٍّ سليم.
+    وأُصلِح موضعان بالاسم، ثمّ كُتب في رسالة الإيداع «فلا يتكرّران» — وذلك صحيحٌ
+    للموضعَين وخاطئٌ للصنف: بقي `python` في جالب أدوات ص وجالب ألف ونشرِ الموقع
+    ونشرِ الإصدار، وكلُّها تعمل على لينكس في CI.
+
+    والقاعدة: يُحلّ المفسّرُ بـ`resolve_py_bin` من `build/lib/pybin.sh` ثمّ يُنادى
+    `$PY_BIN`. ويُستثنى شكلان: التعريفُ داخل `pybin.sh` نفسِه، ومسارُ ارتدادٍ محروسٌ
+    بـ`command -v python` قبله مباشرةً (كما في `sha256.sh`).
+    """
+    import glob as _g
+    roots = [os.path.join(ROOT, "build"), os.path.join(ROOT, "tests")]
+    scripts = []
+    for r in roots:
+        for base, dirs, names in os.walk(r):
+            dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules")]
+            scripts += [os.path.join(base, n) for n in sorted(names) if n.endswith(".sh")]
+    assert scripts, "لا سكربتاتٍ تُقاس — الحارسُ يقيس الهواء"
+
+    # الأمرُ `python` في موضع الفعل: بداية سطر، أو بعد `|` أو `&&` أو `$(` أو `;`.
+    CALL = re.compile(r"(?:^|[|;&(]|&&|\|\|)\s*python(?![0-9A-Za-z_.-])")
+    GUARD = re.compile(r"command -v python\b")
+    offenders = []
+    for f in scripts:
+        rel = os.path.relpath(f, ROOT).replace(os.sep, "/")
+        if rel.endswith("build/lib/pybin.sh"):
+            continue  # هنا يُعرَّف الحلُّ نفسُه
+        lines = _read(f).splitlines()
+        for i, line in enumerate(lines):
+            code = line.split("#", 1)[0]
+            if not CALL.search(code):
+                continue
+            # ارتدادٌ محروس: `command -v python` في السطر نفسِه أو الذي قبله.
+            window = "\n".join(lines[max(0, i - 1):i + 1])
+            if GUARD.search(window):
+                continue
+            offenders.append(f"{rel}:{i + 1}: {line.strip()[:70]}")
+
+    assert not offenders, (
+        "نداءُ `python` مجرَّدًا في:\n       " + "\n       ".join(offenders)
+        + "\n       استعمل: . \"$ROOT/build/lib/pybin.sh\" ثمّ resolve_py_bin ثمّ \"$PY_BIN\"")
+
+    # مرسًى موجب: الحلُّ المشترك موجودٌ وموصولٌ ببناءٍ فعليّ. لو حُذف، صار الحارسُ
+    # يمنع شيئًا بلا بديل — وذلك أسوأُ من غيابه.
+    lib = os.path.join(BUILD, "lib", "pybin.sh")
+    assert os.path.isfile(lib), "‏build/lib/pybin.sh مفقود — الحارسُ يمنع بلا بديل"
+    assert "resolve_py_bin" in _read(os.path.join(BUILD, "build.sh")), \
+        "‏build.sh لا يستدعي resolve_py_bin — الحلُّ موجودٌ وغيرُ موصول"
+
+
+@check("مُرقِّعاتُ التعريب الأربعةُ موصولةٌ بالشجرتين معًا [WEB-02]")
+def _web_patchers_wired_for_both_trees():
+    """حذفُ سطرٍ واحدٍ يعيد العطبَ الأصليّ: 1 سلسلة عربيّة من 21922.
+
+    كان الدرسُ مُعمَّمًا على رقعة xterm وحدَها لأنّ مُصابَ PF-03 كشفها، والثلاثةُ
+    الباقيةُ بلا حارس. وأخطرُها `bake_nls_arabic`: حذفُه من فرع الويب يعيد الواجهةَ
+    إنجليزيّةً بالكامل، ولا يحمرّ شيءٌ في الطبقة الساكنة.
+    """
+    sh = _read(os.path.join(BUILD, "build.sh"))
+    PATCHERS = ("patch_extension_nls.py", "patch_xterm_bidi.py",
+                "patch_workbench_font.py", "bake_nls_arabic.py")
+    missing = []
+    for target in ("$APP_DIR", "$WEB_DIR"):
+        for pat in PATCHERS:
+            needle = pat + '" "' + target + '"'
+            if needle not in sh:
+                missing.append(pat + " ⇐ " + target)
+    assert not missing, (
+        "مُرقِّعاتٌ غيرُ موصولةٍ في build.sh:\n       " + "\n       ".join(missing)
+        + "\n       الشجرتان تُشحَنان معًا، فتُعرَّبان معًا.")
+
+    # وإعادةُ فرض الهويّة كذلك: نجا `serverDownloadUrlTemplate` في الويب لأنّها
+    # كانت مربوطةً بالمكتبيّ وحدَه — عطبٌ قِيس في المشحون لا استُنتج.
+    for target in ('"$APP_DIR"', '"$WEB_DIR"'):
+        assert ("reforce_identity " + target) in sh, \
+            "‏reforce_identity غيرُ مُستدعاةٍ لـ" + target + " — الهويّةُ تسقط في شجرةٍ تُشحَن"
+        assert ("assert_identity " + target) in sh, \
+            "‏assert_identity غيرُ مُستدعاةٍ لـ" + target + " — شجرةٌ تُشحَن بلا بوّابة"
+
+
+@check("إعدادُ النشر لا يسلّم المحرِّرَ لزائرٍ مجهول [DEP-02]")
+def _deploy_does_not_expose_editor():
+    """عطبان يوصلان زائرًا مجهولًا إلى طرفيّةٍ على الخادم — وكلاهما كان محروسًا بنثرٍ فقط.
+
+    **(أ) `--without-connection-token`**: خادمُ الويب يفتح طرفيّةً ونظامَ ملفّاتٍ لمن
+    يصله. استعملناها محلّيًّا للقياس، ونسخُها إلى وحدةِ الخدمة سطرٌ واحدٌ ينتج تنفيذَ
+    شيفرةٍ عن بُعدٍ لأيّ زائر.
+
+    **(ب) `default_server`**: على الخادم المقيس لا كتلةَ `default_server` على 443،
+    فأوّلُ كتلةٍ بترتيب التحليل تملك الافتراضيّ. ولو حملت كتلةُ محرابٍ الوسمَ — أو
+    وُضعت في `conf.d/` التي تُحمَّل قبل `sites-enabled/` — لصار كلُّ طلبٍ بترويسة
+    ‏`Host` مجهولةٍ يُمرَّر إلى المحرِّر.
+    """
+    dep = os.path.join(ROOT, "deploy")
+    assert os.path.isdir(dep), "لا مجلّد deploy"
+
+    # **يُقاس ما يُنسَخ إلى الخادم، لا ما يُقرأ عنه.** النثرُ في `README` وقياساتُ
+    # `preflight.sh` تذكر الوسمَين بحكم موضوعها، ومنعُها يجعل الحارسَ يعاقب التوثيق.
+    # و`.example` مستثنًى بالاسم: ملفُّ الخادم الافتراضيِّ **يجب** أن يحمل الوسم —
+    # وهو كتلةُ حمايةٍ لا كتلةُ محراب، ولا يُنسَخ إلّا بقرارٍ بعد قياس.
+    installed = []
+    ngx = os.path.join(dep, "nginx")
+    if os.path.isdir(ngx):
+        installed += [os.path.join(ngx, n) for n in sorted(os.listdir(ngx))
+                      if n.endswith(".conf")]
+    svc = os.path.join(dep, "systemd")
+    if os.path.isdir(svc):
+        installed += [os.path.join(svc, n) for n in sorted(os.listdir(svc))
+                      if n.endswith(".service")]
+    assert installed, "لا ملفّاتِ إعدادٍ تُنسَخ إلى الخادم — الحارسُ يقيس الهواء"
+
+    for f in installed:
+        rel = os.path.relpath(f, ROOT).replace(os.sep, "/")
+        for i, line in enumerate(_read(f).splitlines(), 1):
+            code = line.split("#", 1)[0]
+            assert "--without-connection-token" not in code, (
+                "‏`--without-connection-token` في " + rel + ":" + str(i)
+                + " — على منفذٍ يبلغه العالمُ هذا تنفيذُ شيفرةٍ عن بُعدٍ لأيّ زائر.")
+            assert "default_server" not in code, (
+                "‏`default_server` في " + rel + ":" + str(i)
+                + " — كتلةُ محرابٍ افتراضيّةً تستقبل كلَّ Host مجهول.")
+
+    unit = os.path.join(dep, "systemd", "mihrab-web.service")
+    assert os.path.isfile(unit), "وحدةُ الخدمة مفقودة: " + unit
+    u = _read(unit)
+    assert "--connection-token-file" in u, \
+        "‏ExecStart بلا --connection-token-file — لا رمزَ يحمي الطرفيّة"
+    # ‏`StartLimit*` نُقلا إلى [Unit] منذ systemd 229؛ في [Service] يُهمَلان بصمت،
+    # فتصير خدمةٌ تسقط عند الإقلاع حلقةَ إعادةِ تشغيلٍ أبديّةً بلا `failed` ظاهر.
+    _unit_sec = u.split("[Service]", 1)[0]
+    _svc_sec = u.split("[Service]", 1)[1] if "[Service]" in u else ""
+    for key in ("StartLimitIntervalSec", "StartLimitBurst"):
+        if key in u:
+            assert key in _unit_sec and key not in _svc_sec, (
+                "‏" + key + " في [Service] — نُقل إلى [Unit] منذ systemd 229 ويُهمَل هنا بصمت.")
+
+
+@check("مراجعُ المستودع كلُّها على المنظّمة الحاليّة [ORG-01]")
+def _repo_references_are_current():
+    """سبعةَ عشرَ مرجعًا نُقلت يدويًّا في ثلاثةَ عشرَ ملفًّا — ولا شيءَ يمنع بقاءَ واحد.
+
+    والمراجعُ ليست روابطَ توثيقٍ فقط: أربعةٌ منها في `product-overrides/product.json`
+    تصل المستخدمَ في «أبلغ عن مشكلة» و«الترخيص»، واثنان في بيانات ملفّات ويندوز
+    التي **تُطبَع في ثنائيّاتٍ موقَّعة**. ومرجعٌ بائتٌ واحدٌ يعمل اليومَ (‏GitHub
+    يحوّل بعد النقل) ويسقط يومَ يُعاد استعمالُ الاسم القديم لشيءٍ آخر.
+
+    والفحصُ يقيس **الشجرةَ المتعقَّبة** لا القرصَ: السجلّاتُ ومخرَجاتُ البناء تحوي
+    نسخًا قديمةً بحكم كونها لقطاتٍ لما مضى.
+    """
+    import subprocess
+    # **يُبنى من جزأين لا يُكتب حرفيًّا**: الفحصُ يمسح الشجرةَ المتعقَّبة ومنها هذا
+    # الملفّ، فكتابةُ الاسم القديم حرفيًّا تجعله يبلّغ عن نفسِه. أُوقِع فعلًا.
+    OLD = "sadlang" + "/mihrab" + "-ide"
+    NEW = "mihrab-org" + "/mihrab"
+    try:
+        out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
+                             capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise AssertionError(f"تعذّر سردُ الملفّات المتعقَّبة: {e}")
+    assert out.returncode == 0, "‏git ls-files فشل — لا يمكن قياسُ الشجرة المتعقَّبة"
+    tracked = [n.decode("utf-8") for n in out.stdout.split(b"\0") if n]
+    assert tracked, "لا ملفّاتٍ متعقَّبة — الحارسُ يقيس الهواء"
+
+    # **سجلُّ المُصابات مستثنًى بالاسم**: هو بحكم وظيفته مخزنُ أعطابٍ مقصودة —
+    # مُصابُ `org-reference-stale` يحمل الاسمَ القديمَ عمدًا كي يُزرَع. ومسحُه يجعل
+    # الحارسَ يبلّغ عن الأداة التي تحرسه. (أُوقِع فعلًا: احمرّ على شجرةٍ سليمةٍ
+    # فأسقط ثمانيةَ مُصاباتٍ أخرى معه.)
+    EXEMPT = {"tests/meta/mutants.json"}
+
+    stale = []
+    seen_new = 0
+    for rel in tracked:
+        if rel in EXEMPT:
+            continue
+        f = os.path.join(ROOT, rel.replace("/", os.sep))
+        if not os.path.isfile(f):
+            continue
+        try:
+            text = _read(f)
+        except (UnicodeDecodeError, OSError):
+            continue  # ثنائيّ
+        if OLD in text:
+            for i, line in enumerate(text.splitlines(), 1):
+                if OLD in line:
+                    stale.append(f"{rel}:{i}")
+        seen_new += text.count(NEW)
+
+    assert not stale, (
+        "مرجعٌ بائتٌ للمستودع القديم في:\n       " + "\n       ".join(stale[:20])
+        + "\n       بدِّله إلى " + NEW)
+    # تفعيلٌ موجب: لو زالت المراجعُ كلُّها لمرّ الفحصُ أخضرَ بلا معنى. والمرجعُ
+    # الأدنى مرسًى حقيقيّ — `product.json` وحدَه يحمل أربعة.
+    assert seen_new >= 4, (
+        f"لم يُرَ إلّا {seen_new} مرجعًا لـ{NEW} — إمّا أنّ الاسمَ تغيّر (فيُحدَّث "
+        f"الحارس) أو أنّ المراجعَ زالت. لا يُترَك أخضرَ فارغًا.")
 
 
 def _assert_lines():

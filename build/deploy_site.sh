@@ -28,12 +28,16 @@ ROOT="${MIHRAB_SITE_ROOT:-/opt/sad-website}"
 SUB="${MIHRAB_SITE_SUBDIR:-mihrab}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# مفسّرُ بايثون يُحلّ ولا يُفترَض: `python` المجرَّد غائبٌ عن أوبونتو 24.04.
+. "$HERE/build/lib/pybin.sh"
+resolve_py_bin || exit 1
 PUB="$HERE/site/public"
 
 SSH=(ssh -p "$PORT" -o BatchMode=yes)
 
 echo "▶ بناءُ الموقع…"
-python "$HERE/site/build.py"
+"$PY_BIN" "$HERE/site/build.py"
 
 [[ -f "$PUB/index.html" ]] || { echo "❌ لا مخرَجَ في $PUB" >&2; exit 1; }
 

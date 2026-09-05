@@ -35,7 +35,7 @@ _conf() {
 }
 _conf | grep -nE 'listen[^;]*443|^### ' | head -30
 echo "   --- default_server ---"
-_conf | grep -n 'default_server' | head -10 || echo "   ⚠️ لا default_server على 443 — انسخ 00-default-tls.conf أو ضع كتلَنا في sites-enabled بعد الموجود"
+_conf | grep -n 'default_server' | head -10 || true; [ -n "$(_conf | grep -c default_server)" ] || echo "   ⚠️ لا default_server على 443 — انسخ 00-default-tls.conf أو ضع كتلَنا في sites-enabled بعد الموجود"
 
 echo
 echo "── (3) ترويساتٌ في http{} قد تُلغيها كتلتُنا ──"
@@ -80,6 +80,14 @@ else
 fi
 
 echo
+echo
+echo "── (10) قصاصاتُ TLS التي تُدرِجها كتلُنا ──"
+echo '   `certbot certonly` لا ينشئهما — يُنشئهما مُثبِّتُ nginx. وغيابُهما يوقف'
+echo '   النشرَ في منتصفه بعد إصدار الشهادة (يمسكه nginx -t فلا يُسقِط موقعًا).'
+for f in options-ssl-nginx.conf ssl-dhparams.pem; do
+  if [ -r "/etc/letsencrypt/$f" ]; then echo "   ✅ $f"; else echo "   ❌ $f مفقود"; fi
+done
+
 echo "════ نسخةٌ احتياطيّةٌ قبل أيّ تعديل ════"
 echo "   tar czf ~/nginx-\$(date +%F).tgz /etc/nginx"
 echo "   وبعد كلِّ نسخة، بلا استثناء:  nginx -t && systemctl reload nginx"

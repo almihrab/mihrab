@@ -341,6 +341,46 @@
       "new": "server_name *.mihrab.dev;",
       "expect": "نطاقُ wildcard موسَّع",
       "why": "توسيعُ النجمة من `*.webview.mihrab.dev` إلى `*.mihrab.dev` **يعمل تمامًا** — الشهادةُ تصدر والموقعُ يخدم ولا شيءَ يصرخ. لكنّ تسرُّبَ المفتاح يصير انتحالًا للموقع كلِّه لا لأصول الإطارات وحدَها. أخطرُ صنفٍ من الأعطاب: لا يظهر إلّا يومَ يقع الضرر."
+    },
+    {
+      "id": "bare-python-returns",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/deploy_site.sh",
+      "old": "\"$PY_BIN\" \"$HERE/site/build.py\"",
+      "new": "python \"$HERE/site/build.py\"",
+      "expect": "نداءُ `python` مجرَّدًا",
+      "why": "الصنفُ الذي كسر بناءَ لينكس مرّتين في ساعة. `python` غائبٌ عن أوبونتو 24.04، وعلى توزيعاتٍ أقدمَ هو بايثون 2 فيفشل بخطأِ صياغةٍ في ملفٍّ سليم."
+    },
+    {
+      "id": "web-bake-unwired",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "\"$PY_BIN\" \"$ROOT/build/bake_nls_arabic.py\" \"$WEB_DIR\"",
+      "new": "\"$PY_BIN\" \"$ROOT/build/bake_nls_arabic_MUTANT.py\" \"$WEB_DIR\"",
+      "expect": "مُرقِّعاتٌ غيرُ موصولة",
+      "why": "حذفُ سطرٍ واحدٍ يعيد العطبَ الأصليّ: واجهةُ متصفّحٍ إنجليزيّةٌ بالكامل (1/21922) خلف اتّجاهٍ عربيٍّ سليم. والبناءُ ينجح."
+    },
+    {
+      "id": "deploy-token-disabled",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/systemd/mihrab-web.service",
+      "old": "    --connection-token-file /etc/mihrab/token \\",
+      "new": "    --without-connection-token \\",
+      "expect": "without-connection-token",
+      "why": "سطرٌ واحدٌ يمنح كلَّ زائرٍ طرفيّةً على الخادم. والخدمةُ تعمل تمامًا بعده، فلا شيءَ يصرخ."
+    },
+    {
+      "id": "org-reference-stale",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "product-overrides/product.json",
+      "old": "\"releaseNotesUrl\": \"https://github.com/mihrab-org/mihrab/releases\"",
+      "new": "\"releaseNotesUrl\": \"https://github.com/sadlang/mihrab-ide/releases\"",
+      "expect": "مرجعٌ بائتٌ للمستودع القديم",
+      "why": "رابطٌ يصل المستخدمَ في «ملاحظات الإصدار» ويُطبَع في ثنائيّاتٍ موقَّعة. يعمل اليومَ بتحويل GitHub، ويسقط يومَ يُعاد استعمالُ الاسم القديم."
     }
   ],
   "uncovered": [

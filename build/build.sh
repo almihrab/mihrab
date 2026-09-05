@@ -60,24 +60,11 @@ case "$OS_NAME" in
 esac
 
 # ── مفسّرُ بايثون: يُحلّ مرّةً ولا يُفترَض ────────────────────────────────────
-# ‏`python` المجرَّد **غيرُ موجودٍ على أوبونتو 24.04** (‏python3 وحدَه)، وعلى توزيعاتٍ
-# أقدمَ قد يكون **بايثون 2**. وقد قِيس العطبُ حيًّا: أوّلُ بناءِ لينكس مات بـ127 عند
-# أوّلِ مُرقِّع — رسالةٌ لا تذكر بايثون أصلًا، فبدت عطبًا في المُرقِّع لا في البيئة.
-# وهذا نفسُ ما يحذّر منه رأسُ الملفّ: ويندوزيّةٌ **مبثوثةٌ** لا معلَنة.
-PY_BIN="${MIHRAB_PYTHON_BIN:-}"
-if [[ -z "$PY_BIN" ]]; then
-  for _c in python3 python; do
-    if command -v "$_c" >/dev/null 2>&1 && "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0]==3 else 1)' 2>/dev/null; then
-      PY_BIN="$_c"; break
-    fi
-  done
-fi
-[[ -n "$PY_BIN" ]] || {
-  echo "❌ لا مفسّرَ بايثون 3 في PATH (جُرِّب python3 ثمّ python)." >&2
-  echo "   المُرقِّعاتُ كلُّها بايثون؛ بلا مفسّرٍ لا بناء. اضبط MIHRAB_PYTHON_BIN إن كان في مسارٍ آخر." >&2
-  exit 1
-}
-export PY_BIN   # ترثُه شيفرةُ الحقن داخل build.sh المنبع (رُقَعُ النواة كلُّها بايثون)
+# الدالّةُ مشتركةٌ لأنّ خمسةَ سكربتاتٍ أخرى كانت تنادي `python` مجرَّدًا فتموت على
+# أوبونتو 24.04. التعليلُ الكامل في الملفّ، والقاعدةُ يحرسها [PY-01] في L0.
+# ‏`export` لازمٌ: شيفرةُ الحقن داخل `build.sh` المنبع ترثه (رُقَعُ النواة كلُّها بايثون).
+. "$ROOT/build/lib/pybin.sh"
+resolve_py_bin || exit 1
 
 # تحويلُ مسارٍ إلى صيغة النظام لمستهلكٍ غير POSIX (node-gyp على ويندوز وحده).
 winpath() { if [[ "$IS_WIN" == "yes" ]]; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
@@ -106,7 +93,7 @@ NODE_VERSION="${MIHRAB_NODE_VERSION:-$(grep -oE '"node"[[:space:]]*:[[:space:]]*
   exit 1; }
 JQ_VERSION="1.7.1"
 NODEGYP_VERSION="13.0.0"   # 11.x لا يعرف VS 2026 (v18)؛ 13 يدعم [2019,2022,2026]
-PYTHON_HINT="${MIHRAB_PYTHON:-}"   # مسار python3.12؛ يُكتشف تلقائيًّا إن تُرك فارغًا
+PYTHON_HINT="${MIHRAB_NODE_GYP_PYTHON:-${MIHRAB_PYTHON:-}}"   # مسار python3.12 لـnode-gyp (‏لا علاقةَ له بـPY_BIN)؛ يُكتشف تلقائيًّا إن تُرك فارغًا
 
 log() { echo "▶ $*"; }
 
@@ -247,7 +234,8 @@ fi
 if [[ -z "$PYTHON_HINT" && "$IS_WIN" == "yes" ]]; then
   PYTHON_HINT="$(py -3.12 -c 'import sys;print(sys.executable)' 2>/dev/null | tr -d '\r' || true)"
 fi
-# if لا «A && B»: غياب python يجب أن يَسقط للنظام لا أن يُوقف البناء تحت set -e.
+# ‏if لا «A && B»: للوضوح لا للسلامة — القائمةُ `A && B` معفاةٌ من set -e حين يفشل
+# غيرُ الأخير (اختُبر على bash 5.2). كان التعليلُ يقول إنّها تُوقف البناء، وذلك خطأ.
 if [[ -n "$PYTHON_HINT" ]]; then export npm_config_python="$PYTHON_HINT"; fi
 # node-gyp المُستبدَل لا وجودَ له خارج ويندوز؛ npm يستعمل المدمج وهو الصواب هناك.
 if [[ "$IS_WIN" == "yes" ]]; then
@@ -658,15 +646,43 @@ APP_DIR="$OUTDIR/$APP_REL"
 # `serverDownloadUrlTemplate` يشير إلى تغذية إصدارات VSCodium في الحزمة المشحونة —
 # دمجٌ واحدٌ مبكّر لا يكفي، فآخرُ من يكتب هو من يفوز.
 # فالحلُّ أن نُعيد الفرض على الملفّ الذي يُشحَن فعلًا (وهو ما تقيسه طبقةُ L2).
-if [[ -f "$APP_DIR/product.json" && -f "$OVERRIDES" ]]; then
-  log "إعادة فرض هوية محراب على product.json المشحون"
-  if ! jq -s '.[0] * .[1] | with_entries(select(.key | startswith("_comment") | not))' \
-      "$APP_DIR/product.json" "$OVERRIDES" > "$APP_DIR/product.json.tmp"; then
-    rm -f "$APP_DIR/product.json.tmp"
-    echo "❌ فشل إعادة فرض هوية محراب على المخرَج." >&2; exit 1
+#
+# **ودالّةٌ لا كتلة**: كانت مربوطةً بـ`$APP_DIR` وحدَه، فنجا العطبُ نفسُه في شجرة
+# الويب — قِيس على 1.126.05942: `serverDownloadUrlTemplate` فيها يشير إلى إصدارات
+# VSCodium. أي أنّ محرابًا المنشورَ يوزّع المنبعَ باسمه. الشجرتان تُشحَنان، فتُعامَلان
+# معاملةً واحدة.
+reforce_identity() {
+  local _dir="$1" _label="$2"
+  [[ -f "$_dir/product.json" && -f "$OVERRIDES" ]] || return 0
+  log "إعادة فرض هوية محراب على product.json المشحون ($_label)"
+  if ! jq -s '.[0] * .[1] | with_entries(select(.key | startswith("_comment") | not))'       "$_dir/product.json" "$OVERRIDES" > "$_dir/product.json.tmp"; then
+    rm -f "$_dir/product.json.tmp"
+    echo "❌ فشل إعادة فرض هوية محراب على $_label." >&2; return 1
   fi
-  mv -f "$APP_DIR/product.json.tmp" "$APP_DIR/product.json"
-fi
+  mv -f "$_dir/product.json.tmp" "$_dir/product.json"
+}
+
+# بوّابةُ هويّةٍ على أيّ شجرةٍ تُشحَن. تُستدعى للمكتبيّ وللويب، لأنّ «بُني بنجاح»
+# ليس دليلَ «يحمل هويّتَنا» — وقد سقطت الهويّةُ في المشحون مرّتين قبل هذا السطر.
+assert_identity() {
+  local _dir="$1" _label="$2" _n _l _u _s
+  [[ -f "$_dir/product.json" ]] || return 0
+  _n="$("$JQ_BIN" -r '.nameLong // ""' "$_dir/product.json")"
+  _l="$("$JQ_BIN" -r '.defaultLocale // ""' "$_dir/product.json")"
+  _u="$("$JQ_BIN" -r '.updateUrl // "null"' "$_dir/product.json")"
+  _s="$("$JQ_BIN" -r '.serverDownloadUrlTemplate // "null"' "$_dir/product.json")"
+  [[ "$_n" == "محراب" ]] || { echo "❌ [$_label] هويّةٌ مفقودة: nameLong=$_n" >&2; return 1; }
+  [[ "$_l" == "ar"     ]] || { echo "❌ [$_label] اللغةُ الافتراضيّة ليست العربيّة: $_l" >&2; return 1; }
+  [[ "$_u" == "null"   ]] || { echo "❌ [$_label] updateUrl ليس null: $_u" >&2; return 1; }
+  # وهذا هو المفتاحُ الذي نجا في الويب: تغذيةُ تنزيلِ الخادم يجب ألّا تشير إلى المنبع.
+  case "$_s" in
+    *vscodium*|*VSCodium*|*microsoft*|*Microsoft*)
+      echo "❌ [$_label] serverDownloadUrlTemplate يشير إلى المنبع: $_s" >&2; return 1 ;;
+  esac
+  log "هويّةُ $_label سليمة (nameLong · locale · updateUrl · serverDownloadUrlTemplate)"
+}
+
+reforce_identity "$APP_DIR" "المكتبيّ" || exit 1
 
 # ── (ط-0أ) حقن ترجمة بيانات الامتدادات إلى العربيّة — مساهمة بناء (الطبقة 2) ──
 # يعيد بناء contents.package في ملفّ i18n لحزمة اللغة لكلّ امتداد مدمج (عناوين أوامر/أوصاف
@@ -746,6 +762,7 @@ if [[ -d "${_WEB_DIRS[0]:-}" ]]; then
   fi
   WEB_DIR="${_WEB_DIRS[0]}"
   log "تعريبُ بناء الويب: $(basename "$WEB_DIR")"
+  reforce_identity "$WEB_DIR" "الويب" || exit 1
   "$PY_BIN" "$ROOT/build/patch_extension_nls.py" "$WEB_DIR" || {
     echo "❌ فشل حقنُ ترجمة الامتدادات في بناء الويب." >&2; exit 1; }
   "$PY_BIN" "$ROOT/build/patch_xterm_bidi.py" "$WEB_DIR" || {
@@ -754,6 +771,7 @@ if [[ -d "${_WEB_DIRS[0]:-}" ]]; then
     echo "❌ فشل وصلُ الخطّ العربيّ في بناء الويب." >&2; exit 1; }
   "$PY_BIN" "$ROOT/build/bake_nls_arabic.py" "$WEB_DIR" || {
     echo "❌ فشل خبزُ العربيّة في بناء الويب." >&2; exit 1; }
+  assert_identity "$WEB_DIR" "الويب" || exit 1
 else
   log "لا بناءَ ويبٍ (vscode-reh-web-*) في $UP — تُخطّى خطوةُ تعريبه"
 fi
@@ -783,16 +801,7 @@ echo "✅ البناء نجح: $LAUNCHER"
 # البناءُ الناجح ليس دليلَ صحّة: الهويّةُ قد تنجو في `$UP/product.json` وتسقط في
 # المشحون (وقد سقطت فعلًا — انظر ط-0ز)، والتعريبُ قد يُخبَز في ملفٍّ لا يُقرأ.
 # فحصٌ رخيصٌ على المخرَج هنا يمسك ذلك قبل أن يصل إلى مستخدم.
-if [[ -f "$APP_DIR/product.json" ]]; then
-  _nameLong="$("$JQ_BIN" -r '.nameLong // ""' "$APP_DIR/product.json")"
-  _locale="$("$JQ_BIN" -r '.defaultLocale // ""' "$APP_DIR/product.json")"
-  _update="$("$JQ_BIN" -r '.updateUrl // "null"' "$APP_DIR/product.json")"
-  [[ "$_nameLong" == "محراب" ]] || { echo "❌ هويّةٌ مفقودة في المشحون: nameLong=$_nameLong" >&2; exit 1; }
-  [[ "$_locale"  == "ar"     ]] || { echo "❌ اللغةُ الافتراضيّة ليست العربيّة: $_locale" >&2; exit 1; }
-  # المُحدِّثُ معطَّلٌ عمدًا: تركُه مورَّثًا يستبدل محرابًا بـVSCodium صامتًا (عطبٌ أُبلغ عنه).
-  [[ "$_update"  == "null"   ]] || { echo "❌ updateUrl غيرُ معطَّل — سيستبدل محرابًا بالمنبع: $_update" >&2; exit 1; }
-  log "الهويّةُ في المشحون: nameLong=محراب · locale=ar · updateUrl=معطَّل"
-fi
+assert_identity "$APP_DIR" "المكتبيّ" || exit 1
 if [[ -f "$APP_DIR/out/nls.messages.json" ]]; then
   # بايتا 0xD8/0xD9 بادئتا العربيّة في UTF-8. لا `grep -P` ولا محرفٌ عربيٌّ حرفيّ:
   # الأوّلُ غائبٌ عن grep في macOS، والثاني رهنُ محارف السكربت ولغةِ البيئة معًا.
@@ -816,11 +825,17 @@ if [[ -d "$APP_DIR/extensions" ]]; then
 fi
 # والنصُّ المخبوز (سلاسلُ القشرة): تسرّبُ اسمِ التوزيعة الأمّ فيه عطبٌ كذلك.
 # الفحصُ بايتيٌّ مباشرٌ لأنّ الملفَّ مصفوفةُ سلاسل بلا بنية — و«VSCodium» ASCII بحت.
-if [[ -f "$APP_DIR/out/nls.messages.json" ]] \
-   && LC_ALL=C grep -qi "vscodium" "$APP_DIR/out/nls.messages.json"; then
-  echo "❌ تسرّبُ هويّة: اسمُ التوزيعة الأمّ في nls.messages.json المخبوز — لا يُشحَن." >&2
-  exit 1
-fi
+# ويشمل الفحصُ **الشجرتين والملفَّين**: نسخةُ المتصفّح (`nls.messages.js`) كانت تحمل
+# رابطَ sourceMappingURL إلى إصدارات VSCodium — اسمُ منبعٍ يُخدَم للزائر، وجلبٌ من
+# طرفٍ ثالثٍ عند فتح أدوات المطوّر. وكان خارجَ كلّ بوّابة.
+for _nls in "$APP_DIR/out/nls.messages.json" "$APP_DIR/out/nls.messages.js" \
+            ${WEB_DIR:+"$WEB_DIR/out/nls.messages.json"} ${WEB_DIR:+"$WEB_DIR/out/nls.messages.js"}; do
+  [[ -f "$_nls" ]] || continue
+  if LC_ALL=C grep -qi "vscodium" "$_nls"; then
+    echo "❌ تسرّبُ هويّة: اسمُ التوزيعة الأمّ في $_nls — لا يُشحَن." >&2
+    exit 1
+  fi
+done
 log "الهويّةُ نظيفةٌ في النصّ المُصيَّر (المخبوز + بيانات الامتدادات)"
 
 # ‏--version لا يعمل بلا شاشة على لينكس (Electron يحتاج X/Wayland)، ولا يُشغَّل من

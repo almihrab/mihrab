@@ -19,6 +19,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# مفسّرُ بايثون يُحلّ ولا يُفترَض: `python` المجرَّد غائبٌ عن أوبونتو 24.04.
+. "$ROOT/build/lib/pybin.sh"
+resolve_py_bin || exit 1
 REPO="${SAD_TOOLS_REPO:-sadlang/s-programming-language}"
 TAG="${SAD_TOOLS_TAG:-}"
 OUT="$ROOT/.upstream/.sad-tools"
@@ -146,7 +150,7 @@ if ((FOUND == 0)); then
   exit 1
 fi
 
-python - "$OUT" "$REPO" "$TAG" "$(IFS=,; echo "${PICKS[*]}")" <<'PY'
+"$PY_BIN" - "$OUT" "$REPO" "$TAG" "$(IFS=,; echo "${PICKS[*]}")" <<'PY'
 import hashlib, json, os, sys
 out, repo, tag, asset = sys.argv[1:5]
 bins = {}

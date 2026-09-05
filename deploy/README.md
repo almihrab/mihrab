@@ -202,7 +202,18 @@ done
 
 ### ٤ · الـwildcard والـwebview
 
-يعتمد على قرارٍ لم يُتَّخذ بعد: ‏Cloudflare أم واجهةُ Namecheap (انظر «الشهادة» أدناه).
+**الشهادةُ أوّلًا** — والمزوّدُ قرارٌ لم يُتَّخذ بعد (انظر «الشهادة» أدناه)، لكنّ
+**نطاقَ الأمر لا يعتمد على المزوّد**، فهو مكتوبٌ هنا كي يُحرَس:
+
+```bash
+# ‏Cloudflare (الموصى به):
+sudo certbot certonly --dns-cloudflare   --dns-cloudflare-credentials /etc/mihrab/cloudflare.ini   --cert-name webview.mihrab.dev -d '*.webview.mihrab.dev'
+```
+
+⛔ **ولا تجمع معها اسمًا آخر.** `-d '*.webview.mihrab.dev' -d mihrab.dev` يبدو محترمًا
+للاحتواء وهو نقضُه: مفتاحٌ واحدٌ يُنتحَل بتسرُّبه الموقعُ كلُّه. سلالتان لا سلالة.
+ويحرس ذلك فحصُ `[DEP-01]` في الطبقة الساكنة — يقرأ هذا السطرَ نفسَه.
+
 وبعد صدور الشهادة:
 
 ```bash

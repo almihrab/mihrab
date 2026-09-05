@@ -70,8 +70,12 @@ def main() -> int:
         default_messages = _read_json(en_backup)
     else:
         default_messages = _read_json(msgs_file)
-        with open(en_backup, "w", encoding="utf-8", newline="") as f:
+        # ذرّيّة كبقيّة الكتابات: انقطاعٌ هنا يترك مرجعَ الإنجليزيّة مبتورًا، فتفشل
+        # كلُّ إعادةِ تشغيلٍ بعده — بصخبٍ لا صمت، لكن بلا تعافٍ إلّا بإعادة البناء.
+        _tmp_en = en_backup + ".tmp"
+        with open(_tmp_en, "w", encoding="utf-8", newline="") as f:
             json.dump(default_messages, f, ensure_ascii=False)
+        os.replace(_tmp_en, en_backup)
         print("حُفِظت نسخة الإنجليزيّة الأصليّة: nls.messages.en.json")
 
     nls_keys = _read_json(keys_file)
@@ -83,8 +87,10 @@ def main() -> int:
         orig = _read_json(i18n_backup)
     else:
         orig = _read_json(i18n_file)
-        with open(i18n_backup, "w", encoding="utf-8", newline="") as f:
+        _tmp_or = i18n_backup + ".tmp"
+        with open(_tmp_or, "w", encoding="utf-8", newline="") as f:
             json.dump(orig, f, ensure_ascii=False)
+        os.replace(_tmp_or, i18n_backup)
         print("حُفِظت نسخة الحزمة الأصليّة: main.i18n.orig.json")
     contents = orig.get("contents", {})
 
@@ -182,7 +188,13 @@ def main() -> int:
         if not js_src.startswith(js_prefix) or close < 0:
             print(f"❌ بنيةٌ غيرُ متوقَّعة في {js_file} — توقّف بلا كتابة.", file=sys.stderr)
             return 1
-        js_out = js_prefix + json.dumps(result, ensure_ascii=False) + js_src[close + 1:]
+        # **الذيلُ يُكتَب لا يُستنسَخ.** كان `js_src[close+1:]` يُبقي سطرَ
+        # `sourceMappingURL` كما هو — وهو يشير إلى **إصدارات VSCodium**. فيُخدَم
+        # اسمُ المنبع للمتصفّح في ملفٍّ نحن نكتبه، ويُجلَب من طرفٍ ثالثٍ عند فتح
+        # أدوات المطوّر. وبوّابةُ الهويّة كانت تفحص الـjson المكتبيّة وحدَها فلم ترَه.
+        # ولا بديلَ لدينا نشير إليه (لا ننشر خرائطَ مصدر)، فيُحذَف السطر.
+        js_out = js_prefix + json.dumps(result, ensure_ascii=False) + ";\n"
+
         tmp_js = js_file + ".tmp"
         with open(tmp_js, "w", encoding="utf-8", newline="") as f:
             f.write(js_out)

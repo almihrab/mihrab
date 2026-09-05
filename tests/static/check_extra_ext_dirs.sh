@@ -89,6 +89,10 @@ fi
 # ═══ ٢) سلسلةُ البصمة ═══
 # shellcheck source=/dev/null
 . "$ROOT/build/lib/sha256.sh"
+
+# مفسّرُ بايثون: كانت الأولويّةُ هنا معكوسة (`python` قبل `python3`) — وهو بايثون 2
+# على توزيعاتٍ أقدم. الدالّةُ المشتركة تختبر النسخةَ لا الوجودَ وحدَه.
+. "$ROOT/build/lib/pybin.sh"
 printf 'mihrab' > "$TMP/probe"
 WANT="b058209cf203796183d7ec228d0dc4f7b5a08c56338c6b506ce56c1594c83dba"  # sha256("mihrab")
 got=$(sha256_of "$TMP/probe" 2>&1) && [[ "$got" == "$WANT" ]] \
@@ -107,10 +111,10 @@ fi
 EXTRACT=$(sed -n '/# <<VSIX_EXTRACT/,/# VSIX_EXTRACT>>/p' "$ROOT/build/fetch_alif_extension.sh")
 if [[ -z "$EXTRACT" ]]; then
   no "لم أجد كتلةَ فكّ vsix (سياجٌ مفقود؟)"
-elif ! command -v python >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
+elif ! resolve_py_bin 2>/dev/null; then
   echo "  ⏭️  لا بايثون — تخطّي حارس zip slip"
 else
-  PY=python; command -v python >/dev/null 2>&1 || PY=python3
+  PY="$PY_BIN"
   "$PY" - "$TMP/evil.vsix" <<'MAKE'
 import sys, zipfile
 with zipfile.ZipFile(sys.argv[1], "w") as z:
@@ -132,10 +136,10 @@ fi
 RT=$(sed -n '/# <<RUNTIME_EXTRACT/,/# RUNTIME_EXTRACT>>/p' "$ROOT/build/fetch_alif_extension.sh")
 if [[ -z "$RT" ]]; then
   no "لم أجد كتلةَ فكّ المفسّر (سياجٌ مفقود؟)"
-elif ! command -v python >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
+elif ! resolve_py_bin 2>/dev/null; then
   echo "  ⏭️  لا بايثون — تخطّي حراس فكّ المفسّر"
 else
-  PY=python; command -v python >/dev/null 2>&1 || PY=python3
+  PY="$PY_BIN"
   { echo 'RT_TMP="$1"; DEST="$2"'; echo "$RT"; } > "$TMP/rt.sh"
 
   # يبني الحزمَ الخبيثةَ والسليمة. الحزمُ الحقيقيّةُ تلفّ محتواها في مجلّدٍ أعلى

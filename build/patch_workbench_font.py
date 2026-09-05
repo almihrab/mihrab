@@ -78,7 +78,16 @@ def main(app_dir):
     if not found:
         fail("لا ورقةَ أنماطٍ محزومة في أيٍّ من: " +
              " · ".join(CSS_CANDIDATES) + " (تحت " + app_dir + ")")
-    css = found[0]
+    # **حلقةٌ لا `found[0]`**: اليومَ كلُّ شجرةٍ تحوي مرشّحًا واحدًا (قِيس)، فالأولى
+    # صحيحة. لكنّ «الأولى فقط» تترك الثانيةَ بلا رقعةٍ **صامتةً** لو وُجدتا يومًا،
+    # والحلقةُ لا تخطئ أبدًا. غيّرنا السطرَ لا المنطق.
+    rc = 0
+    for css in found:
+        rc = _patch_one(css, app_dir) or rc
+    return rc
+
+
+def _patch_one(css, app_dir):
 
     src = io.open(css, encoding="utf-8", newline="").read()
 
