@@ -3281,6 +3281,85 @@ def _welcome_ext():
                     f"رابط أمر ميّت «{cmd}» في الخطوة {sid}")
 
 
+@check("سياسةُ أمان المحتوى: مقيسةٌ، وفي كتلتها، وبلا ثقبٍ صامت [CSP-01]")
+def _static_csp():
+    """السياسةُ تكسر الموقعَ صامتةً في الاتّجاهَين، فتُحرَس في الاتّجاهَين.
+
+    **الضيقُ الزائدُ** يقتل مضيفَ الامتدادات بلا صفحةٍ بيضاء: الورشةُ تُقلِع والسمةُ
+    تُرسَم ولا امتدادَ يعمل. **والسعةُ الزائدةُ** (`'unsafe-inline'` في `script-src`)
+    تُبقي الترويسةَ حاضرةً وتُبطِل أنفعَ ما فيها — وهي أسوأُ الحالتين لأنّها تُقرأ
+    خضراءَ في كلّ مراجعة.
+
+    والموضعُ جزءٌ من الصحّة لا تنسيق: `add_header` في `location /out/` يُرسِل سياستَنا
+    إلى مستندَين منبعيَّين يحملان سياستَيهما (إطارُ مضيف الامتدادات وصفحةُ الـwebview)،
+    والسياساتُ **تتقاطع**، فيُمنَع سكربتُهما الداخليُّ ويموت المضيف. قِيس.
+    """
+    import re as _re
+    conf = _read(os.path.join(ROOT, "deploy", "nginx", "mihrab.dev.static.conf"))
+
+    # الترويسةُ موجودةٌ ومرّةً واحدة.
+    hits = _re.findall(r'add_header\s+Content-Security-Policy\s+"([^"]+)"', conf)
+    assert len(hits) == 1, (
+        "‏Content-Security-Policy وقعت " + str(len(hits)) + " مرّةً لا مرّةً واحدة — "
+        "غيابُها نقصٌ، وتكرارُها في كتلتين يجعل إحداهما تُلغي الأخرى صامتةً [CSP-01]")
+    policy = hits[0]
+
+    # **وفي كتلةِ الصفحة لا كتلةِ الأصول.** يُقتطَع نصُّ `location /out/` بموازنةِ
+    # الأقواس لا بنافذةِ أسطرٍ تقديريّة — نافذةٌ ثابتةٌ تُخطئ عند أوّل تعليقٍ يُضاف.
+    i = conf.find("location /out/")
+    assert i > 0, "لا كتلةَ `location /out/` في الإعداد — تغيّرت بنيتُه [CSP-01]"
+    j = conf.index("{", i)
+    depth, k = 0, j
+    while k < len(conf):
+        if conf[k] == "{":
+            depth += 1
+        elif conf[k] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        k += 1
+    assert "Content-Security-Policy" not in conf[j:k], (
+        "السياسةُ مُرسَلةٌ في `location /out/` — هناك مستندان منبعيّان يحملان "
+        "سياستَيهما، والتقاطعُ معهما يمنع سكربتَهما الداخليَّ فيموت مضيفُ الامتدادات "
+        "بلا صفحةٍ بيضاء [CSP-01]")
+
+    def has(directive, value):
+        m = _re.search(re.escape(directive) + r"\s+([^;]+)", policy)
+        return bool(m) and value in m.group(1).split()
+
+    # ما يجب أن يُغلَق.
+    for d in ("default-src", "base-uri", "form-action", "frame-ancestors"):
+        assert has(d, "'none'"), f"‏{d} ليست 'none' — السياسةُ تفتح ما لا حاجةَ إليه [CSP-01]"
+
+    # **والثقبُ الذي يُبقي الترويسةَ ويُبطِلها.**
+    assert not has("script-src", "'unsafe-inline'"), (
+        "‏`'unsafe-inline'` في `script-src` يسمح لأيّ حقنٍ ناجحٍ أن يُنفَّذ — "
+        "فالترويسةُ تبقى حاضرةً وقد بطُل أنفعُ ما فيها. وسكربتُ الإقلاع نُقل إلى "
+        "`boot-early.js` لأجل هذا بالذات [CSP-01 · WEB-09]")
+    assert not has("script-src", "*") and "script-src 'self' 'unsafe-eval'" in policy, (
+        "‏script-src ليست `'self' 'unsafe-eval'` — والزيادةُ عليها تحتاج قياسًا "
+        "يشرحها لا تخمينًا [CSP-01]")
+
+    # وما لا مفرّ منه مُعلَنٌ بنصِّه في التعليق: تسامحٌ بلا تعليلٍ يصير عادة.
+    for token, why in (("'unsafe-eval'", "new Function"),
+                       ("'unsafe-inline'", "style-src")):
+        assert token in conf and why in conf, (
+            f"التسامحُ {token} بلا تعليلٍ مكتوبٍ في الإعداد — يصير عادةً لا قرارًا [CSP-01]")
+
+    # والمضيفاتُ الخارجيّةُ **مقصورةٌ على المقيس**: كلُّ مضيفٍ هنا شوهد في طلبٍ حقيقيّ.
+    m = _re.search(r"connect-src\s+([^;]+)", policy)
+    assert m, "لا connect-src في السياسة [CSP-01]"
+    hosts = {t for t in m.group(1).split() if t.startswith("http")}
+    measured = {
+        "https://open-vsx.org",                 # سوقُ الإضافات
+        "https://openvsx.eclipsecontent.org",   # شبكةُ توصيله — كشفها القياسُ لا التخمين
+        "https://raw.githubusercontent.com",    # قائمةُ Eclipse + إعلاناتُ مستودعنا
+    }
+    assert hosts == measured, (
+        "مضيفاتُ `connect-src` تخالف المقيس: زائدٌ " + str(sorted(hosts - measured)) +
+        " · ناقصٌ " + str(sorted(measured - hosts)) + " [CSP-01]")
+
+
 @check("كلُّ مرقِّعٍ على القرص مسجَّلٌ في المانيفست [PM-01]")
 def _every_patcher_registered():
     """المانيفستُ كان يُقرأ في اتّجاهٍ واحد: **مسجَّلٌ ⇐ موجودٌ على القرص**.

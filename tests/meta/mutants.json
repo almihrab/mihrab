@@ -591,6 +591,26 @@
       "new": "",
       "expect": "خارجَ المانيفست",
       "why": "المانيفستُ كان يُقرأ في اتّجاهٍ واحد: مسجَّلٌ ⇐ موجودٌ على القرص. والاتّجاهُ الآخرُ هو المؤذي — مُرقِّعٌ يُكتَب ويُوصَل بالبناء ولا يُسجَّل **لا يدخل L1 إطلاقًا**: لا مرساةَ تُفحَص ولا idempotency ولا نهاياتُ سطر، ولا رسالةَ تقول ذلك (الغائبُ غائبٌ عن العدّ أيضًا). وهكذا مرّت مِرساةُ `patch_welcome_web_entries.py` ذاتُ الـ`\n` الحرفيّ من كلّ طبقة وكسرت بناءَ ويندوز. وخمسةُ مرقِّعاتٍ كانت خارج القائمة يومَ كُتِب الحارس."
+    },
+    {
+      "id": "csp-script-src-unsafe-inline",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.static.conf",
+      "old": "script-src 'self' 'unsafe-eval';",
+      "new": "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
+      "expect": "يسمح لأيّ حقنٍ ناجحٍ أن يُنفَّذ",
+      "why": "‏**أخطرُ ثقبٍ لأنّه يُقرأ أخضر**: الترويسةُ تبقى حاضرةً في كلّ فحصٍ يسأل «أفيها CSP؟»، وقد بطُل أنفعُ ما فيها — أيُّ حقنٍ ناجحٍ يُنفَّذ. وهو الثقبُ الذي نُقل سكربتُ الإقلاع إلى `boot-early.js` لتفاديه، فمن أعاده أعاد النقلَ عبثًا."
+    },
+    {
+      "id": "csp-drops-measured-host",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.static.conf",
+      "old": "https://openvsx.eclipsecontent.org ",
+      "new": "",
+      "expect": "تخالف المقيس",
+      "why": "‏`openvsx.eclipsecontent.org` شبكةُ توصيل Open VSX — **لم تكن في أوّل صياغةٍ للسياسة، وكشفها القياسُ لا التخمين**. وحذفُها يمنع تنزيلَ حزمة اللغة العربيّة **صامتًا**: لا رسالةَ للمستخدم، ولا خطأً في سجلّ الخادم — واجهةٌ إنجليزيّةٌ وحسب. والحارسُ يقارن المجموعةَ بالمقيس في الاتّجاهَين: الزائدُ يحتاج قياسًا يشرحه كما يحتاجه الناقص."
     }
   ],
   "uncovered": [
