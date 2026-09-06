@@ -35,7 +35,7 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
 SHA_TREE=7b4d60428d8622a7f95ab66c8569f2d7042bdb72cbe7825de1d710cc7a0c5c8e
-SHA_CONF=f4fd561536094477fc642a853cce700efa60ed25e5d531d1b3ce6a88421e2039
+SHA_CONF=c8e1f208351ecb593a4bc66bffccfe533cb11d4bd1e2e0568598319ef5533787
 
 die() { echo "❌ $*" >&2; exit 1; }
 say() { echo "── $*"; }
@@ -57,16 +57,6 @@ if [[ -k "$_self_dir" ]] || (( (8#$_mode & 8#002) != 0 )); then
   die "لا يُشغَّل من مجلّدٍ يكتب فيه الجميع ($_self_dir · $_mode) — البصمتان بلا معنًى هناك.
    انقله أوّلًا:  sudo install -D -o root -g root -m 755 $0 /usr/local/lib/mihrab-deploy/$(basename "$0")"
 fi
-[[ -f $STAGE/tree.tgz ]] || die "لا شجرةَ في $STAGE/tree.tgz"
-[[ -f $STAGE/mihrab.dev.static.conf ]] || die "لا كتلةَ nginx في $STAGE"
-
-_sha() { sha256sum "$1" | cut -d' ' -f1; }
-[[ "$(_sha "$STAGE/tree.tgz")" == "$SHA_TREE" ]] \
-  || die "بصمةُ tree.tgz لا تطابق المثبَّتة — لا يُنشَر ما لم يُعرَف."
-[[ "$(_sha "$STAGE/mihrab.dev.static.conf")" == "$SHA_CONF" ]] \
-  || die "بصمةُ كتلة nginx لا تطابق المثبَّتة — لا تُركَّب."
-say "البصمتان مطابقتان"
-
 # ‏`--nginx-only`: تصحيحُ كتلةٍ فوق شجرةٍ منشورةٍ سليمة. بدونه تُفكّ ‏≈203 م.ب وتُبدَّل
 # بلا داعٍ، **وتُدفَع الشجرةُ السليمةُ إلى `static.old`** فيضيع ما نتراجع إليه.
 NGINX_ONLY=no
@@ -83,6 +73,27 @@ esac
 if [[ $NGINX_ONLY == yes ]]; then
   [[ -s $LIVE/index.html ]] || die "‏--nginx-only فوق لا شيء: $LIVE بلا صفحة"
   say "الكتلةُ وحدَها — الشجرةُ المنشورةُ تُترك كما هي"
+fi
+
+# ── ما يُستهلَك يُطلَب، وما لا يُمَسّ لا يُشترَط ──
+# كان الشرطان فوق قراءةِ الراية، فيلزمان `tree.tgz` **حتّى مع `--nginx-only`** —
+# وهي رايةٌ وُضِعت أصلًا لتصحيحِ كتلةٍ فوق شجرةٍ منشورةٍ **لا تُمَسّ**. فصارت تطلب
+# ‏≈203 م.ب لتنقل بضعةَ كيلوبايتات، وسقطت تمامًا يومَ زالت الحمولةُ من `/tmp`
+# (يُنظَّف بالإقلاع) وزالت الشجرةُ من جهاز البناء: بقيت الرايةُ في الوثيقة ولا
+# سبيلَ إلى تشغيلها. حارسٌ يُبطِل الطريقَ الذي يحرسه.
+_sha() { sha256sum "$1" | cut -d' ' -f1; }
+
+[[ -f $STAGE/mihrab.dev.static.conf ]] || die "لا كتلةَ nginx في $STAGE"
+[[ "$(_sha "$STAGE/mihrab.dev.static.conf")" == "$SHA_CONF" ]] \
+  || die "بصمةُ كتلة nginx لا تطابق المثبَّتة — لا تُركَّب."
+
+if [[ $NGINX_ONLY == no ]]; then
+  [[ -f $STAGE/tree.tgz ]] || die "لا شجرةَ في $STAGE/tree.tgz"
+  [[ "$(_sha "$STAGE/tree.tgz")" == "$SHA_TREE" ]] \
+    || die "بصمةُ tree.tgz لا تطابق المثبَّتة — لا يُنشَر ما لم يُعرَف."
+  say "البصمتان مطابقتان"
+else
+  say "بصمةُ الكتلة مطابقة (والشجرةُ خارج هذا التشغيل)"
 fi
 
 # ── (1) الفكّ إلى مجلّدٍ جانبيّ ────────────────────────────────────────────────
@@ -151,6 +162,14 @@ ln -sfn "$AVAIL" "$LINK"
 # شجرةٍ سليمة. وcurl يعرف النوعَ ولا يحتاج من يقرؤه له.
 _ct() { curl -sk -o /dev/null -w '%{content_type}' -H 'Host: mihrab.dev' "https://127.0.0.1$1"; }
 
+# ‏`[:cntrl:]` لا `tr -d '\r'`: محرفُ الإرجاع في نصٍّ يُكتَب برمجيًّا انقلب مرّةً
+# سطرًا حقيقيًّا، فصار `tr` يمسح **الأسطر** وتراجع النشرُ عن شجرةٍ سليمة. والصنفُ
+# المسمَّى لا يحمل هذا الفخَّ أصلًا.
+_cc() {
+  curl -sk -o /dev/null -D - -H 'Host: mihrab.dev' "https://127.0.0.1$1" 2>/dev/null \
+    | grep -i '^cache-control:' | head -1 | cut -d: -f2- | tr -d '[:cntrl:]' | sed 's/^ *//'
+}
+
 verify_serving() {
   local rc=0 got code blank=0
   local -a paths=(
@@ -183,6 +202,27 @@ verify_serving() {
     echo "   ⛔ **كلُّ الأنواع فارغة مع رموزِ 200** — العطبُ في المِجَسّ لا في الموقع." >&2
     echo "      افحص \`_ct\` قبل أن تلوم النشر:  curl -sk -o /dev/null -w '%{content_type}' -H 'Host: mihrab.dev' https://127.0.0.1/" >&2
   fi
+  return $rc
+}
+
+
+# ── ما يصل الزائرَ، لا ما في المستودع ──
+# الحارسُ الساكن [CACHE-02] يقرأ `mihrab.dev.static.conf` عندنا. وما يخدم فعلًا هو
+# ما في `sites-enabled` — وقد يفترقان: تركيبٌ فشل، أو كتلةٌ أسبقُ تلتقط المسار،
+# أو `add_header` في مستوًى أدنى ألغى وراثةَ ما فوقه. فيُسأل السلكُ نفسُه.
+# ومساراتُ `/out/` غيرُ مبصومة ⇒ أيُّ طزاجةٍ موجبةٍ نافذةُ عمًى لا يبلغها نشرٌ.
+verify_cache() {
+  local cc rc=0
+  cc="$(_cc /out/nls.messages.js)"
+  printf '   %-34s %s' "/out/ Cache-Control" "${cc:-—}"
+  if [[ -z "$cc" ]]; then
+    printf '   ⚠️ لا ترويسةَ تخزينٍ أصلًا'; rc=1
+  elif [[ "$cc" == *no-store* || "$cc" == *no-cache* || "$cc" =~ max-age=0([^0-9]|$) ]]; then
+    printf '   ✅ طزاجةٌ صفريّة'
+  else
+    printf '   ⚠️ طزاجةٌ موجبةٌ على اسمٍ غيرِ مبصوم'; rc=1
+  fi
+  echo
   return $rc
 }
 
@@ -243,6 +283,11 @@ echo "✅ نُشِر. تحقّقٌ سريع:"
 if ! verify_serving; then
   echo "   ⛔ الموقعُ لا يخدم كما يجب — المتصفّحُ لن ينفّذ الوحدات." >&2
   rollback "فشلَ قياسُ الخدمة بعد النشر"
+fi
+
+if ! verify_cache; then
+  echo "   ⛔ ترويسةُ التخزين على /out/ ليست ما في الكتلة — نافذةُ عمًى تعود." >&2
+  rollback "فشلَ قياسُ ترويسة التخزين"
 fi
 
 echo

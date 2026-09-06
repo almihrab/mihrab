@@ -466,11 +466,11 @@
       "id": "web-host-error-not-capturing",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
-      "file": "web/index.html",
-      "old": "      }, true);",
-      "new": "      });",
+      "file": "web/boot-early.js",
+      "old": "  }, true);",
+      "new": "  });",
       "expect": "بلا `capture`",
-      "why": "أخطاءُ الموارد — وسمُ `<script>` يرجع 404 أو نوعَ MIME خاطئًا — **لا تصعد** إلى `window`؛ تُرى في طور الالتقاط وحدَه. وهذا وقع فعلًا: نُقلت آلةُ الحالة إلى الصفحة خصّيصًا لالتقاط فشلِ تحميل الحزمة، ثمّ لم تلتقطه، فبقي الزائرُ أمام شريطٍ يدور ١٢٠ ثانيةً على نشرٍ ناقص. حرفٌ واحدٌ يفصل بين إصلاحٍ حقيقيٍّ وإصلاحٍ شكليّ."
+      "why": "أخطاءُ الموارد — وسمُ `<script>` يرجع 404 أو نوعَ MIME خاطئًا — **لا تصعد** إلى `window`؛ تُرى في طور الالتقاط وحدَه. وهذا وقع فعلًا: نُقلت آلةُ الحالة إلى الصفحة خصّيصًا لالتقاط فشلِ تحميل الحزمة، ثمّ لم تلتقطه، فبقي الزائرُ أمام شريطٍ يدور ١٢٠ ثانيةً على نشرٍ ناقص. حرفٌ واحدٌ يفصل بين إصلاحٍ حقيقيٍّ وإصلاحٍ شكليّ. ‏**وانتقل المُصابُ مع شيفرته**: أخرج [WEB-09] كتلةَ الإقلاع من `index.html` إلى `boot-early.js` كي تستغني السياسةُ عن `'unsafe-inline'`، فبقي المُصابُ يزرع في ملفٍّ لم يعد فيه المِرساة — و«الوسمُ ورد 0 مرّةً» تعني **مُصابًا لا يُقاس به**، أي حارسًا بلا شاهد."
     },
     {
       "id": "web-host-trust-by-accident",
@@ -487,7 +487,7 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "add_header Cache-Control \"public, max-age=600, must-revalidate\" always;",
+      "old": "add_header Cache-Control \"no-cache\" always;",
       "new": "add_header Cache-Control \"public, max-age=31536000, immutable\" always;",
       "expect": "immutable",
       "why": "‏`/out/*` أسماءٌ **غيرُ مبصومة** (`index.html` يصلها حرفيًّا)، فـ`immutable` سنةً تعني أنّ النشرَ القادم لا يبلغ زائرًا عائدًا: صفحتُه تُجدَّد و`no-cache`، وحزمتُه **لا تُطلَب أصلًا** — حتّى مع `Ctrl+R`. كسرٌ مؤجَّلٌ محقَّق: إصلاحٌ أمنيٌّ يُنشَر اليومَ ولا يصل أحدًا إلى سنةٍ من الآن."
@@ -496,21 +496,31 @@
       "id": "web-host-capture-decoy",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
-      "file": "web/index.html",
-      "old": "      }, true);",
-      "new": "      });\n      addEventListener('scroll', function () {}, true);",
+      "file": "web/boot-early.js",
+      "old": "  }, true);",
+      "new": "  });\n  addEventListener('scroll', function () {}, true);",
       "expect": "بلا `capture`",
-      "why": "‏**مُصابُ الشرَك.** أوّلُ صياغةٍ للحارس كانت نافذةَ ١٤٠٠ محرفٍ تنتهي بـ`, true)` — فإسقاطُ `true` من مستمِع `error` **مع إضافةِ أيّ مستمِعٍ آخر بـ`capture` في المدى** كان يبقيها خضراء (المسافةُ إلى `unhandledrejection` ٦٧٧ محرفًا، فالشرَكُ يقع داخلها). المُصابُ يُثبِت أنّ الحارسَ صار يقتطع الاستدعاءَ بموازنة الأقواس ويسأل عن وسيطه الثالث — أي أنّه يقيس **ارتباطًا** لا جِوارًا."
+      "why": "‏**مُصابُ الشرَك.** أوّلُ صياغةٍ للحارس كانت نافذةَ ١٤٠٠ محرفٍ تنتهي بـ`, true)` — فإسقاطُ `true` من مستمِع `error` **مع إضافةِ أيّ مستمِعٍ آخر بـ`capture` في المدى** كان يبقيها خضراء (المسافةُ إلى `unhandledrejection` ٦٧٧ محرفًا، فالشرَكُ يقع داخلها). المُصابُ يُثبِت أنّ الحارسَ صار يقتطع الاستدعاءَ بموازنة الأقواس ويسأل عن وسيطه الثالث — أي أنّه يقيس **ارتباطًا** لا جِوارًا. ‏**وانتقل المُصابُ مع شيفرته**: أخرج [WEB-09] كتلةَ الإقلاع من `index.html` إلى `boot-early.js` كي تستغني السياسةُ عن `'unsafe-inline'`، فبقي المُصابُ يزرع في ملفٍّ لم يعد فيه المِرساة — و«الوسمُ ورد 0 مرّةً» تعني **مُصابًا لا يُقاس به**، أي حارسًا بلا شاهد."
     },
     {
       "id": "deploy-cache-long-maxage-no-immutable",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "add_header Cache-Control \"public, max-age=600, must-revalidate\" always;",
+      "old": "add_header Cache-Control \"no-cache\" always;",
       "new": "add_header Cache-Control \"public, max-age=31536000\" always;",
       "expect": "فوق يومٍ واحد",
       "why": "الحارسُ الأوّل منع **كلمةَ** `immutable` لا الخطر. وسنةٌ من `max-age` بلا الكلمة تُنتج ٩٥٪ من الكسر نفسِه: الزائرُ العائدُ لا يعيد التحقّق إلّا بـ`Ctrl+R`، فإصلاحٌ أمنيٌّ يُنشَر ولا يبلغه. المقياسُ الصحيحُ الحدُّ لا الرمزُ اللفظيّ."
+    },
+    {
+      "id": "deploy-cache-out-freshness-window",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.static.conf",
+      "old": "add_header Cache-Control \"no-cache\" always;",
+      "new": "add_header Cache-Control \"public, max-age=600, must-revalidate\" always;",
+      "expect": "نافذةُ عمًى",
+      "why": "‏**المُصابُ هو الأمسُ نفسُه.** هذا السطرُ بالحرف هو ما كان يخدم يومَ نُشِرت `sad-lang` فلم تُلوِّن عند المُبلِّغ — ومرّ من حارسَي `immutable` و«فوق يومٍ واحد» أخضرَ، لأنّهما يقيسان الحدَّ الفادحَ ويتركان الفادحَ الصغير. وعشرُ دقائقَ تكفي: قائمةُ الامتدادات المضمَّنة مخبوزةٌ في الحزمة، فحزمةٌ عمرُها دقائقُ لا تعرف اللغةَ الجديدة إطلاقًا. فإن بقي أخضرَ فالحارسُ يحرس نيّةً مكتوبةً لا عقدًا."
     },
     {
       "id": "deploy-cache-excuse-same-line",
