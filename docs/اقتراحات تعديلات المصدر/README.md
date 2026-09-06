@@ -51,6 +51,7 @@
 | [م-٢٨](#م-٢٨-بنودُ-لوحِ-الترحيب-تشترط-الوجهة-لا-المنصّة) | بنودُ لوحِ الترحيب تشترط **وجودَ الأمر** لا نوعَ المنصّة | `welcome_web_entries` | `gettingStartedContent.ts` | مِنبعيّ (vscode) — **يصيب كلَّ من يشحن vscode-web** |
 | [م-٢٩](#م-٢٩-وصفُ-عرضِ-الطرفيّة-غيرُ-مشروطٍ-وأوامرُه-كلُّها-مشروطة) | تقييدُ وصفِ عرض الطرفيّة وقاعدةِ اختصارِ الويب وبندِ القائمة بـ`processSupported` كما تُقيَّد الأوامر | لا رقعةَ عندنا تسقط — أربعةُ مداخلَ إلى لوحٍ لا خلفيّةَ له | `terminal.contribution.ts` · `terminal.web.contribution.ts` · `terminalMenus.ts` | مِنبعيّ (vscode) — **يصيب كلَّ من يشحن vscode-web بلا خادم** |
 | [م-٣٠](#م-٣٠-نقطةُ-دخولِ-المطوّر-تدهس-بيئةَ-مُناديها) | ‏`dev/build.sh` يكتب صادراتِه `${VAR:-افتراضيّ}` كما يفعل `utils.sh` سلفًا | `dev_build_env` | `dev/build.sh` | مِنبعيّ (vscodium) — **يصيب كلَّ من يعيد العلامة** |
+| [م-٣١](#م-٣١-وجهتا-الـcli-مخبوزتان-فلا-يبلغهما-إعداد) | ‏`build_cli.sh` يكتب وجهتَي التنزيل والتحديث `${VAR:-افتراضيّ}`، ولا يُصدِّر وجهةَ تحديثٍ فارغة | `cli_endpoints` | `build_cli.sh` | مِنبعيّ (vscodium) — **كلُّ مشتقٍّ ينزّل خادمَ المنبع** |
 
 ---
 
@@ -1707,6 +1708,53 @@ export GH_REPO_PATH="${GH_REPO_PATH:-VSCodium/vscodium}"
 عابرة. وهويّةُ محرابٍ تأتيها من `product.json` لا من هنا.
 
 **وما يُسقطه عندنا.** ذلك المُرقِّعَ كلَّه، و`export` في `build/build.sh` معه.
+
+## م-٣١) وجهتا الـCLI مخبوزتان فلا يبلغهما إعداد
+
+**العطب.** `build_cli.sh` يُصدِّر قبل `cargo build`:
+
+```sh
+export VSCODE_CLI_UPDATE_ENDPOINT="https://raw.githubusercontent.com/VSCodium/versions/refs/heads/master"
+export VSCODE_CLI_DOWNLOAD_ENDPOINT="https://github.com/VSCodium/vscodium/releases"
+```
+
+ورقعةُ `40-cli-use-reh-archive.patch` تقرؤهما بـ`option_env!` — **أي وقتَ الترجمة**.
+فيصيران بايتاتٍ في `bin/<tunnel>.exe`، ولا يبلغهما `product.json` ولا ترقيعُ حزمةِ
+JS. قِيسا في ثنائيّنا بالإزاحة ‎20,251,256‎:
+
+```
+vscodium https://github.com/VSCodium/vscodium/releases
+         /download/{}/{}-reh-web-{}-{}-{}.tar.gz
+VSCODE_CLI_UPDATE_URL
+         https://raw.githubusercontent.com/VSCodium/versions/refs/heads/master
+```
+
+**والأثرُ سلوكٌ لا اسم.** من شغّل `tunnel` أو `serve-web` في **أيّ** توزيعةٍ مشتقّة:
+
+* يُرسِل عنوانَه ونسختَه ومنصّتَه إلى GitHub الخاصّ بـVSCodium — طرفٌ ثالثٌ لم
+  يخترْه، ولا يعلم أنّه يخاطبه.
+* ويطلب `…-reh-web-<منصّة>-<نسخةُ المشتقّ>.tar.gz` من إصداراتهم. ونسخةُ المشتقّ
+  ليست هناك ⇒ ‏404. ولو وُجدت لَنزَّل **خادمَ VSCodium** لا خادمَ المشتقّ: بلا
+  تعريبه ولا رُقَعه ولا لغاته.
+
+و`serverDownloadUrlTemplate: null` في `product.json` **لا يُلغيه** — يجعل الـCLI
+يرتدّ إلى هذا الثابتِ المخبوزِ بالضبط. أي أنّ المفتاحَ الذي يبدو مخرجًا هو الباب.
+
+**المقترح.** أدبُ `utils.sh` نفسُه، ونفيُ الوجهةِ بدل تفريغها:
+
+```sh
+export VSCODE_CLI_DOWNLOAD_ENDPOINT="${VSCODE_CLI_DOWNLOAD_ENDPOINT:-https://github.com/VSCodium/vscodium/releases}"
+if [[ -n "${VSCODE_CLI_UPDATE_ENDPOINT:-}" ]]; then export VSCODE_CLI_UPDATE_ENDPOINT; fi
+```
+
+والثاني ليس تجميلًا: مشتقٌّ بلا مستودعِ نُسَخٍ لا يملك اليومَ إلّا أن يُصدِّر
+سلسلةً فارغة، فيعطي `option_env!` ‏`Some("")` ويُطلَب عنوانٌ فارغٌ بدل أن يُقال
+«لا تحديث». والغيابُ يعطي `None` وهو المعنى المقصود.
+
+**وما نفعله ريثما يُرفَع.** `build/patch_cli_endpoints.py` يُجري الاثنين قبل
+`cargo build` — ولا موضعَ غيرَه: بعده يصير العنوانُ بايتاتٍ في الثنائيّ.
+
+**وما يُسقطه عندنا.** ذلك المُرقِّعَ كلَّه، وشِقَّ الثنائيّات في بوّابة [BR-05].
 
 ## دُيونٌ نائمةٌ في رُقَع المنبع المورَّدة
 

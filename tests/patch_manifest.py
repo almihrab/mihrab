@@ -86,6 +86,10 @@ BUILD_PATCHERS = [
     # كان يبدو إصلاحًا ولا يصل شيئًا — و[BR-05] يعود في كلّ بناءٍ كامل. يرقّع
     # سكربتَ VSCodium لا مصدرَ vscode، فلا مصدرَ منبعٍ نظيفًا له في L1.
     "patch_dev_build_env.py",
+    # وجهتا الـCLI مخبوزتان في Rust بـ`option_env!` وقتَ الترجمة، فلا يبلغهما ترقيعُ
+    # `product.json` ولا حزمةِ JS. يرقّع `build_cli.sh` (سكربتَ VSCodium) قبل
+    # `cargo build` — لا مصدرَ منبعٍ نظيفًا له في L1 [BR-05].
+    "patch_cli_endpoints.py",
 ]
 
 # رُقَعُ **المنبع** (diff موحَّد لا مرقِّع بايثون): تعديلاتٌ مصوغةٌ للرفع إلى microsoft/vscode

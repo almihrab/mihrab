@@ -136,7 +136,13 @@ for (const m of spec.mutants) {
 
   let res;
   try {
-    writeFileSync(file, original.replace(m.old, m.new), "utf8");
+    // ⚠️ **البديلُ دالّةٌ لا سلسلة.** `String.replace` يفسّر `$&` و`` $` `` و`$'`
+    //    و`$1` في سلسلة البديل. ومُصابٌ ينتهي بـ`$'` — وهو شائعٌ في تعابيرَ نمطيّةٍ
+    //    مثل `\r?$'` — كان يُحقَن معه **كلُّ ما بعد الموضع من الملفّ** مكرَّرًا.
+    //    فلا يحمرّ الحارسُ المقصود بل غيرُه، ويُقرَأ ذلك «حمِر لسببٍ آخر»: تشخيصٌ
+    //    يوجّه الاتّهامَ إلى المُصاب وإلى الحارس، والعطبُ في أداة الزرع.
+    //    والدالّةُ تُعطِّل هذا التفسير كلَّه.
+    writeFileSync(file, original.replace(m.old, () => m.new), "utf8");
     res = runGuard(m.guard);
   } finally {
     writeFileSync(file, original, "utf8");

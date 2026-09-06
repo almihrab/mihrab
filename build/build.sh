@@ -251,6 +251,15 @@ if [[ -f "$UP/build_cli.sh" ]]; then
     || { echo "❌ فشل ترقيع مسار حزمة macOS." >&2; exit 1; }
 fi
 
+# ── (و-4) وجهتا الـCLI: تنزيلُ الخادم وفحصُ التحديث [BR-05] ──
+# مخبوزتان في Rust بـ`option_env!` وقتَ الترجمة، فلا يبلغهما ترقيعُ `product.json`
+# ولا ترقيعُ حزمةِ JS — وهو سببُ بقاء التسرّب الرابع حيًّا بعد أن أُغلِقت الثلاثة.
+# ولا بديلَ عن ترقيعِ السكربت قبل `cargo build`: بعده يصير العنوانُ بايتاتٍ.
+if [[ -f "$UP/build_cli.sh" ]]; then
+  "$PY_BIN" "$ROOT/build/patch_cli_endpoints.py" "$UP/build_cli.sh" \
+    || { echo "❌ فشل ترقيعُ وجهتَي الـCLI — و[BR-05] يبقى مخبوزًا في الثنائيّ." >&2; exit 1; }
+fi
+
 # ── (ز) بيئة البناء + كشف Visual Studio و Python تلقائيًّا ──
 VSWHERE="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
 if [[ "$IS_WIN" == "yes" && -x "$VSWHERE" ]]; then
@@ -1061,31 +1070,42 @@ done
 # اسمًا في نصٍّ بل سلوكٌ يعمل: طلبُ شبكةٍ إلى المنبع، وحمولةٌ ليست حمولتَنا.
 #
 # ‏`serverDownloadUrlTemplate: null` عندنا لا يُلغيه — يجعل الـCLI يرتدّ إلى هذا
-# الثابتِ المخبوزِ بالضبط. ونحن **لا ننشر خوادمَ REH أصلًا** (قرارُ «لا خادم»
-# موثَّقٌ في `docs/architecture/لماذا-لا-خادم.md`)، فالبديلُ الصحيح ليس إعادةَ
-# التوجيه بل ألّا نَعِد بما لا نشحن. مسجَّلٌ دَينًا حتّى يُبَتّ فيه.
+# الثابتِ المخبوزِ بالضبط.
 #
-# والبوّابةُ تمسحه الآن كي لا تبقى «خضراءَ» على تسرّبٍ تعرف مكانَه: التسامحُ
-# المُعلَنُ يُذكَر باسمه في `_BR05_KNOWN`، وأيُّ ثنائيٍّ آخرَ يُفشِل البناء.
-_BR05_KNOWN="bin/mihrab-tunnel"
+# وكان هنا تسامحٌ مُعلَنٌ باسمه (`_BR05_KNOWN="bin/mihrab-tunnel"`) بحجّة «لا ننشر
+# خوادمَ REH فالبديلُ ألّا نَعِد بما لا نشحن». **والحجّةُ قامت على فرضٍ خاطئ**:
+# سطر 807 أعلاه يقول إنّ `vscode-reh-web-*` يُنتَج في **كلّ** بناء (‏428 م.ب)، وفيه
+# هويّةُ محرابٍ كاملةٌ و130 قاعدةَ `[dir=rtl]`، وعُرِّب عمدًا في [WEB-01]. الذي تقاعد
+# **استضافتُنا** له لا إنتاجُه — وقرارُ «لا خادم» كان عن أن نستضيفَ نحن، بينما
+# `tunnel`/`serve-web` يشغّلهما المستخدمُ على جهازه: ملفّاتُه وطرفيّتُه وباختياره.
+# فالعلاجُ إعادةُ التوجيه (`patch_cli_endpoints.py` في و-4)، ولا تسامحَ بعده.
 _br05_bin_hits=0
 while IFS= read -r _bin; do
-  LC_ALL=C grep -qa "VSCodium/vscodium" "$_bin" || continue
-  _rel="${_bin#$OUTDIR/}"
-  case "${_rel%.exe}" in
-    $_BR05_KNOWN)
-      echo "   ⚠️ [BR-05] تسرّبٌ معلومٌ ومُسجَّلٌ دَينًا: $_rel (قالبُ تنزيلِ خادمٍ لا ننشره)" >&2
-      ;;
-    *)
-      echo "❌ [BR-05] وجهةُ مستودعِ المنبع في ثنائيٍّ مشحون: $_rel" >&2
-      _br05_bin_hits=$((_br05_bin_hits + 1))
-      ;;
-  esac
+  # ‏`-e` مرّتين لا `\|`: الأخير امتدادُ GNU يقرؤه grep البِسْديّ (macOS) حرفيًّا،
+  # فلا يطابق شيئًا — أي **بوّابةٌ تُعطَّل عند غياب لهجتها** وتُعلن النظافةَ كذبًا.
+  LC_ALL=C grep -qa -e "VSCodium/vscodium" -e "VSCodium/versions" "$_bin" || continue
+  echo "❌ [BR-05] وجهةُ مستودعِ المنبع في ثنائيٍّ مشحون: ${_bin#$OUTDIR/}" >&2
+  _br05_bin_hits=$((_br05_bin_hits + 1))
 done < <(find "$OUTDIR" -type f \( -name '*.exe' -o -name '*.dll' -o -name '*.node' \
                                   -o -name '*.so' -o -name '*.dylib' \) 2>/dev/null)
 [[ "$_br05_bin_hits" -eq 0 ]] || {
   echo "   الثنائيّاتُ لا يبلغها GH_REPO_PATH: قيمُها مضروبةٌ في مصدرِ Rust/C++." >&2
+  echo "   وترقيعُها يقع **قبل** cargo build — بعده تصير بايتاتٍ (و-4)." >&2
   exit 1; }
+
+# ── ونفيُ الخطأ ليس إثباتَ الصواب ──
+# غيابُ `VSCodium/vscodium` من الثنائيّ يتحقّق كذلك لو **لم يُبنَ الـCLI أصلًا**، أو
+# بُني بوجهةٍ فارغةٍ فصار `Some("")` — وكلاهما يمرّ من البوّابة أعلاه صامتًا ويترك
+# `tunnel` يطلب عنوانًا فارغًا. فيُسأل الثنائيُّ عن **وجهتنا** لا عن غياب وجهتهم.
+_TUNNEL="$OUTDIR/bin/$(node -p "require('$UP/product.json').tunnelApplicationName" 2>/dev/null)"
+[[ -f "$_TUNNEL" ]] || _TUNNEL="$_TUNNEL.exe"
+if [[ -f "$_TUNNEL" ]]; then
+  LC_ALL=C grep -qa "github.com/mihrab-org/mihrab/releases" "$_TUNNEL" || {
+    echo "❌ [BR-05] ثنائيُّ النفق بلا وجهةِ تنزيلٍ خاصّةٍ بنا: ${_TUNNEL#$OUTDIR/}" >&2
+    echo "   لم يصل VSCODE_CLI_DOWNLOAD_ENDPOINT إلى cargo — راجع (و-4)." >&2
+    exit 1; }
+  log "ثنائيُّ النفق يحمل وجهةَ تنزيلِنا [BR-05]"
+fi
 
 log "لا وجهةَ مستودعٍ منبعيٍّ في الحزم المصغَّرة ولا في الثنائيّات [BR-05]"
 
