@@ -942,6 +942,62 @@ def _static_arabized():
         "أصولُ الـwebview غائبةٌ عن الشجرة — و`webviewEndpoint` يشير إليها")
 
 
+# ── [WEB-06] الامتدادان اللذان سقطا من بناء المتصفّح صامتَين ──
+# ‏`main` بلا `browser` ⇒ المضيفُ لا يُحمِّل الامتدادَ ولا يقرأ مساهماتِه التصريحيّة.
+# فخرجت الشجرةُ المنشورةُ حيًّا بلا قواعد لغة ص ولا مقتطفاتِها ولا جولات ترحيبها —
+# ولا سطرَ في سجلٍّ يقول ذلك. وحارسُ L0 يقيس المانيفستَ والمصدر؛ وهذا يقيس **ما خرج**.
+@check("امتدادا ص والترحيب في الشجرة الثابتة، وحزمتُهما تُقلِع [WEB-06]")
+def _static_web_extensions():
+    web = _static_dir()
+    if web is None:
+        if os.environ.get("MIHRAB_REQUIRE_STATIC") == "1":
+            raise AssertionError(
+                "لا شجرةَ vscode-web مع MIHRAB_REQUIRE_STATIC=1 — لا شيءَ يُقاس [WEB-06]")
+        raise _Skip("لا شجرةَ vscode-web (اضبط MIHRAB_REQUIRE_STATIC=1 ليصير غيابُها فشلًا)")
+
+    exts = os.path.join(web, "extensions")
+    assert os.path.isdir(exts), "لا مجلّدَ امتداداتٍ في الشجرة الثابتة"
+    for name in ("sad-lang", "mihrab-welcome"):
+        base = os.path.join(exts, name)
+        assert os.path.isdir(base), (
+            f"‏{name} غائبٌ عن الشجرة الثابتة — وهذا ما يفعله `main` بلا `browser`: "
+            "المضيفُ يُسقِط الامتدادَ كلَّه، لا ميزةً منه [WEB-06]")
+        # الحزمةُ موجودةٌ **وتُقلِع**: ملفٌّ فارغٌ أو مبتورٌ يمرّ من كلّ فحصِ وجود،
+        # ثمّ يسقط تنشيطُه عند المستخدم بلا رسالةٍ يفهمها.
+        bundle = os.path.join(base, "dist", "web", "extension.js")
+        assert os.path.isfile(bundle), f"‏{name}: لا حزمةَ متصفّحٍ في dist/web [WEB-06]"
+        src = _readtext(bundle)
+        assert "function activate" in src, f"‏{name}: حزمةُ المتصفّح بلا activate [WEB-06]"
+        assert len(src) > 1024, f"‏{name}: حزمةُ المتصفّح {len(src)} بايتًا — مبتورة [WEB-06]"
+        # ولا مصدرَ غيرَ محزومٍ يُشحَن معها: نسختان من الشيفرة، والثانيةُ لا تُحمَّل.
+        assert not os.path.isfile(os.path.join(base, "extension.web.js")), (
+            f"‏{name}: مصدرُ المدخل مشحونٌ مع حزمته — نسخةٌ ميّتةٌ في المنتَج [WEB-06]")
+
+    # وما سقوطُ `sad-lang` كان يُسقِطه فعلًا: القواعدُ والمقتطفات.
+    sad = os.path.join(exts, "sad-lang")
+    pkg = json.loads(_readtext(os.path.join(sad, "package.json")))
+    contrib = pkg.get("contributes", {})
+    grammars = contrib.get("grammars", [])
+    assert grammars, "‏sad-lang في الشجرة الثابتة بلا قواعد — الملفُّ نصٌّ رماديّ [WEB-06]"
+    for g in grammars:
+        gp = os.path.join(sad, *g["path"].lstrip("./").split("/"))
+        assert os.path.isfile(gp), f"قواعدُ ص مُعلَنةٌ ومفقودةٌ من الشجرة: {g['path']}"
+    assert pkg.get("browser"), "‏sad-lang في الشجرة الثابتة بلا `browser` [WEB-06]"
+
+    # وجولاتُ الترحيب: الشرطُ `isWeb` هو ما يملأ العمودَ الذي كان خاويًا.
+    wpkg = json.loads(_readtext(os.path.join(exts, "mihrab-welcome", "package.json")))
+    walks = wpkg["contributes"]["walkthroughs"]
+    web_walks = [w for w in walks if w.get("when") != "!isWeb"]
+    assert web_walks, (
+        "كلُّ جولات الترحيب مشروطةٌ بـ`!isWeb` — عمودُ الجولات يعود خاويًا [WEB-06]")
+    for w in web_walks:
+        for st in w["steps"]:
+            md = st["media"]["markdown"]
+            mp = os.path.join(exts, "mihrab-welcome", *md.lstrip("./").split("/"))
+            assert os.path.isfile(mp), (
+                f"وسيطُ خطوةٍ مفقودٌ من الشجرة الثابتة: {md} (الخطوة {st['id']}) [WEB-06]")
+
+
 def main():
     print("═══ L2: تأكيدات الحزمة المشحونة ═══")
     packaged = os.path.isdir(OUT)
@@ -961,7 +1017,7 @@ def main():
             # استثناءٌ مُعلَن: فحوصُ شجرة الويب لا تقرأ `$APP_DIR` إطلاقًا، فربطُها
             # ببوّابةِ «حزمةٌ مكتبيّةٌ مُغلَّفة» يُسكِتها بلا سبب — وهو ما كان يقع على
             # لينكس حيث تُبنى شجرةُ الويب المنشورة.
-            if "[WEB-01]" in name or "[WEB-03]" in name:
+            if "[WEB-01]" in name or "[WEB-03]" in name or "[WEB-06]" in name:
                 try:
                     fn(); ran += 1; print(f"  ✅ {name}")
                 except _Skip as e:

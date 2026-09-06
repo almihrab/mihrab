@@ -1,0 +1,75 @@
+diff --git a/src/vs/workbench/contrib/terminal/browser/terminal.contribution.ts b/src/vs/workbench/contrib/terminal/browser/terminal.contribution.ts
+index 4a994f9f..02240dd5 100644
+--- a/src/vs/workbench/contrib/terminal/browser/terminal.contribution.ts
++++ b/src/vs/workbench/contrib/terminal/browser/terminal.contribution.ts
+@@ -22,6 +22,8 @@ import { EditorExtensions, IEditorFactoryRegistry } from '../../../common/editor
+ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation, WindowEnablement } from '../../../common/views.js';
+ import { ITerminalProfileService, TERMINAL_VIEW_ID, TerminalCommandId } from '../common/terminal.js';
+ import { TerminalEditingService } from './terminalEditingService.js';
++import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
++import { TerminalContextKeys } from '../common/terminalContextKey.js';
+ import { registerColors } from '../common/terminalColorRegistry.js';
+ import { registerTerminalConfiguration } from '../common/terminalConfiguration.js';
+ import { terminalStrings } from '../common/terminalStrings.js';
+@@ -121,6 +123,17 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
+ 	canMoveView: true,
+ 	ctorDescriptor: new SyncDescriptor(TerminalViewPane),
+ 	windowEnablement: WindowEnablement.Both,
++	// The view is registered unconditionally, but there is nothing behind it when no process
++	// can be launched: in a web workbench with no remote connection `processSupported` is
++	// false and every terminal action is already `precondition`-gated off. The view itself
++	// was not, so the panel tab, its Ctrl+Backquote open command and the View-menu entry that
++	// `openCommandActionDescriptor` derives from this descriptor all stayed reachable and
++	// opened a pane that can never produce a terminal. Gating the descriptor removes all
++	// three at once, and `hideIfEmpty` on the container then hides the panel tab as well.
++	// `webExtensionContributedProfile` is part of the condition because a web extension may
++	// contribute a profile that makes terminals possible again without a remote — the same
++	// pair the terminal's own actions use.
++	when: ContextKeyExpr.or(TerminalContextKeys.processSupported, TerminalContextKeys.webExtensionContributedProfile),
+ 	openCommandActionDescriptor: {
+ 		id: TerminalCommandId.Toggle,
+ 		mnemonicTitle: nls.localize({ key: 'miToggleIntegratedTerminal', comment: ['&& denotes a mnemonic'] }, "&&Terminal"),
+diff --git a/src/vs/workbench/contrib/terminal/browser/terminal.web.contribution.ts b/src/vs/workbench/contrib/terminal/browser/terminal.web.contribution.ts
+index 31f5fd1b..27305262 100644
+--- a/src/vs/workbench/contrib/terminal/browser/terminal.web.contribution.ts
++++ b/src/vs/workbench/contrib/terminal/browser/terminal.web.contribution.ts
+@@ -4,6 +4,7 @@
+  *--------------------------------------------------------------------------------------------*/
+ 
+ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
++import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+ import { KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+ import { ITerminalProfileResolverService, TerminalCommandId } from '../common/terminal.js';
+ import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+@@ -17,6 +18,12 @@ registerSingleton(ITerminalProfileResolverService, BrowserTerminalProfileResolve
+ KeybindingsRegistry.registerKeybindingRule({
+ 	id: TerminalCommandId.New,
+ 	weight: KeybindingWeight.WorkbenchContrib,
+-	when: TerminalContextKeys.notFocus,
++	// `notFocus` alone is not enough: this rule is registered on the keybinding registry
++	// directly, so it bypasses the `precondition` that gates the action everywhere else. In a
++	// web workbench with no remote connection the chord therefore reached a command that
++	// cannot run, which is worse than the external terminal it stands in for — that one at
++	// least does nothing visible. `webExtensionContributedProfile` keeps the chord working
++	// when an extension makes terminals possible without a remote.
++	when: ContextKeyExpr.and(TerminalContextKeys.notFocus, ContextKeyExpr.or(TerminalContextKeys.processSupported, TerminalContextKeys.webExtensionContributedProfile)),
+ 	primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyC
+ });
+diff --git a/src/vs/workbench/contrib/terminal/browser/terminalMenus.ts b/src/vs/workbench/contrib/terminal/browser/terminalMenus.ts
+index 4e645b1c..7b094333 100644
+--- a/src/vs/workbench/contrib/terminal/browser/terminalMenus.ts
++++ b/src/vs/workbench/contrib/terminal/browser/terminalMenus.ts
+@@ -49,7 +49,12 @@ export function setupTerminalMenus(): void {
+ 						id: TerminalCommandId.New,
+ 						title: localize({ key: 'miNewTerminal', comment: ['&& denotes a mnemonic'] }, "&&New Terminal")
+ 					},
+-					order: 1
++					order: 1,
++					// The four sibling items in this menu carry this condition; this one did not,
++					// so in a web workbench with no remote it was the single Terminal-menu entry
++					// left standing — and the command behind it is `precondition`-gated off, so
++					// it opened a pane that never produces a terminal.
++					when: TerminalContextKeys.processSupported
+ 				}
+ 			},
+ 			{

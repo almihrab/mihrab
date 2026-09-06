@@ -531,6 +531,36 @@
       "new": "if [[ \"${MIHRAB_BUILD_WEB:-yes}\" == \"yes\" ]]; then",
       "expect": "لا يقرأ الرايةَ المُحلَّلة",
       "why": "المطابقةُ الحرفيّةُ تجعل `MIHRAB_BUILD_WEB=1` أو `=true` أو `=YES` **يتخطّى البناءَ صامتًا ويطبع «عمدًا»** — والشجرةُ الثابتةُ هي ما يُنشَر. رايةٌ تُقرأ لا تُطابَق، والقيمةُ المجهولةُ تُرفَض لا تُهمَل."
+    },
+    {
+      "id": "web-ext-browser-field-dropped",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "extensions/sad-lang/package.json",
+      "old": "  \"browser\": \"./dist/web/extension.js\",\n",
+      "new": "",
+      "expect": "`browser` = None",
+      "why": "‏**الحقلُ الذي غيابُه لا يشكو.** `main` بلا `browser` ⇒ مضيفُ الويب لا يُحمِّل الامتدادَ إطلاقًا، فلا تُقرأ حتّى مساهماتُه التصريحيّة — ولا رسالةَ ولا سجلّ. وهكذا خرج بناءُ محرابٍ الثابتُ المنشورُ حيًّا بلا **قواعد لغة ص** ولا مقتطفاتِها: ملفُّ `.ص` نصٌّ رماديّ. المُصابُ يُثبِت أنّ الحارسَ يمسك الحقلَ نفسَه لا ذكرَه في تعليق."
+    },
+    {
+      "id": "web-ext-node-import-reaches-entry",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "extensions/mihrab-welcome/extension.web.js",
+      "old": "const vscode = require(\"vscode\");",
+      "new": "const vscode = require(\"vscode\");\nconst fs = require(\"fs\");",
+      "expect": "وحدةُ العقدة «fs» تبلغ مدخلَ المتصفّح",
+      "why": "‏esbuild يحلّ `require` **نصًّا لا وقتَ تشغيل**: استيرادٌ لوحدةِ عقدةٍ في أيّ ملفٍّ تبلغه سلسلةُ المدخل يُفشِل الحزمَ — أو أسوأ، يمرّ ويسقط التنشيطُ عند المستخدم. والحارسُ يمشي السلسلةَ كلَّها بلا بناءٍ ولا esbuild، ويقرأ **الشيفرةَ مجرَّدةً من التعليقات**: أوّلُ صياغةٍ له قرأت الخامَ فأحصت سطرَ توثيقٍ يشرح `require(\"fs\")` بحرفيّته استيرادًا، وأنذرت كاذبةً على ملفٍّ سليم."
+    },
+    {
+      "id": "web-ext-command-without-registrar",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "extensions/mihrab-welcome/extension.web.js",
+      "old": "    unavailable(\"mihrab.checkForUpdate\", COPY.noUpdater, false),\n",
+      "new": "",
+      "expect": "بلا مُسجِّلٍ في مدخل المتصفّح",
+      "why": "المانيفستُ **واحدٌ للمنصّتين**، فأمرٌ مُسهَمٌ بلا مُسجِّلٍ في مدخل المتصفّح يظهر في لوحة الأوامر هناك ويردّ «الأمرُ غيرُ معروف» — رسالةُ عطبٍ يقرؤها المستخدمُ خللًا في جهازه لا حدًّا معلَنًا في منتَج. وهو العطبُ نفسُه الذي أزلنا لأجله لوحَ الطرفيّة الميّت (م-٢٩). والمجموعةُ التي يُقاس عليها **محسوبةٌ من سلسلة الاستيراد** لا مكتوبةً بيد: القائمةُ اليدويّةُ الأولى أسقطت `help-panel` فأنذرت عن أمرٍ مُسجَّل."
     }
   ],
   "uncovered": [

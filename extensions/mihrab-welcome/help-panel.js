@@ -21,9 +21,6 @@
  * يُدرَج `textContent` لا HTML — والبياناتُ من ملفّاتنا لا من الشبكة.
  */
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
 
 const N = require("./arabic-normalize.js");
 const { normalizeArabic } = N;
@@ -69,14 +66,46 @@ const COPY = {
   colKey: "المفتاح",
 };
 
-/** يقرأ ملفَّ بياناتٍ محزومًا. يعيد `null` عند أيّ عطب (سقوطٌ لطيف لا رمي). */
-function readData(extensionPath, file) {
+/**
+ * ‏`nonce` بلا `require("crypto")`.
+ *
+ * الوحدةُ تعمل في مضيفَي امتدادٍ اثنين: عقدةٌ على المكتب، وعاملُ ويبٍ في المتصفّح —
+ * والثاني ليس فيه `require` لوحدات العقدة إطلاقًا، فاستيرادٌ في رأس الملفّ **يُسقِط
+ * الوحدةَ كلَّها** قبل أن يُنفَّذ منها سطر. و`globalThis.crypto` واجهةٌ واحدةٌ في
+ * الاثنين (‏WebCrypto مُعرَّضةٌ عالميًّا في Node منذ ‎19‎)، فالمشترَكُ يغني عن الفرع.
+ *
+ * والارتدادُ ليس ترفًا ولا هو `Math.random`: قيمةٌ ضعيفةٌ في `nonce` تُبطِل سياسةَ الأمان
+ * صامتةً. فإن غابت الواجهةُ رُمي الخطأ — لوحةٌ لا تُفتَح خيرٌ من لوحةٍ تُفتَح بلا حماية.
+ */
+function randomNonce() {
+  const c = globalThis.crypto;
+  if (!c || typeof c.getRandomValues !== "function") {
+    throw new Error("لا WebCrypto في هذا المضيف — لا يُبنى nonce بلا عشوائيّةٍ معمّاة [ON-03]");
+  }
+  const b = c.getRandomValues(new Uint8Array(16));
+  let bin = "";
+  for (const x of b) bin += String.fromCharCode(x);
+  // ‏`btoa` عالميّةٌ في المتصفّح وفي Node منذ ‎16‎ — وهي المشترَكُ نفسُه.
+  return btoa(bin);
+}
+
+/**
+ * يقرأ ملفَّ بياناتٍ محزومًا. يعيد `null` عند أيّ عطب (سقوطٌ لطيف لا رمي).
+ *
+ * والقراءةُ **مُمرَّرةٌ لا مفروضة**: `read(name)` يعيد نصَّ الملفّ أو `null`. على المكتب
+ * تُبنى من `fs` (‏`nodeReader` أدناه)، وفي المتصفّح من `workspace.fs` — والوحدةُ نفسُها
+ * لا تعرف أيَّهما، فلا تحمل استيرادًا يُسقِطها في أحد المضيفَين.
+ */
+function readData(read, file) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(extensionPath, DATA_DIR, file), "utf8"));
+    const text = read(file);
+    return text == null ? null : JSON.parse(text);
   } catch {
     return null;
   }
 }
+
+
 
 /**
  * يحوّل المسردَ إلى صفوفٍ مفروزةً عربيًّا. **دالّةٌ نقيّةٌ** تُختبَر بلا محرّر.
@@ -125,7 +154,7 @@ function esc(s) {
 
 /** يبني HTML اللوحة. البياناتُ تُحقَن JSON ويُرشَّح في العرض (بحثٌ فوريٌّ بلا ذهابٍ وإياب). */
 function buildHtml(glossary, keys, arabicDigits) {
-  const nonce = crypto.randomBytes(16).toString("base64");
+  const nonce = randomNonce();
   const csp = [
     "default-src 'none'",
     `style-src 'nonce-${nonce}'`,
@@ -311,9 +340,17 @@ function buildHtml(glossary, keys, arabicDigits) {
 
 /** لوحةُ المساعدة: مفردةٌ تُعاد استعمالها، وتُدار بـ`dispose`. */
 class HelpPanel {
-  constructor(vscode, context) {
+  /**
+   * @param {*} vscode
+   * @param {*} context
+   * @param {(file:string)=>string|null} [read] قارئُ بياناتٍ بديل. غيابُه ⇒ قارئُ العقدة.
+   *   يُمرَّر في المتصفّح، حيث لا `fs` ولا مسارات — و`workspace.fs` لا يقرأ متزامنًا،
+   *   فالنصُّ يُجلَب مرّةً عند التنشيط ويُقدَّم هنا من ذاكرةٍ (‏`open` يبقى متزامنًا).
+   */
+  constructor(vscode, context, read) {
     this.vscode = vscode;
     this.context = context;
+    this.read = read || null;
     this._panel = null;
   }
 
@@ -324,9 +361,12 @@ class HelpPanel {
       this._panel.reveal();
       return true;
     }
-    const ext = this.context && this.context.extensionPath;
-    const glossary = glossaryRows(readData(ext, GLOSSARY_FILE));
-    const keys = keybindingRows(readData(ext, KEYBINDINGS_FILE));
+    // قارئٌ غائبٌ ⇒ صفوفٌ خاوية ⇒ الرسالةُ الصريحةُ أدناه. ولا ارتدادَ إلى `fs` هنا:
+    // مجرّدُ ذكرِ الاسم في هذا الملفّ يُسقِط حزمةَ المتصفّح عند البناء (‏esbuild يحلّ
+    // الاستيرادَ نصًّا، ولا يعبأ بأنّه داخل دالّة). فالقارئُ يُحقَن من المدخل.
+    const read = this.read || (() => null);
+    const glossary = glossaryRows(readData(read, GLOSSARY_FILE));
+    const keys = keybindingRows(readData(read, KEYBINDINGS_FILE));
     // [TY-06] الإعدادُ يُقرأ عند الفتح لا يُخزَّن: تبديلُه ثمّ إعادةُ الفتح يُظهِر أثرَه.
     const arabicDigits = !!vscode.workspace.getConfiguration().get(DIGITS_SETTING);
     // **لا لوحةَ فارغةً بلا تفسير.** بياناتٌ غائبةٌ تُقال، لا تُعرَض جدولًا خاويًا.
@@ -361,6 +401,7 @@ class HelpPanel {
 }
 
 module.exports = {
-  HelpPanel, buildHtml, glossaryRows, keybindingRows, filterRows, readData, DIGITS_SETTING,
-  OPEN_CMD, PANEL_TYPE, PANEL_TITLE, DATA_DIR, GLOSSARY_FILE, KEYBINDINGS_FILE, COPY,
+  HelpPanel, buildHtml, glossaryRows, keybindingRows, filterRows, readData, randomNonce,
+  OPEN_CMD, PANEL_TYPE, PANEL_TITLE, DATA_DIR, GLOSSARY_FILE, KEYBINDINGS_FILE,
+  DIGITS_SETTING, COPY,
 };

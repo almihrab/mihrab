@@ -9,6 +9,8 @@
   "engines": { "vscode": "*" },
   "categories": ["Programming Languages", "Linters"],
   "main": "./extension.js",
+  "_comment_browser": "[WEB-06] بلا هذا الحقل يسقط الامتدادُ من بناء المتصفّح **كلَّه** — القاعدةُ المنبعيّة: `main` بلا `browser` ⇒ لا يُحمَّل في مضيف الويب، ولا تُقرأ مساهماتُه التصريحيّةُ أصلًا. فكان محرابُ المتصفّح بلا قواعد لغة ص ولا مقتطفاتِها: ملفُّ `.ص` نصٌّ رماديٌّ بلا لون — وكلُّ ما يشترط `editorLangId == sad` يسقط معه صامتًا. والحزمةُ تُبنى وقتَ البناء بـesbuild من `extension.web.js`، لأنّ مضيفَ الويب لا يحلّ `require(\"./x.js\")` أيضًا.",
+  "browser": "./dist/web/extension.js",
   "activationEvents": ["onLanguage:sad"],
   "contributes": {
     "languages": [

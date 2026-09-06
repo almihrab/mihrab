@@ -18,6 +18,8 @@ const bidiDecorate = require("./bidi-decorate.js");
 const clipboard = require("./clipboard-safety.js");
 const { activateNameGuard } = require("./name-guard.js");
 const { HelpPanel, OPEN_CMD: OPEN_HELP_CMD } = require("./help-panel.js");
+// [WEB-06] قارئُ القرص خارجَ `help-panel.js` كي تبقى تلك الوحدةُ صالحةً لحزمة المتصفّح.
+const { nodeReader } = require("./help-data-node.js");
 const releaseNotice = require("./release-notice.js");
 const terminalNotice = require("./terminal-notice.js");
 const { activateTerminalNotice } = terminalNotice;
@@ -686,7 +688,7 @@ function activate(context) {
   // بعلاماتٍ مشروعة، فإظهارُها دائمًا يعيد الضجيجَ الذي بُني BS-01 كلُّه لتفاديه. تُفتَح
   // بأمرٍ حين يسأل المستخدمُ «ما هذا؟».
   const bidiMarkers = new bidiDecorate.BidiMarkerDecorator(vscode);
-  const helpPanel = new HelpPanel(vscode, context);
+  const helpPanel = new HelpPanel(vscode, context, nodeReader(context.extensionPath));
   context.subscriptions.push(
     bidiMarkers,
     helpPanel,

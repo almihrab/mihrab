@@ -72,6 +72,29 @@ _INJECT_TEMPLATE = """
       echo "محراب: حُقِنت إضافة مدمجة ${_mname}"
     fi
   done
+  # ── [WEB-06] حزمُ مداخلِ المتصفّح ─────────────────────────────────────────────
+  # مُضيفُ الامتدادات في المتصفّح عاملُ ويبٍ لا عقدة: `require` فيه يحلّ `vscode` وحدَها
+  # (‏`_fakeModules.getModule` وإلّا رمى «Cannot load module»). فامتدادٌ من عدّة ملفّاتٍ
+  # لا يُحمَّل هناك إلّا محزومًا ملفًّا واحدًا — وهو ما تفعله إضافاتُ المنبع نفسِها.
+  #
+  # وأثرُ الغياب لم يكن نقصَ ميزةٍ بل **سقوطَ الامتداد كلِّه**: `main` بلا `browser` ⇒
+  # لا يُحمَّل في مضيف الويب ولا تُقرأ مساهماتُه التصريحيّة. فكان بناءُ المتصفّح بلا
+  # قواعد لغة ص ولا مقتطفاتِها ولا جولاتِ الترحيب — ثلاثةُ غياباتٍ من إغفالٍ واحد.
+  #
+  # فشلٌ قاتلٌ لا تخطٍّ صامت: مانيفستُ الامتداد **يَعِد** بـ`dist/web/extension.js`،
+  # ووعدٌ في مانيفستٍ بلا ملفٍّ يُنتج امتدادًا يفشل تنشيطُه عند المستخدم لا عندنا.
+  for _wext in mihrab-welcome sad-lang; do
+    _wsrc="extensions/${_wext}/extension.web.js"
+    [ -f "${_wsrc}" ] || { echo "محراب: لا مدخلَ متصفّحٍ في ${_wsrc} — والمانيفست يَعِد به" >&2; exit 1; }
+    mkdir -p "extensions/${_wext}/dist/web"
+    ./build/node_modules/.bin/esbuild "${_wsrc}"       --bundle --format=cjs --platform=browser --target=es2022       --external:vscode --legal-comments=none       --outfile="extensions/${_wext}/dist/web/extension.js"       || { echo "محراب: فشل حزمُ مدخل المتصفّح لـ${_wext}" >&2; exit 1; }
+    # الحزمةُ تُبنى ولا تُقرأ: ملفٌّ فارغٌ يمرّ من esbuild بخروجٍ صفر، ثمّ يسقط عند
+    # المستخدم بلا `activate`. فيُقاس ما خرج لا ما أُمِر به.
+    grep -q 'function activate' "extensions/${_wext}/dist/web/extension.js"       || { echo "محراب: حزمةُ متصفّح ${_wext} بلا activate — حُزِمت فارغةً" >&2; exit 1; }
+    # ومصدرُ الحزمة لا يُشحَن: نسختان من الشيفرة نفسِها في المنتَج، والثانيةُ لا تُحمَّل.
+    rm -f "${_wsrc}"
+    echo "محراب: حُزِم مدخلُ المتصفّح لـ${_wext}"
+  done
   # {MARK} (+بيانات
   # أيقونة التطبيق وبلاطتا ويندوز: استبدل resources/win32/ (electron.ts:winIcon=resources/win32/code.ico
   # ⇒ أيقونة الـexe؛ code.iss:SetupIconFile ⇒ المُثبِّت؛ code_*x*.png ⇒ بلاطات ابدأ؛ default.ico
@@ -229,6 +252,16 @@ _INJECT_TEMPLATE = """
   if [ -f ../.mihrab-unicode-word-script-mixing.patch ]; then
     git apply --3way ../.mihrab-unicode-word-script-mixing.patch || { echo "محراب: فشل تطبيق رُقعة خلط الكتابتَين في إبراز يونيكود" >&2; exit 1; }
     echo "محراب: طُبِّق خلطُ الكتابتَين (حروفُ ASCII وحدَها تُعدّ خلطًا)"
+  fi
+  # الطرفيّةُ حيث لا طرفيّة [WEB-05]: في بنائنا الثابت `processSupported` كاذبٌ —
+  # لا خادمَ خلف الصفحة يُطلِق عمليّة. ومع ذلك بقي أربعةُ مداخلَ تفتح لوحًا لا يُنتج
+  # طرفيّةً أبدًا: لسانُ اللوحة، وأمرُ فتحه (Ctrl+Backquote) وبندُ قائمة العرض
+  # المشتقّان من وصف العرض نفسِه، وبندُ «طرفيّة جديدة» في قائمة الطرفيّة،
+  # وCtrl+Shift+C. والوعدُ الذي لا خلفيّةَ له أسوأُ من غياب الميزة: المستخدم يظنّ
+  # العطبَ في جهازه. فشلٌ قاتل: بلا هذه الرقعة يعود اللوحُ الميّت.
+  if [ -f ../.mihrab-terminal-unavailable-in-web.patch ]; then
+    git apply --3way ../.mihrab-terminal-unavailable-in-web.patch || { echo "محراب: فشل تطبيق رُقعة الطرفيّة في المتصفّح" >&2; exit 1; }
+    echo "محراب: طُبِّقت الطرفيّةُ حيث لا طرفيّة (أربعةُ مداخلَ تُقيَّد بـprocessSupported)"
   fi
   # رُقعة صفحة الترحيب: شعار القوس + الجملة الاستعاريّة في ترويسة Get Started (شكل الشعار في mihrab-identity.css — ورقةُ الهويّة [VA-05]).
   if [ -f ../.mihrab-patch-welcome-rtl.py ]; then

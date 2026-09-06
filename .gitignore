@@ -14,6 +14,9 @@
 
 # سلسلة أدوات ص المدمجة (تُحقَن وقت البناء من sad-engines-dev — لا تُتعقَّب)
 /extensions/mihrab-welcome/bin/
+# [WEB-06] حزمُ مداخل المتصفّح — يبنيها `patch_bundle_extensions` بـesbuild داخل
+# شجرة المنبع. مُولَّدٌ لا مصدر، ويُعاد بناؤه في كلّ بناء.
+extensions/*/dist/web/
 # [SAD-01] خادم ص اللغويّ المدمج (sad-lsp.exe يُحقَن وقت البناء في bin/ داخل sad-lang — لا يُتعقَّب)
 /extensions/sad-lang/bin/
 # [AR-01↔AR-02] خطّ media المحقون وقت البناء (كـbin/): media/ نفسه متعقَّب لوسائط الجولة،

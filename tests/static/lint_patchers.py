@@ -31,7 +31,14 @@ BUILD = os.path.join(ROOT, "build")
 
 # أوامرُ المنبع المسموحُ استدعاؤها من روابط `command:` في خطوات الجولة. تُسرَد بالاسم
 # لا بقاعدةٍ عامّة: `workbench.*` كان سيُمرِّر خطأً مطبعيًّا في اسمٍ لا نملكه.
-UPSTREAM_CMDS_IN_WALKTHROUGH = ("workbench.action.openSettings",)
+UPSTREAM_CMDS_IN_WALKTHROUGH = (
+    "workbench.action.openSettings",
+    # [WEB-06] فتحُ مجلّدٍ في المتصفّح: `addRootFolder` لا `openFolder` — الأخيرُ يرمي
+    # رسالةً إنجليزيّةً في بناء الويب (قِيس)، وهو نفسُ التمييز الذي يفرضه
+    # `patch_welcome_web_entries.py` على بند لوح الترحيب. المعرّفُ متحقَّقٌ منه في
+    # المنبع المثبَّت: `workspaceActions.ts` ⇐ `AddRootFolderAction.ID`.
+    "workbench.action.addRootFolder",
+)
 sys.path.insert(0, os.path.dirname(HERE))  # tests/
 import patch_manifest as M  # noqa: E402
 
@@ -54,6 +61,57 @@ def _read(path):
 
 
 # ───────────────────────── L0-1: صياغة المرقِّعات ─────────────────────────
+# ── مُجرِّدُ التعليقات — **مصدرُ حقيقةٍ واحدٌ لكلّ حارسٍ يقرأ شيفرة** ───────────
+# كان محلّيًّا في حارسِ صفحةِ المضيف، فوُلِد حارسُ [WEB-06] بتعبيرٍ نمطيٍّ خاصٍّ به —
+# وسقط في أوّل قراءة: سطرُ توثيقٍ يشرح `require("fs")` بحرفيّته أُحصي استيرادًا.
+# ونسختان من مُجرِّدٍ واحدٍ تتباعدان صامتتين، وإحداهما تكون دائمًا الأضعف.
+# ── التعليقاتُ تُجرَّد **مرّةً واحدةً في الأعلى** ──
+# كانت تُجرَّد لفحصٍ واحدٍ (`once: true`) والباقي يقرأ الملفَّ خامًا. فأربعُ مراسٍ
+# كانت تقبل تعليقًا مكانَ شيفرة: تعليقُ `// webviewEndpoint: …` يُرضي الحارسَ
+# والحقلُ معطَّلٌ ⇒ ارتدادٌ صامتٌ إلى `vscode-cdn.net`. والتعليقاتُ في هذين
+# الملفّين **تشرح هذه المفاتيحَ بالذات** بحكم موضوعها، فالخطرُ ليس نظريًّا.
+# وهو **ماشٍ بالمحارف لا تعبيرٌ نمطيّ**. والفرقُ ليس أناقة: الصياغةُ النمطيّةُ
+# الأولى كان فيها ثقبان قِيسا.
+#   • `//[^\n\"']*$` يشترط خلوَّ بقيّة السطر من علامة اقتباس، فتعليقٌ مثل
+#     `// كان webviewEndpoint: 'https://x' معطَّلًا` **ينجو** ويُرضي المِرساة.
+#     وتعليقاتُ هذين الملفّين تكتب العناوينَ بين علامتَي اقتباس بحكم موضوعها.
+#   • و`/\*.*?\*/` مع `re.S` يبتلع شيفرةً حقيقيّة: نمطُ glob مثل `'**/*.md'`
+#     يفتح كتلةً وهميّةً تلتهم كلَّ شيءٍ حتّى `*/` التالي — فتختفي مِرساةٌ سليمة.
+# فالمشيُ يعرف أنّ ما داخل السلسلة نصٌّ لا بناء.
+def _code(text, html_mode=False):
+    out, i, n = [], 0, len(text)
+    quote = None            # ' أو " أو ` حين نكون داخل سلسلة
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if quote:
+            out.append(c)
+            if c == "\\" and i + 1 < n:       # هروبٌ داخل سلسلة
+                out.append(nxt); i += 2; continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in "'\"`":
+            quote = c; out.append(c); i += 1; continue
+        if c == "/" and nxt == "*":
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            out.append(" ")
+            continue
+        if c == "/" and nxt == "/":
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if html_mode and text.startswith("<!--", i):
+            j = text.find("-->", i + 4)
+            i = n if j < 0 else j + 3
+            out.append(" ")
+            continue
+        out.append(c); i += 1
+    return "".join(out)
+
+
 @check("كلّ مرقِّعات build/ تُصرَّف (Python)")
 def _compile_all():
     pys = [f for f in os.listdir(BUILD) if f.endswith(".py")]
@@ -3214,6 +3272,102 @@ def _welcome_ext():
                     f"رابط أمر ميّت «{cmd}» في الخطوة {sid}")
 
 
+@check("مداخلُ المتصفّح موصولةٌ وخاليةٌ من العقدة [WEB-06]")
+def _web_extension_entries():
+    """‏`main` بلا `browser` ⇒ الامتدادُ **يسقط من بناء المتصفّح كلِّه**، لا ميزةٌ منه.
+
+    والقاعدةُ منبعيّة: مضيفُ الويب لا يُحمِّل امتدادًا بلا `browser`، فلا تُقرأ حتّى
+    مساهماتُه التصريحيّة. وأثرُها مقيسٌ لا مفترَض: بناءُ محرابٍ الثابتُ خرج بلا قواعد
+    لغة ص ولا مقتطفاتِها ولا جولاتِ ترحيبه — ثلاثةُ غياباتٍ من حقلٍ واحدٍ ناقص،
+    وكلُّها صامتة (لا رسالةَ ولا سجلّ: امتدادٌ لا يُحمَّل لا يشكو).
+
+    والحارسُ يقيس **أربعةَ مفاصلَ لا نيّة**:
+      (أ) الحقلُ موجودٌ ويشير إلى ما يكتبه البناءُ فعلًا لا إلى مسارٍ مُخترَع؛
+      (ب) المصدرُ موجودٌ على القرص — والمانيفستُ يَعِد به؛
+      (ج) حلقةُ الحزم في `patch_bundle_extensions.py` تسمّي الامتدادَ بالاسم؛
+      (د) **ولا وحدةَ عقدةٍ تبلغه عبر أيّ سلسلةِ استيراد**. والأخيرُ هو الانحدارُ
+          الواقعيُّ: يكفي أن يستورد فرعٌ من الشجرة `fs` يومًا ليفشل الحزمُ في البناء
+          — أو أسوأ، ليمرّ ويسقط التنشيطُ عند المستخدم. فتُمشى السلسلةُ هنا في
+          أجزاء من الثانية، بلا esbuild وبلا بناء.
+    """
+    import re as _re
+    NODE_BUILTINS = {
+        "fs", "path", "os", "child_process", "crypto", "util", "url", "http", "https",
+        "net", "tls", "stream", "zlib", "worker_threads", "module", "vm", "process",
+        "buffer", "events", "assert", "readline", "tty", "dns", "cluster", "perf_hooks",
+    }
+    inject = _read(os.path.join(ROOT, "build", "patch_bundle_extensions.py"))
+    reach = {}
+    for name in ("mihrab-welcome", "sad-lang"):
+        base = os.path.join(ROOT, "extensions", name)
+        if not os.path.isdir(base):
+            continue
+        pkg = json.load(open(os.path.join(base, "package.json"), encoding="utf-8"))
+        if not pkg.get("main"):
+            continue  # امتدادٌ تصريحيٌّ بحت: يعمل في الويب بلا مدخل
+        browser = pkg.get("browser")
+        assert browser == "./dist/web/extension.js", (
+            "‏%s: `browser` = %r — وبلا هذا الحقل يسقط الامتدادُ من بناء المتصفّح "
+            "كلِّه، لا مساهماتِه التصريحيّةَ حتّى [WEB-06]" % (name, browser))
+        src = os.path.join(base, "extension.web.js")
+        assert os.path.isfile(src), (
+            "‏%s: المانيفستُ يَعِد بـ%s ولا `extension.web.js` يُحزَم منه [WEB-06]"
+            % (name, browser))
+        assert "for _wext in mihrab-welcome sad-lang" in inject, (
+            "حلقةُ حزم مداخل المتصفّح غابت عن كتلة الحقن — المانيفستُ يَعِد والبناءُ "
+            "لا يفي [WEB-06]")
+        assert "dist/web/extension.js" in inject and "esbuild" in inject, (
+            "كتلةُ الحقن لا تحزم إلى `dist/web/extension.js` بـesbuild [WEB-06]")
+
+        # (د) مشيُ سلسلة الاستيراد. يُتتبَّع النسبيُّ وحدَه؛ والمُطلَقُ إمّا `vscode`
+        #     (يحلّها المضيف) وإمّا مبنيٌّ في العقدة فيُرفَض باسم السلسلة التي أوصلته.
+        seen = set()
+        reach[name] = seen
+        stack = [(os.path.abspath(src), ())]
+        while stack:
+            f, chain = stack.pop()
+            if f in seen or not os.path.isfile(f):
+                continue
+            seen.add(f)
+            here = chain + (os.path.relpath(f, base).replace(os.sep, "/"),)
+            # ‏`_code` لا `_read`: توثيقُ هذه الوحدات يذكر `require("fs")` بحرفيّته
+            # ليشرح الفخَّ — فقراءةُ الخامِ تُحصي الشرحَ استيرادًا وتُنذِر كاذبةً.
+            for req in _re.findall(r'require\(\s*"([^"]+)"\s*\)', _code(_read(f))):
+                if req == "vscode":
+                    continue
+                if not req.startswith("."):
+                    bare = req[5:] if req.startswith("node:") else req
+                    assert bare not in NODE_BUILTINS, (
+                        "‏%s: وحدةُ العقدة «%s» تبلغ مدخلَ المتصفّح عبر %s — وesbuild "
+                        "يحلّ `require` نصًّا، فحتّى داخلَ دالّةٍ لا تُستدعى هناك "
+                        "يسقط الحزمُ [WEB-06]" % (name, req, " ⇐ ".join(here)))
+                    continue
+                nxt = os.path.normpath(os.path.join(os.path.dirname(f), req))
+                if not nxt.endswith(".js"):
+                    nxt += ".js"
+                stack.append((nxt, here))
+
+    # وكلُّ أمرٍ معلَنٍ في مانيفست الترحيب يجد مُسجِّلًا في **المدخلَين**: مدخلُ العقدة
+    # يُفحَص في حارسٍ سابق، والمتصفّحُ يقرأ المانيفستَ نفسَه — فأمرٌ بلا مُسجِّلٍ هناك
+    # يردّ «الأمرُ غيرُ معروف»، وهي رسالةُ عطبٍ يقرؤها المستخدمُ خللًا في جهازه لا
+    # حدًّا معلَنًا في منتَج. (والحدُّ المعلَنُ يُعلَّم؛ العطبُ المزعومُ يُفقِد الثقة.)
+    wbase = os.path.join(ROOT, "extensions", "mihrab-welcome")
+    if "mihrab-welcome" in reach:
+        # المعرّفُ قد يُذكَر حرفيًّا في المدخل أو يُستورَد ثابتًا من وحدته، فتُقرأ
+        # **كلُّ وحدةٍ يبلغها المدخلُ فعلًا** — لا قائمةٌ مكتوبةٌ بيد. وقد كتبتُ القائمةَ
+        # أوّلًا فسقط منها `help-panel` وحدَه، فأنذر الحارسُ بحقٍّ عن أمرٍ مُسجَّل:
+        # قائمةُ يدٍ تُنتِج إنذارًا كاذبًا اليوم وصمتًا كاذبًا غدًا. والمجموعةُ محسوبةٌ
+        # سلفًا في مشي السلسلة أعلاه، فلا قراءةَ ثانيةً للشجرة.
+        blob = "\n".join(_read(f) for f in sorted(reach["mihrab-welcome"]))
+        pkg = json.load(open(os.path.join(wbase, "package.json"), encoding="utf-8"))
+        declared = [c["command"] for c in pkg["contributes"]["commands"]]
+        missing = [c for c in declared if ('"%s"' % c) not in blob]
+        assert not missing, (
+            "أوامرُ معلَنةٌ بلا مُسجِّلٍ في مدخل المتصفّح: " + "، ".join(missing) +
+            " — والمانيفستُ واحدٌ للمنصّتين، فتظهر في لوحة الأوامر هنا وتردّ «الأمرُ "
+            "غيرُ معروف» بدل أن تقول ما الحدُّ وأين البديل [WEB-06]")
+
+
 @check("هوية لغة ص متّسقة (SAD_LANG_ID/SAD_EXT ↔ contributes.languages في sad-lang)")
 def _lang_identity():
     # مصدر الحقيقة لهوية لغة ص = مساهمة اللغة في امتداد sad-lang (لا سلسلة مُختلَقة). كلّ مرآة
@@ -4482,52 +4636,6 @@ def _web_host_page_contract():
     السمةَ، أو يحجب المحرِّرَ، أو يجلب إطارًا من شبكة المنبع — صامتًا.
     """
     web = os.path.join(ROOT, "web")
-    # ── التعليقاتُ تُجرَّد **مرّةً واحدةً في الأعلى** ──
-    # كانت تُجرَّد لفحصٍ واحدٍ (`once: true`) والباقي يقرأ الملفَّ خامًا. فأربعُ مراسٍ
-    # كانت تقبل تعليقًا مكانَ شيفرة: تعليقُ `// webviewEndpoint: …` يُرضي الحارسَ
-    # والحقلُ معطَّلٌ ⇒ ارتدادٌ صامتٌ إلى `vscode-cdn.net`. والتعليقاتُ في هذين
-    # الملفّين **تشرح هذه المفاتيحَ بالذات** بحكم موضوعها، فالخطرُ ليس نظريًّا.
-    # وهو **ماشٍ بالمحارف لا تعبيرٌ نمطيّ**. والفرقُ ليس أناقة: الصياغةُ النمطيّةُ
-    # الأولى كان فيها ثقبان قِيسا.
-    #   • `//[^\n\"']*$` يشترط خلوَّ بقيّة السطر من علامة اقتباس، فتعليقٌ مثل
-    #     `// كان webviewEndpoint: 'https://x' معطَّلًا` **ينجو** ويُرضي المِرساة.
-    #     وتعليقاتُ هذين الملفّين تكتب العناوينَ بين علامتَي اقتباس بحكم موضوعها.
-    #   • و`/\*.*?\*/` مع `re.S` يبتلع شيفرةً حقيقيّة: نمطُ glob مثل `'**/*.md'`
-    #     يفتح كتلةً وهميّةً تلتهم كلَّ شيءٍ حتّى `*/` التالي — فتختفي مِرساةٌ سليمة.
-    # فالمشيُ يعرف أنّ ما داخل السلسلة نصٌّ لا بناء.
-    def _code(text, html_mode=False):
-        out, i, n = [], 0, len(text)
-        quote = None            # ' أو " أو ` حين نكون داخل سلسلة
-        while i < n:
-            c = text[i]
-            nxt = text[i + 1] if i + 1 < n else ""
-            if quote:
-                out.append(c)
-                if c == "\\" and i + 1 < n:       # هروبٌ داخل سلسلة
-                    out.append(nxt); i += 2; continue
-                if c == quote:
-                    quote = None
-                i += 1
-                continue
-            if c in "'\"`":
-                quote = c; out.append(c); i += 1; continue
-            if c == "/" and nxt == "*":
-                j = text.find("*/", i + 2)
-                i = n if j < 0 else j + 2
-                out.append(" ")
-                continue
-            if c == "/" and nxt == "/":
-                j = text.find("\n", i)
-                i = n if j < 0 else j
-                continue
-            if html_mode and text.startswith("<!--", i):
-                j = text.find("-->", i + 4)
-                i = n if j < 0 else j + 3
-                out.append(" ")
-                continue
-            out.append(c); i += 1
-        return "".join(out)
-
     boot = _code(_read(os.path.join(web, "boot.js")))
     html = _code(_read(os.path.join(web, "index.html")), html_mode=True)
 

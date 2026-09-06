@@ -12,6 +12,9 @@ const V = require("./validate-name.js");
 const NG = require("./name-guard.js");
 const S = require("./arabic-sort.js");
 const H = require("./help-panel.js");
+// [WEB-06] القارئُ صار مُحقَنًا — والقرصُ يسكن وحدةً خاصّةً بالمكتب.
+const { nodeReader } = require("./help-data-node.js");
+const READ = nodeReader(__dirname);
 const R = require("./release-notice.js");
 
 const ch = (cp) => String.fromCharCode(cp);
@@ -118,13 +121,13 @@ test("يفرز بمفتاحٍ مستخرَجٍ حين تكون العناصرُ 
 // ───────────────────── [ON-03] المساعدةُ داخل المحرّر ─────────────────────
 
 test("المسردُ يُقرأ ويُفرَز عربيًّا", () => {
-  const rows = H.glossaryRows(H.readData(__dirname, H.GLOSSARY_FILE));
+  const rows = H.glossaryRows(H.readData(READ, H.GLOSSARY_FILE));
   assert.ok(rows.length >= 20, "قُرِئ المسردُ المحزوم: " + rows.length);
   assert.deepStrictEqual(rows.map((r) => r.ar), S.sortArabic(rows.map((r) => r.ar)));
 });
 
 test("الاختصاراتُ تُسطَّح بحفظ ترتيب المجموعات (ترتيبٌ تعليميٌّ مقصود)", () => {
-  const rows = H.keybindingRows(H.readData(__dirname, H.KEYBINDINGS_FILE));
+  const rows = H.keybindingRows(H.readData(READ, H.KEYBINDINGS_FILE));
   assert.ok(rows.length >= 50, String(rows.length));
   // [DX-03] مجموعةُ «لغة ص» أوّلًا عمدًا: هي ما يخصّ محرابًا، ويجب أن تُرى قبل عموميّات
   // المنبع — وقد كانت غائبةً كلَّها، فكانت اللوحةُ تناقض الجولةَ حول F5.
@@ -135,7 +138,7 @@ test("الاختصاراتُ تُسطَّح بحفظ ترتيب المجموعا
 });
 
 test("‏[DX-01 حيًّا] البحثُ يجد رغم اختلاف الهمزة والتاء المربوطة والتشكيل", () => {
-  const rows = H.glossaryRows(H.readData(__dirname, H.GLOSSARY_FILE));
+  const rows = H.glossaryRows(H.readData(READ, H.GLOSSARY_FILE));
   const f = (q) => H.filterRows(rows, q, ["ar", "en"]).map((r) => r.ar);
   assert.deepStrictEqual(f("لوحه الاوامر"), ["لوحة الأوامر"], "بلا همزةٍ ولا تاءٍ مربوطة");
   assert.deepStrictEqual(f("لوحة الأوامر"), ["لوحة الأوامر"], "بالرسم الكامل");
@@ -144,7 +147,7 @@ test("‏[DX-01 حيًّا] البحثُ يجد رغم اختلاف الهمزة
 });
 
 test("بياناتٌ مفقودةٌ تُقرأ `null` ولا ترمي (سقوطٌ لطيف)", () => {
-  assert.strictEqual(H.readData(__dirname, "لا-وجود-له.json"), null);
+  assert.strictEqual(H.readData(READ, "لا-وجود-له.json"), null);
   assert.deepStrictEqual(H.glossaryRows(null), []);
   assert.deepStrictEqual(H.keybindingRows(null), []);
 });

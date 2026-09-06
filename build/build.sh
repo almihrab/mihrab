@@ -482,6 +482,13 @@ fi
 # ‏622 إبرازًا مرسومًا في ملفٍّ واحد، ولا واحدَ منها انتحال. تعديلٌ منبعيٌّ لا رقعةُ
 # هويّة: يسقط يومَ يُدمَج م-١٣/ب. فشلٌ قاتلٌ كسابقاتها.
 [[ -f "$ROOT/patches/core/033-unicode-word-script-mixing.patch" ]] && cp -f "$ROOT/patches/core/033-unicode-word-script-mixing.patch" "$UP/.mihrab-unicode-word-script-mixing.patch"
+# الطرفيّةُ في المتصفّح بلا خادم [WEB-05]: أربعةُ مداخلَ تفتح لوحًا لا خلفيّةَ له —
+# لسانُ اللوحة، وCtrl+Backquote، وبندُ «طرفيّة جديدة» في قائمة الطرفيّة، وCtrl+Shift+C.
+# كلُّ أوامر الطرفيّة مُقيَّدةٌ بـ`processSupported` أصلًا، لكنّ **وصفَ العرض** لم يكن
+# مُقيَّدًا، وقاعدةَ الاختصار في `terminal.web.contribution.ts` تُسجَّل مباشرةً فتتخطّى
+# القيدَ، وبندَ القائمة الأوّلَ نسي المنبعُ شرطَه الذي تحمله إخوتُه الأربعة. تعديلٌ
+# منبعيٌّ بحتٌ يسقط يومَ يُدمَج. فشلٌ قاتلٌ كسابقاته.
+[[ -f "$ROOT/patches/core/034-terminal-unavailable-in-web.patch" ]] && cp -f "$ROOT/patches/core/034-terminal-unavailable-in-web.patch" "$UP/.mihrab-terminal-unavailable-in-web.patch"
 [[ -f "$ROOT/build/patch_welcome_rtl.py" ]] && cp -f "$ROOT/build/patch_welcome_rtl.py" "$UP/.mihrab-patch-welcome-rtl.py"
 [[ -f "$ROOT/build/patch_walkthrough_dir.py" ]] && cp -f "$ROOT/build/patch_walkthrough_dir.py" "$UP/.mihrab-patch-walkthrough-dir.py"
 [[ -f "$ROOT/build/patch_walkthroughs_drop.py" ]] && cp -f "$ROOT/build/patch_walkthroughs_drop.py" "$UP/.mihrab-patch-walkthroughs-drop.py"
