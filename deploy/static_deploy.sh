@@ -140,11 +140,15 @@ ln -sfn "$AVAIL" "$LINK"
 # وجود `root` ولا من نوع المحتوى. وكتلةُ `types` التي كسرت النشرَ الحيَّ مرّت من
 # `nginx -t` ومن سبعةِ رموزِ 200 معًا — وكان الموقعُ أبيض. فالبوّابةُ تقيس **النوع**،
 # وتُستدعى بعد النشر وبعد التراجع كليهما.
-_ct() { curl -sk -I -H 'Host: mihrab.dev' "https://127.0.0.1$1"         | tr -d '
-' | awk 'tolower($1)=="content-type:"{print $2}'; }
+# ‏`%{content_type}` من curl مباشرةً — **لا تحليلَ ترويسات**. أوّلُ صياغةٍ كانت
+# `curl -I | tr -d '\r' | awk …`، ومحرفُ الإرجاع فيها انقلب سطرًا حقيقيًّا وهي
+# تُكتَب، فصار `tr` يمسح **الأسطر**: تنهار الترويساتُ إلى سطرٍ واحدٍ فلا يطابق
+# awk شيئًا، ويعود كلُّ نوعٍ فارغًا. فأُنذِر بعطبٍ لا وجودَ له، وتراجع النشرُ عن
+# شجرةٍ سليمة. وcurl يعرف النوعَ ولا يحتاج من يقرؤه له.
+_ct() { curl -sk -o /dev/null -w '%{content_type}' -H 'Host: mihrab.dev' "https://127.0.0.1$1"; }
 
 verify_serving() {
-  local rc=0 got code
+  local rc=0 got code blank=0
   local -a paths=(
     "/|text/html"
     "/boot.js|application/javascript"
@@ -160,9 +164,20 @@ verify_serving() {
     code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' "https://127.0.0.1$path")"
     printf '   %-34s %s  %s' "$path" "$code" "${got:-—}"
     if [[ "$code" != "200" ]]; then printf '   ⚠️ المنتظَر 200'; rc=1
-    elif [[ -n "$want" && "$got" != "$want"* ]]; then printf '   ⚠️ المنتظَر %s' "$want"; rc=1; fi
+    elif [[ -z "$got" ]]; then printf '   ⚠️ لا نوع'; blank=$((blank + 1)); rc=1
+    elif [[ "$got" != "$want"* ]]; then printf '   ⚠️ المنتظَر %s' "$want"; rc=1; fi
     echo
   done
+
+  # ── مِجَسٌّ صامتٌ ليس عطبًا في الموقع ──
+  # **كلُّ** الأنواع فارغةً مع رموزِ 200 سليمةٍ لا تصف موقعًا مكسورًا: nginx الذي
+  # يردّ 200 يردّ نوعًا معه. تصف **أداةَ القياس** وقد عطبت. وقد وقع فعلًا: انقلب
+  # `\r` في `tr` سطرًا حقيقيًّا فصار يمسح الأسطر، فعاد كلُّ نوعٍ فارغًا وتراجع
+  # النشرُ عن شجرةٍ سليمة. ومِجَسٌّ يُنذِر بما لم يقِسه أسوأُ من مِجَسٍّ غائب.
+  if (( blank == ${#paths[@]} )); then
+    echo "   ⛔ **كلُّ الأنواع فارغة مع رموزِ 200** — العطبُ في المِجَسّ لا في الموقع." >&2
+    echo "      افحص \`_ct\` قبل أن تلوم النشر:  curl -sk -o /dev/null -w '%{content_type}' -H 'Host: mihrab.dev' https://127.0.0.1/" >&2
+  fi
   return $rc
 }
 
