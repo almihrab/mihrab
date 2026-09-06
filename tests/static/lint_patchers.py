@@ -290,8 +290,17 @@ def _check_files_shape(patcher):
     attr = M.ROOT_PATCHER_FILES_ATTR.get(patcher, "FILES")
     files = getattr(mod, attr, None)
     assert files, f"{attr} مفقودة/فارغة في {patcher}"
+    # ‏[PM-01] شكلان مقبولان: **مسارٌ مجرَّد** لمرقِّعٍ يعرف ملفَّه ولا يجدول تعديلاتِه
+    # (يُعلِنه ليبلغه L1 وحسب)، وثلاثيّةٌ لمرقِّعٍ يجدولها. وفرضُ الثلاثيّة كان يعني
+    # أنّ النوعَ الأوّل لا يُسجَّل، أي يبقى خارجَ كلّ قياس — وهو كيف كسر
+    # `patch_welcome_web_entries.py` بناءَ ويندوز. والمسارُ المجرّدُ يُفحَص شكلًا
+    # كنظيره في الثلاثيّة، ثمّ يُترَك لـL1 يقيس سلوكَه فعلًا (تطبيقٌ · idempotency ·
+    # نهاياتُ سطر) — وذاك برهانٌ أقوى من جدولٍ يُقرأ.
     marks = []
     for entry in files:
+        if isinstance(entry, str):
+            assert entry.startswith(("src/", "build/", "cli/")), f"مسار غير صالح: {entry}"
+            continue
         assert len(entry) == 3, f"إدخال FILES ليس ثلاثيًّا: {entry[:1]}"
         relpath, mark, edits = entry
         # ‏`src/` ليست الجذرَ الوحيد: بياناتُ نسخةِ ويندوز تُكتَب في سكربتات البناء
@@ -3270,6 +3279,44 @@ def _welcome_ext():
             for cmd in _re.findall(r"command:([A-Za-z0-9_.]+)", st["description"]):
                 assert cmd in manifest_cmds or cmd in UPSTREAM_CMDS_IN_WALKTHROUGH, (
                     f"رابط أمر ميّت «{cmd}» في الخطوة {sid}")
+
+
+@check("كلُّ مرقِّعٍ على القرص مسجَّلٌ في المانيفست [PM-01]")
+def _every_patcher_registered():
+    """المانيفستُ كان يُقرأ في اتّجاهٍ واحد: **مسجَّلٌ ⇐ موجودٌ على القرص**.
+
+    والاتّجاهُ الآخرُ هو الذي يُؤذي: مُرقِّعٌ يُكتَب ويُوصَل بالبناء **ولا يُسجَّل** لا
+    يدخل L1 إطلاقًا — لا مرساةَ تُفحَص، ولا idempotency، ولا نهاياتُ سطر. ولا رسالةَ
+    تقول ذلك: القائمةُ تمرّ خضراءَ على ما فيها، والغائبُ غائبٌ عن العدّ أيضًا.
+
+    وثمنُه قِيس: `patch_welcome_web_entries.py` بقي خارجَ القائمة، فمرّت مِرساتُه ذاتُ
+    الـ`\n` الحرفيّ من كلّ طبقة، ونجح البناءُ على لينكس، **وسقط على ويندوز بعد `npm ci`
+    وترقيعِ المنبع كلِّه**. خمسةُ مرقِّعاتٍ كانت خارج القائمة يومَ كُتِب هذا الحارس.
+
+    والتصنيفُ إلزاميّ لا اختياريّ: إمّا `PATCHERS` (يُقاس على مصدر منبعٍ نظيف في L1)
+    وإمّا `BUILD_PATCHERS` (لا مصدرَ منبعٍ له — ناتجُ بناءٍ أو سكربتُ VSCodium، وقاطعُه
+    L2). و**لا ثالثَ**: ثالثٌ يعني بابًا يعود منه الصنفُ نفسُه.
+    """
+    import glob
+    on_disk = sorted(os.path.basename(p) for p in
+                     glob.glob(os.path.join(ROOT, "build", "patch_*.py")) +
+                     glob.glob(os.path.join(ROOT, "build", "bake_*.py")))
+    assert on_disk, "لا مرقِّعاتٍ في build/ — مسارٌ خاطئٌ في الحارس نفسِه"
+    src = {p for p, _m, _t in M.PATCHERS}
+    build = set(M.BUILD_PATCHERS)
+    both = src & build
+    assert not both, (
+        "مرقِّعاتٌ في القائمتين معًا: " + "، ".join(sorted(both)) +
+        " — والتصنيفُ يحدّد أيُّ طبقةٍ تقيسها، فالازدواجُ يعني قياسًا متناقضًا [PM-01]")
+    missing = [p for p in on_disk if p not in src and p not in build]
+    assert not missing, (
+        "مرقِّعاتٌ على القرص خارجَ المانيفست: " + "، ".join(missing) +
+        " — ومرقِّعٌ غيرُ مسجَّلٍ لا يدخل L1: لا مرساةَ تُفحَص ولا نهاياتُ سطرٍ تُجرَّب، "
+        "ولا شيءَ يقول ذلك. سجّله في PATCHERS (له مصدرُ منبعٍ نظيف) أو في "
+        "BUILD_PATCHERS (يعمل على ناتج بناءٍ أو سكربتِ VSCodium) [PM-01]")
+    ghost = [p for p in sorted(src | build) if p not in on_disk]
+    assert not ghost, (
+        "مسجَّلٌ ولا وجودَ له على القرص: " + "، ".join(ghost) + " [PM-01]")
 
 
 @check("مداخلُ المتصفّح موصولةٌ وخاليةٌ من العقدة [WEB-06]")

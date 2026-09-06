@@ -95,7 +95,39 @@ def _run(patcher, arg):
     return r.returncode, (r.stdout + r.stderr).decode("utf-8", errors="replace")
 
 
+# ── [CRLF-01] نهاياتُ السطر بُعدٌ في القياس لا تفصيلٌ في التنسيق ──────────────
+# ‏`git show` لا يمرّ بمرشّح `smudge`، فالمصدرُ النظيفُ هنا **دائمًا LF** مهما كانت
+# شجرةُ العمل. وشجرةُ ويندوز تُستنسَخ بـ`core.autocrlf` مفعَّلًا فسطرُها `\r\n`.
+# أي أنّ L1 كان يقيس نهاياتٍ لا تُشحَن على نصف منصّاتنا.
+#
+# وثمنُ الثغرة قِيس: `patch_welcome_web_entries.py` يحمل مِرساةً فيها `\n` حرفيًّا،
+# فمرَّ في L1 أخضرَ ونجح على لينكس **وسقط على ويندوز بعد `npm ci` وترقيعِ المنبع
+# كلِّه** — أربعون دقيقةً حتّى الرسالة، ورسالةٌ لا تذكر نهاياتِ السطر.
+#
+# فكلُّ مرقِّعٍ يُجرَّب مرّتين. والكلفةُ ثوانٍ، والمكسبُ أنّ فئةَ العطب هذه تموت
+# عند الحاسوب لا عند البناء.
+_EOLS = (("LF", "\n"), ("CRLF", "\r\n"))
+
+
+def _as_eol(text, eol):
+    return text.replace("\r\n", "\n").replace("\n", eol)
+
+
 def check_patcher(name, mode):
+    """يعيد (ok:bool, رسالة) — بعد تجربةِ المرقِّع على LF وعلى CRLF."""
+    msgs = []
+    for label, eol in _EOLS:
+        ok, msg = _check_patcher_eol(name, mode, eol)
+        if ok is None:
+            return None, msg           # لا مصدرَ نظيف: تخطٍّ واحدٌ يكفي
+        if not ok:
+            return False, f"[{label}] {msg}"
+        msgs.append(msg)
+    # الرسالتان متطابقتان عمليًّا؛ تُعرَض إحداهما مع بيانِ أنّ البُعدين قيسا.
+    return True, msgs[0] + " · LF+CRLF"
+
+
+def _check_patcher_eol(name, mode, eol):
     """يعيد (ok:bool, رسالة)."""
     targets = _targets_for(name, mode)
     tmp = tempfile.mkdtemp(prefix="mihrab_l1_")
@@ -106,6 +138,7 @@ def check_patcher(name, mode):
             content, origin = _pristine_source(rel)
             if content is None:
                 return None, f"لا مصدر نظيف لـ{rel} (تخطٍّ)"
+            content = _as_eol(content, eol)
             dst = os.path.join(tmp, rel.replace("/", os.sep))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             with open(dst, "w", encoding="utf-8", newline="") as f:
@@ -143,6 +176,17 @@ def check_patcher(name, mode):
                 a2 = f.read()
             if a2 != after[rel]:
                 return False, f"إعادة التشغيل غيّرت {rel} (تطبيق مزدوج — ليس idempotent)"
+
+        # ولا يُترَك ملفٌّ **مختلطَ النهايات**: مُرقِّعٌ يحقن سطورَ LF في ملفٍّ
+        # بـCRLF يُنتج ملفًّا يُصرَّف ويُشحَن ويُفسِد كلَّ فرقٍ بعده — عطبٌ لا يُرى
+        # في المحرّر ويُرى في كلّ مراجعة.
+        for rel in changed:
+            a = after[rel]
+            lone = a.count("\n") - a.count("\r\n")
+            crlf = a.count("\r\n")
+            if lone and crlf:
+                return False, (f"{rel} صار مختلطَ النهايات بعد الترقيع "
+                               f"({crlf} CRLF · {lone} LF) — المُدرَجُ لا يتبع الملفّ")
 
         origin = next(iter(srcs.values()))[2]
         return True, f"طبَّق {len(changed)} ملفّ، idempotent [{origin}]"

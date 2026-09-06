@@ -61,6 +61,21 @@ WEB_PRODUCT_KEYS = (
 )
 
 # الأيقونات: (اسمُ الهدف في الشجرة, مصدرُه في المستودع)
+# ── [WEB-07] ما لا يُقرأ لا يُشحَن ─────────────────────────────────────────────
+# ‏`out/nls.metadata.json` بياناتُ بناءٍ لا بياناتُ تشغيل: صفرُ إشاراتٍ إليه في
+# `src/` كلِّه (قِيس)، ومستهلكُه الوحيدُ في المنبع سكربتُ CI يرفعه إلى خدمة الترجمة
+# (`build/azure-pipelines/upload-nlsmetadata.ts`). ومع ذلك يخرج في الشجرة الثابتة،
+# فيُخدَم من `mihrab.dev` بـ**‏1.9 م.ب** ويحمل «‏VSCodium» ستًّا وتسعين مرّة —
+# «‏VSCodium for Web»، «‏Quality type of VSCodium»…
+#
+# وليس تسرّبًا نظريًّا: ملفٌّ عامٌّ على نطاقنا يُنزَّل بعنوانٍ مباشر، ويُفهرَس، ويقرؤه
+# من يسأل «على أيّ شيءٍ بُني محراب؟» فيجد جوابًا **نصفَه صحيحٌ ولا نقوله نحن**.
+# ونحن نقول الجوابَ كاملًا في وثائقنا؛ الفرقُ أن يُقال قصدًا لا أن يُنسى.
+#
+# والحذفُ لا التعريب: التعريبُ يُبقي ‎1.9‎ م.ب من حمولةٍ ميّتةٍ على كلّ نشر، والحذفُ
+# يُنهي الفئةَ. وهو **مقصورٌ على الشجرة الثابتة**: المكتبيُّ لا يُخدَم بعنوان.
+DEAD_WEIGHT = ("out/nls.metadata.json",)
+
 ICONS = (
     ("favicon.ico", os.path.join(BRAND, "mihrab.ico")),
     ("code-192.png", os.path.join(BRAND, "mihrab-pwa-192.png")),
@@ -143,11 +158,24 @@ def apply(web):
         with open(src, "rb") as f:
             _write_atomic(os.path.join(web, name), f.read())
         print("  ✓ " + name + " ⟵ " + os.path.basename(src))
+
+    for rel in DEAD_WEIGHT:
+        dead = os.path.join(web, *rel.split("/"))
+        if os.path.isfile(dead):
+            kb = os.path.getsize(dead) // 1024
+            os.remove(dead)
+            print("  ✓ حُذِف " + rel + " (" + str(kb) + " ك.ب — بياناتُ بناءٍ لا تُقرأ) [WEB-07]")
     return 0
 
 
 def verify(web):
     errs = []
+
+    # ‏[WEB-07] وجودُه يعني أنّ خطوةَ الحذف لم تُشغَّل — أو شجرةٌ نجت من بناءٍ سابق.
+    for rel in DEAD_WEIGHT:
+        if os.path.isfile(os.path.join(web, *rel.split("/"))):
+            errs.append(rel + " ما زال في الشجرة — بياناتُ بناءٍ لا يقرؤها أحد، "
+                        "تُخدَم بميغابايتَين وتحمل اسمَ التوزيعة الأمّ [WEB-07]")
 
     for name in PAGE_FILES:
         dst, src = os.path.join(web, name), os.path.join(SRC_WEB, name)

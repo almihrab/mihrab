@@ -51,6 +51,11 @@ PATCHERS = [
     # مواضعَ (‏حزمةُ Electron · rcedit للوحدات الأصليّة · بناءُ الخادم · مواردُ CLI)،
     # فكان المشحونُ ينسب نفسَه إلى VSCodium وإلى Microsoft Corporation.
     ("patch_win_metadata.py", "root", None),
+    # بنودُ لوح الترحيب في المتصفّح [م-٢٨]: يُطفِئ «فتح المستودع…» (أمرُه من إضافةِ
+    # مايكروسوفت المِلكيّة التي لا نشحنها) ويضع مكانَه «فتح مجلّداً…» بشرط
+    # `hasWebFileSystemAccess`. **وكان خارجَ هذه القائمة**، أي خارجَ L1 كلِّه — حتّى
+    # كسر بناءَ ويندوز بمِرساةٍ فيها `\n` حرفيًّا لا تُطابِق `\r\n` [CRLF-01].
+    ("patch_welcome_web_entries.py", "root", None),
 ]
 
 # رُقَع «الجذر» تشتقّ ملفّاتها من قائمة FILES داخلها. لا تُسرَد هنا يدويًّا: نسخةٌ
@@ -59,6 +64,7 @@ ROOT_PATCHER_FILES_ATTR = {
     "patch_config_folder.py": "FILES",
     "patch_settings_labels.py": "FILES",
     "patch_win_metadata.py": "FILES",
+    "patch_welcome_web_entries.py": "FILES",
 }
 
 # مرقِّعات بناء لا تُطبَّق على مصدر vscode مباشرةً (تُستثنى من فحص المراسي L1، لكنّها
@@ -69,6 +75,17 @@ BUILD_PATCHERS = [
     "patch_extension_nls.py",      # حقن package.nls.ar.json للامتدادات (بعد-بناء)
     "patch_node_gyp_spectre.py",   # م0
     "patch_npmrc_tolerance.py",    # م0
+    # ── مرقِّعاتُ ما بعد البناء: تعمل على شجرةِ مخرَجٍ لا على مصدر vscode ──
+    # ‏L1 يقيس «هل تُطابِق المِرساةُ مصدرَ المنبع النظيف؟»، وهذه لا مصدرَ منبعٍ لها:
+    # مدخلاتُها ناتجُ البناء أو سكربتاتُ VSCodium. وقاطعُها L2 (مِجَسُّ الحزمة) وL0.
+    "patch_web_host.py",           # صفحةُ مضيف vscode-web وهويّتُها [WEB-04]
+    "patch_workbench_font.py",     # نقلُ الخطّ المحزوم إلى ملفٍّ مجاور [AR-02 · م-٢٥]
+    "patch_xterm_bidi.py",         # اتّجاهُ xterm في الحزمة المبنيّة
+    "patch_cli_macapp.py",         # يرقّع build_cli.sh/prepare_assets.sh (سكربتا VSCodium)
+    # ‏`dev/build.sh` يدهس `GH_REPO_PATH` بلا شرطٍ قبل أن تصل `utils.sh`، فتصديرُنا
+    # كان يبدو إصلاحًا ولا يصل شيئًا — و[BR-05] يعود في كلّ بناءٍ كامل. يرقّع
+    # سكربتَ VSCodium لا مصدرَ vscode، فلا مصدرَ منبعٍ نظيفًا له في L1.
+    "patch_dev_build_env.py",
 ]
 
 # رُقَعُ **المنبع** (diff موحَّد لا مرقِّع بايثون): تعديلاتٌ مصوغةٌ للرفع إلى microsoft/vscode
@@ -206,7 +223,14 @@ def root_target_files(build_dir, patcher):
         "_mihrab_" + patcher.replace(".", "_"), path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return [relpath for (relpath, _mark, _edits) in getattr(mod, attr)]
+    # شكلان مقبولان لـ`FILES`: ثلاثيّاتُ (مسار، وسم، تعديلات) كما في مرقِّعات
+    # الجذر ذاتِ الجداول، **أو** مساراتٌ مجرّدةٌ لمرقِّعٍ يعرف ملفَّه ولا يجدول
+    # تعديلاتِه. وفرضُ الشكل الأوّل كان يعني أنّ الثاني لا يُسجَّل أصلًا — وهو
+    # كيف بقي `patch_welcome_web_entries.py` خارجَ L1 حتّى كسر بناءَ ويندوز [PM-01].
+    out = []
+    for item in getattr(mod, attr):
+        out.append(item if isinstance(item, str) else item[0])
+    return out
 
 
 def core_diff_files(root_dir, diff_relpath, existing_only=False):
