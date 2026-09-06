@@ -93,7 +93,10 @@ mkdir -p "$NEW"
 tar xzf "$STAGE/tree.tgz" -C "$NEW" || die "فشل الفكّ"
 
 # بوّابةٌ **قبل** التبديل: شجرةٌ ناقصةٌ تُبدَّل هي انقطاعُ خدمة.
-for f in index.html boot.js product.web.js manifest.json favicon.ico \
+# ‏`boot-early.js` في القائمة [WEB-09]: خرج من `index.html` كي تستغني سياسةُ الأمان
+# عن `'unsafe-inline'`. وغيابُه لا يُنتج صفحةَ خطأ — يُنتج شاشةَ إقلاعٍ لا تنتهي،
+# لأنّ `_VSCODE_FILE_ROOT` لا يُضبَط فلا تُحلّ مساراتُ الحزمة أصلًا.
+for f in index.html boot.js boot-early.js product.web.js manifest.json favicon.ico \
          out/nls.messages.js out/vs/workbench/workbench.web.main.internal.js \
          out/vs/workbench/workbench.web.main.internal.css \
          out/vs/workbench/kawkab-mono.woff2 \
@@ -104,7 +107,8 @@ grep -q 'globalThis._MIHRAB_PRODUCT=' "$NEW/product.web.js" \
   || die "product.web.js بلا هويّة"
 grep -q '"name": "محراب"' "$NEW/manifest.json" \
   || die "المانيفست ليس مانيفستَ محراب — أيقونةُ التبويب واسمُ التثبيت ليسا لنا"
-grep -qi 'vscodium' "$NEW/manifest.json" "$NEW/index.html" "$NEW/boot.js" \
+grep -qi 'vscodium' "$NEW/manifest.json" "$NEW/index.html" \
+                    "$NEW/boot.js" "$NEW/boot-early.js" \
   && die "تسرّبُ اسمِ المنبع في ملفٍّ يُخدَم للزائر"
 # ‏[BR-05]: وجهةُ مستودعِ المنبع مضروبةٌ في الحزمة المصغَّرة — لا مفتاحٌ في إعدادٍ،
 # فلا تراها بوّاباتُ `product.json` ولا النصِّ المخبوز. كان لوحُ الترحيب يجلب
@@ -152,6 +156,7 @@ verify_serving() {
   local -a paths=(
     "/|text/html"
     "/boot.js|application/javascript"
+    "/boot-early.js|application/javascript"
     "/product.web.js|application/javascript"
     "/manifest.json|application/json"
     "/favicon.ico|image/"

@@ -31,7 +31,10 @@ say() { echo "── $*"; }
 say "طابعُ البناء: $(cat "$TREE/.mihrab-built-at")"
 
 # بوّابةٌ قبل الحزم: ما لا يُقاس هنا يُقاس على الخادم بعد فوات الأوان.
-for f in index.html boot.js product.web.js manifest.json favicon.ico \
+# ‏`boot-early.js` في القائمة [WEB-09]: خرج من `index.html` كي تستغني سياسةُ الأمان
+# عن `'unsafe-inline'`. وغيابُه لا يُنتج صفحةَ خطأ — يُنتج شاشةَ إقلاعٍ لا تنتهي،
+# لأنّ `_VSCODE_FILE_ROOT` لا يُضبَط فلا تُحلّ مساراتُ الحزمة أصلًا.
+for f in index.html boot.js boot-early.js product.web.js manifest.json favicon.ico \
          out/nls.messages.js out/vs/workbench/workbench.web.main.internal.js \
          out/vs/workbench/kawkab-mono.woff2; do
   [[ -s "$TREE/$f" ]] || die "ملفٌّ لازمٌ مفقودٌ أو فارغ: $f"
