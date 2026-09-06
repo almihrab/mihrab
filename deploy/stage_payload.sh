@@ -61,7 +61,12 @@ echo "   conf: $SHA_C"
 if [[ -z $DEST ]]; then
   echo
   echo "   لم يُعطَ خادم — للرفع:"
-  echo "     scp -P $PORT $OUT:tree.tgz $CONF $SCRIPT <مستخدم>@<خادم>:/tmp/mihrab-static/"
+  # الوجهةُ اسمُ مجلّدٍ لا اسمُ ملفّ، والحزمةُ تُرفَع باسمها ثمّ تُسمّى هناك: كتابةُ
+  # ‏`$OUT:tree.tgz` كانت تُنتج سطرًا **لا يعمل إن نُسِخ** — و`scp` يقرأ ما قبل النقطتين
+  # مُضيفًا بعيدًا، فيحاول الاتّصال بمضيفٍ اسمُه مسارُ الملفّ. تلميحٌ خاطئٌ أسوأُ من
+  # لا تلميح: القارئُ ينسخه ويثق به.
+  echo "     scp -P $PORT '$OUT' '$CONF' '$SCRIPT' <مستخدم>@<خادم>:/tmp/mihrab-static/"
+  echo "     ثمّ على الخادم: mv /tmp/mihrab-static/$(basename "$OUT") /tmp/mihrab-static/tree.tgz"
   exit 0
 fi
 
