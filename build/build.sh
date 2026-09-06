@@ -1004,7 +1004,42 @@ for _bundle in "$APP_DIR/out/vs/workbench/workbench.desktop.main.js" \
     exit 1
   fi
 done
-log "لا وجهةَ مستودعٍ منبعيٍّ في الحزم المصغَّرة [BR-05]"
+
+# ── وثنائيّاتُ الشجرة كذلك: البوّابةُ كانت تقرأ جافاسكربت وحدَها ────────────
+# فأعلنت «نظيفةٌ» على شجرةٍ فيها تسرّبٌ رابع: `mihrab-tunnel.exe` يحمل قالبَ
+# تنزيلِ الخادم مضروبًا في شيفرة Rust —
+#     https://github.com/VSCodium/vscodium/releases/download/…-reh-web-….tar.gz
+# فمن شغّل `mihrab tunnel` ينزّل **خادمَ VSCodium** من مستودع المنبع. وهو ليس
+# اسمًا في نصٍّ بل سلوكٌ يعمل: طلبُ شبكةٍ إلى المنبع، وحمولةٌ ليست حمولتَنا.
+#
+# ‏`serverDownloadUrlTemplate: null` عندنا لا يُلغيه — يجعل الـCLI يرتدّ إلى هذا
+# الثابتِ المخبوزِ بالضبط. ونحن **لا ننشر خوادمَ REH أصلًا** (قرارُ «لا خادم»
+# موثَّقٌ في `docs/architecture/لماذا-لا-خادم.md`)، فالبديلُ الصحيح ليس إعادةَ
+# التوجيه بل ألّا نَعِد بما لا نشحن. مسجَّلٌ دَينًا حتّى يُبَتّ فيه.
+#
+# والبوّابةُ تمسحه الآن كي لا تبقى «خضراءَ» على تسرّبٍ تعرف مكانَه: التسامحُ
+# المُعلَنُ يُذكَر باسمه في `_BR05_KNOWN`، وأيُّ ثنائيٍّ آخرَ يُفشِل البناء.
+_BR05_KNOWN="bin/mihrab-tunnel"
+_br05_bin_hits=0
+while IFS= read -r _bin; do
+  LC_ALL=C grep -qa "VSCodium/vscodium" "$_bin" || continue
+  _rel="${_bin#$OUTDIR/}"
+  case "${_rel%.exe}" in
+    $_BR05_KNOWN)
+      echo "   ⚠️ [BR-05] تسرّبٌ معلومٌ ومُسجَّلٌ دَينًا: $_rel (قالبُ تنزيلِ خادمٍ لا ننشره)" >&2
+      ;;
+    *)
+      echo "❌ [BR-05] وجهةُ مستودعِ المنبع في ثنائيٍّ مشحون: $_rel" >&2
+      _br05_bin_hits=$((_br05_bin_hits + 1))
+      ;;
+  esac
+done < <(find "$OUTDIR" -type f \( -name '*.exe' -o -name '*.dll' -o -name '*.node' \
+                                  -o -name '*.so' -o -name '*.dylib' \) 2>/dev/null)
+[[ "$_br05_bin_hits" -eq 0 ]] || {
+  echo "   الثنائيّاتُ لا يبلغها GH_REPO_PATH: قيمُها مضروبةٌ في مصدرِ Rust/C++." >&2
+  exit 1; }
+
+log "لا وجهةَ مستودعٍ منبعيٍّ في الحزم المصغَّرة ولا في الثنائيّات [BR-05]"
 
 # ‏--version لا يعمل بلا شاشة على لينكس (Electron يحتاج X/Wayland)، ولا يُشغَّل من
 # داخل حزمة .app بهذه الصورة على macOS. فيُترك لويندوز، والتحقّقُ أعلاه يغني عنه.
