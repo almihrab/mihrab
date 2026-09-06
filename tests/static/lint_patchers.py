@@ -4684,7 +4684,22 @@ def _web_host_page_contract():
     """
     web = os.path.join(ROOT, "web")
     boot = _code(_read(os.path.join(web, "boot.js")))
-    html = _code(_read(os.path.join(web, "index.html")), html_mode=True)
+    # ‏[WEB-09] سلوكُ الإقلاع انتقل من كتلةٍ داخل الصفحة إلى `boot-early.js`. والحارسُ
+    # يقرأ **الاثنين معًا** لا الصفحةَ وحدَها: أوّلُ صياغةٍ بعد النقل كانت ستمرّ خضراءَ
+    # على صفحةٍ فارغةٍ من كلّ ما تفحصه — وهو أسوأُ ما يقع لحارس. والصفحةُ تبقى مقروءةً
+    # لما هو فيها فعلًا (وسومٌ ووصلات)، والدمجُ لِما قد يسكن هنا أو هناك.
+    early = _code(_read(os.path.join(web, "boot-early.js")))
+    html_only = _code(_read(os.path.join(web, "index.html")), html_mode=True)
+    html = html_only + "\n" + early
+
+    # وربطُ الملفّ بالصفحة **مقيسٌ لا مفترَض**: ملفٌّ سليمٌ لا تصله الصفحةُ لا يعمل،
+    # ووسمٌ بـ`type="module"` يُؤجَّل بعد الوحدات فيصل `_VSCODE_FILE_ROOT` متأخّرًا.
+    assert '<script src="boot-early.js"></script>' in html_only, (
+        "‏index.html لا تصل `boot-early.js` بوسمٍ كلاسيكيّ — إمّا لا تصله أصلًا "
+        "(فلا يُضبَط `_VSCODE_FILE_ROOT`)، وإمّا وصلته وحدةً مؤجَّلةً بعد الوحدات "
+        "التي تقرؤه [WEB-09]")
+    assert html_only.find('src="boot-early.js"') < html_only.find('src="boot.js"'), (
+        "‏boot-early.js بعد boot.js في الصفحة — الترتيبُ يقلب شرطَ الإقلاع [WEB-09]")
 
     # (أ) اسمُ السمة **حرفيّ**، وانحرافُه يعني ارتدادًا إلى Dark Modern — أي أنّ
     #     محرابَ المتصفّح يبدو VS Code. كان «محراب الداكن» والصوابُ «محراب الداكنة».

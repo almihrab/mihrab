@@ -36,7 +36,10 @@ OVERRIDES = os.path.join(ROOT, "product-overrides", "product.json")
 
 # صفحةُ المضيف: مصدرُها المستودعُ لا الشجرةُ المبنيّة. تُنسَخ في كلّ بناءٍ فلا تنجو
 # نسخةٌ قديمةٌ في شجرةٍ لم تُنظَّف.
-PAGE_FILES = ("index.html", "boot.js")
+# ‏`boot-early.js` ثالثُهم [WEB-09]: خرج من `index.html` كي تستغني سياسةُ الأمان
+# عن `'unsafe-inline'`. وكلُّهم يُنسَخون من المستودع ويُقارَنون بايتًا ببايت في
+# `--verify` — فنسخةٌ نجت من بناءٍ سابقٍ تُرفَض قبل أن تُنشَر.
+PAGE_FILES = ("index.html", "boot.js", "boot-early.js")
 
 PRODUCT_JS = "product.web.js"
 PRODUCT_PREFIX = "globalThis._MIHRAB_PRODUCT="
