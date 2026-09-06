@@ -184,6 +184,13 @@ _INJECT_TEMPLATE = """
   if [ -f ../.mihrab-patch-menu-rtl.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-menu-rtl.py src/vs/base/browser/ui/menu/menu.ts || { echo "محراب: فشلت رُقعة القائمة الفرعيّة RTL" >&2; exit 1; }
   fi
+  # رُقعةُ بناء الويب: `import.meta.resolve(...).replace('file://','')` يترك شرطةً
+  # قبل حرف القرص على ويندوز، فيُحلّ المسارُ على قرص العمل ⇒ `C:\\C:\\…` ويسقط
+  # `vscode-web-min` — هدفُ ما يُنشَر على mihrab.dev — بعد 6.7 دقيقة برسالةِ «الملفُّ
+  # مفقود» والملفُّ في مكانه. حتميٌّ على ويندوز، غائبٌ عن CI المنبع [م-٣٢].
+  if [ -f ../.mihrab-patch-esbuild-fileurl.py ]; then
+    "${_MIHRAB_PY}" ../.mihrab-patch-esbuild-fileurl.py . || { echo "محراب: فشلت رُقعة حلّ مسار file://" >&2; exit 1; }
+  fi
   # رُقعة RTL-2: وسم splitview الشبكة (يُمكِّن استثناءها في رُقعتَي splitview/sash).
   if [ -f ../.mihrab-patch-gridview-marker.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-gridview-marker.py src/vs/base/browser/ui/grid/gridview.ts || { echo "محراب: فشلت رُقعة وسم الشبكة" >&2; exit 1; }

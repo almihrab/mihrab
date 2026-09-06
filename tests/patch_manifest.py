@@ -56,6 +56,14 @@ PATCHERS = [
     # `hasWebFileSystemAccess`. **وكان خارجَ هذه القائمة**، أي خارجَ L1 كلِّه — حتّى
     # كسر بناءَ ويندوز بمِرساةٍ فيها `\n` حرفيًّا لا تُطابِق `\r\n` [CRLF-01].
     ("patch_welcome_web_entries.py", "root", None),
+    # ‏**مصدرُ منبعٍ نظيفٌ ⇒ مرقِّعُ جذرٍ لا BUILD_PATCHERS.** أوّلُ تصنيفٍ وضعه في
+    # `BUILD_PATCHERS` لأنّه يمرّ عبر `.mihrab-patch-*` [SRC-01] — وذلك **طريقُ
+    # التطبيق** لا **وجودُ المصدر**. ورأسُ تلك القائمة يقول «لا مصدرَ منبعٍ لها»،
+    # وهدفُ هذا المرقِّع ملفٌّ في `.upstream/vscode` يُعاد إلى حالته بكلّ reset. فكان
+    # خارجَ L1 كلِّه: لا فحصَ مِرساةٍ على منبعٍ نظيف، ولا إعادةَ تطبيق، ولا نهايتَي
+    # سطر — وهي الثغرةُ بعينها التي أخرجت `patch_welcome_web_entries.py` حتّى كسر
+    # بناءَ ويندوز، والمكتوبةُ في هذا الملفّ أسفلَه.
+    ("patch_esbuild_fileurl.py", "root", None),
 ]
 
 # رُقَع «الجذر» تشتقّ ملفّاتها من قائمة FILES داخلها. لا تُسرَد هنا يدويًّا: نسخةٌ
@@ -65,6 +73,7 @@ ROOT_PATCHER_FILES_ATTR = {
     "patch_settings_labels.py": "FILES",
     "patch_win_metadata.py": "FILES",
     "patch_welcome_web_entries.py": "FILES",
+    "patch_esbuild_fileurl.py": "FILES",
 }
 
 # مرقِّعات بناء لا تُطبَّق على مصدر vscode مباشرةً (تُستثنى من فحص المراسي L1، لكنّها

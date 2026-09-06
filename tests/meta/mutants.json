@@ -613,6 +613,16 @@
       "why": "‏**المُصابُ هو الخطأُ الذي وقع فعلًا مرّتين.** `\\r?$` يستهلك محرفَ الإرجاع، والبديلُ لا يُعيده — فيخرج الملفُّ بسطرٍ بـLF وسطَ ملفٍّ كلُّه CRLF. ولا يُسقِط بناءً ولا يُحمِّر نحوًا.\nوأوّلُ حارسٍ اخترتُه له كان L1 — **وهو لا يراه أصلًا**: المرقِّعُ في `BUILD_PATCHERS` وL1 يتخطّاها بحكم تعريفه. فبقي المُصابُ أخضرَ وكشف أنّ الحارسَ المُختار لا يحرس. ومثلُه `patch_dev_build_env.py` قبله: تعليقُه كان يقول «يُجرَّب على النهايتَين في L1» وهو ادّعاءُ تغطيةٍ لا وجودَ لها — وقِيس بتشغيلٍ فعليٍّ على نسخةٍ CRLF غيرِ مُرقَّعة فظهر العطبُ فيه كذلك. فصار الحارسُ ساكنًا [CRLF-02] يسري على كلّ مرقِّع."
     },
     {
+      "id": "src-patcher-called-before-reset",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "[[ -f \"$ROOT/build/patch_esbuild_fileurl.py\" ]] && cp -f \"$ROOT/build/patch_esbuild_fileurl.py\" \"$UP/.mihrab-patch-esbuild-fileurl.py\"",
+      "new": "\"$PY_BIN\" \"$ROOT/build/patch_esbuild_fileurl.py\" \"$UP/vscode\"",
+      "expect": "SRC-01",
+      "why": "‏**المُصابُ هو الخطأُ الذي أسقط بناءَين.** المرقِّعُ يُنادى مباشرةً بدل أن يُنسَخ ويُحقَن، فيعمل **قبل** `git add . ; git reset --hard` الذي يُجريه `dev/build.sh` — ويزول أثرُه. والعطبُ صامتٌ مضاعَف: وجد الملفَّ مُرقَّعًا من تجربةٍ يدويّةٍ سابقة فطبع «مُرقَّعٌ سلفًا» في السطر 18 من السجلّ، والملفُّ غيرُ مُرقَّعٍ في السطر 22 — **شهادةُ نجاحٍ لملفٍّ يُمحى بعد سطور**، ثمّ سقط `vscode-web-min` بالعطب نفسِه بعد 6.7 دقيقة. والتعليقُ في `build/build.sh` يصف هذا الفخَّ حرفيًّا: قُرِئ ثمّ وقع. فصار بنيويًّا: من كانت `FILES` له في شجرة vscode فطريقُه `.mihrab-patch-*`، ولا يُنادى مباشرةً."
+    },
+    {
       "id": "csp-script-src-unsafe-inline",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",

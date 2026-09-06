@@ -281,6 +281,13 @@ def _editor_files_shape():
         _check_files_shape(patcher)
 
 
+# ‏جذورُ شجرة vscode التي يجوز لمرقِّعٍ أن يمسّها. و`extensions/` أُضيفت بعد أن
+# مُنِع بها `patch_esbuild_fileurl.py` — وهدفُه ملفُّ منبعٍ نظيفٌ كسائرها
+# (`extensions/html-language-features/esbuild.browser.mts`). وهي الحجّةُ الشكليّةُ
+# نفسُها التي يحذّر منها التعليقُ أدناه حين وُسِّعت من `src/` إلى `build/` و`cli/`.
+_VSCODE_ROOTS = ("src/", "build/", "cli/", "extensions/")
+
+
 def _check_files_shape(patcher):
     import importlib.util
     spec = importlib.util.spec_from_file_location(
@@ -299,14 +306,14 @@ def _check_files_shape(patcher):
     marks = []
     for entry in files:
         if isinstance(entry, str):
-            assert entry.startswith(("src/", "build/", "cli/")), f"مسار غير صالح: {entry}"
+            assert entry.startswith(_VSCODE_ROOTS), f"مسار غير صالح: {entry}"
             continue
         assert len(entry) == 3, f"إدخال FILES ليس ثلاثيًّا: {entry[:1]}"
         relpath, mark, edits = entry
         # ‏`src/` ليست الجذرَ الوحيد: بياناتُ نسخةِ ويندوز تُكتَب في سكربتات البناء
         # (`build/lib/electron.ts`) وفي مواردِ Rust (`cli/build.rs`)، لا في مصدر المحرّر.
         # وحصرُ المسار في `src/` كان سيمنع رقعةً صحيحةً بحجّةٍ شكليّة.
-        assert isinstance(relpath, str) and relpath.startswith(("src/", "build/", "cli/")),             f"مسار غير صالح: {relpath}"
+        assert isinstance(relpath, str) and relpath.startswith(_VSCODE_ROOTS),             f"مسار غير صالح: {relpath}"
         assert isinstance(mark, str) and mark, f"وسم غير صالح لـ{relpath}"
         marks.append(mark)
         assert edits, f"لا تعديلات لـ{relpath}"
@@ -5078,6 +5085,73 @@ def _deploy_does_not_expose_editor():
         if key in u:
             assert key in _unit_sec and key not in _svc_sec, (
                 "‏" + key + " في [Service] — نُقل إلى [Unit] منذ systemd 229 ويُهمَل هنا بصمت.")
+
+
+@check("مرقِّعُ مصدرِ vscode يُحقَن بعد الـreset [SRC-01]")
+def _vscode_source_patchers_survive_reset():
+    """‏[SRC-01] رُقعةٌ تُطبَّق قبل `dev/build.sh` تُمحى ولا يُقال.
+
+    ‏`dev/build.sh` يُجري `git add . ; git reset --hard` داخل شجرة vscode، فكلُّ
+    تعديلٍ على `src/**` أو `extensions/**` سبقه **يزول**. ولهذا وُضِعت آليّةُ
+    `.mihrab-patch-*.py`: تُنسَخ الرُقعةُ إلى `$UP` ويحقنها `patch_bundle_extensions.py`
+    داخل `build.sh` المنبع **بعد** `cd vscode`.
+
+    والعطبُ صامتٌ مضاعَف: المرقِّعُ يُنادى مبكّرًا، ويجد الملفَّ مُرقَّعًا من تجربةٍ
+    يدويّةٍ سابقة، فيطبع «مُرقَّعٌ سلفًا» — **شهادةُ نجاحٍ لملفٍّ يُمحى بعد سطور**.
+    وقع فعلًا في `patch_esbuild_fileurl.py`: السجلُّ يقول «مُرقَّعٌ سلفًا» في السطر 18،
+    والملفُّ غيرُ مُرقَّعٍ في السطر 22، وسقط بناءُ الويب بالعطب نفسِه بعد 6.7 دقيقة.
+    والتعليقُ في `build/build.sh` يصف هذا الفخَّ حرفيًّا — قُرِئ ثمّ وقع.
+
+    فالقاعدةُ بنيويّة: من كانت `FILES` له في شجرة vscode فطريقُه `.mihrab-patch-*`،
+    ولا يُنادى من `build.sh` مباشرةً.
+    """
+    build_sh = _read(os.path.join(BUILD, "build.sh"))
+    inject = _read(os.path.join(BUILD, "patch_bundle_extensions.py"))
+
+    wired = 0
+    for name in sorted(os.listdir(BUILD)):
+        if not (name.startswith("patch_") and name.endswith(".py")):
+            continue
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_src_" + name[:-3],
+                                                      os.path.join(BUILD, name))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        files = getattr(mod, "FILES", None) or ()
+        if isinstance(files, str):
+            files = (files,)
+        targets = [f for f in files if isinstance(f, str)
+                   and (f.startswith("src/") or f.startswith("extensions/"))]
+        if not targets:
+            continue
+        wired += 1
+
+        # ‏(أ) يُنسَخ إلى `$UP/.mihrab-patch-*.py` كي ينجوَ من الـreset.
+        assert ('cp -f "$ROOT/build/' + name + '"') in build_sh, (
+            "‏[SRC-01] " + name + " يعدّل شجرةَ vscode (" + targets[0] + ") ولا يُنسَخ "
+            "إلى `$UP/.mihrab-patch-*.py` — فأثرُه يزول مع `git reset --hard` في "
+            "`dev/build.sh`.")
+
+        # ‏(ب) ولا يُنادى مباشرةً: النداءُ المبكّر يطبع نجاحًا ثمّ يُمحى أثرُه.
+        for i, line in enumerate(build_sh.splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if '"$ROOT/build/' + name + '"' not in code:
+                continue
+            assert "cp -f" in code, (
+                "‏[SRC-01] " + name + " يُنادى مباشرةً في build.sh:" + str(i)
+                + " — وهو يعدّل شجرةَ vscode، فيُمحى أثرُه بـ`git reset --hard` في "
+                "`dev/build.sh` **بعد أن يطبع نجاحَه**. حقنُه بعد `cd vscode` عبر "
+                "`patch_bundle_extensions.py` هو الطريق.")
+
+        # ‏(ج) والحقنُ مقيسٌ لا مفترَض: النسخُ بلا حقنٍ ملفٌّ يُنقَل ولا يُشغَّل.
+        stem = name[len("patch_"):-3].replace("_", "-")
+        assert (".mihrab-patch-" + stem + ".py") in inject, (
+            "‏[SRC-01] " + name + " يُنسَخ ولا يُحقَن: لا ذكرَ لـ`.mihrab-patch-"
+            + stem + ".py` في patch_bundle_extensions.py — ملفٌّ يُنقَل ولا يُشغَّل.")
+
+    assert wired >= 2, (
+        "‏[SRC-01] لم يُعثَر إلّا على " + str(wired) + " مرقِّعٍ لشجرة vscode — "
+        "الفحصُ يقيس صفرًا (المنتظَر اثنان على الأقلّ: esbuild_fileurl · welcome_web_entries).")
 
 
 @check("مِرساةٌ لا تبتلع نهايةَ السطر [CRLF-02]")

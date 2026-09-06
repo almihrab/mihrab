@@ -31,8 +31,8 @@ VSCODE_CLI_UPDATE_URL
 ## ولماذا التوجيهُ لا الحذف
 
 الحجّةُ التي سُجِّل بها هذا دَينًا كانت «لا ننشر خوادمَ REH فالبديلُ ألّا نَعِد بما
-لا نشحن». **وهي قامت على فرضٍ خاطئ**: `build.sh:807` يقول إنّ `vscode-reh-web-*`
-يُنتَج في **كلّ** بناء (‏428 م.ب على القرص)، وفيه هويّةُ محرابٍ كاملةٌ و130 قاعدةَ
+لا نشحن». **وهي قامت على فرضٍ خاطئ**: كتلةَ (ط-0د) [WEB-01] في `build.sh` تقول إنّ `vscode-reh-web-*`
+يُنتَج في **كلّ** بناء (‏424 م.ب هناك · 428 مقيسةً على القرص)، وفيه هويّةُ محرابٍ كاملةٌ و130 قاعدةَ
 `[dir=rtl]`، وعُرِّب عمدًا في [WEB-01] بعد أن كان صفرَ سلاسلَ عربيّةٍ من 21922.
 الذي تقاعد **استضافتُنا** له على mihrab.dev لا إنتاجُه.
 
@@ -78,8 +78,24 @@ OUR_RELEASES = "https://github.com/mihrab-org/mihrab/releases"
 DL = re.compile(r'^([ \t]*)export VSCODE_CLI_DOWNLOAD_ENDPOINT="([^"$]+)"(?=\r?$)', re.M)
 UP = re.compile(r'^export VSCODE_CLI_UPDATE_ENDPOINT="([^"$]+)"(?=\r?$)', re.M)
 
+# ‏**والمضيفُ وحدَه لا يكفي: اسمُ الأثر جزءٌ من العنوان.** القالبُ
+# ‏`{وجهة}/download/{نسخة}/{اسم}-reh-web-{نظام}-{معماريّة}-{نسخة}.tar.gz`، و`{اسم}`
+# هو `VSCODE_CLI_APP_NAME` — يشتقّه السكربتُ من `$APP_NAME` وهو **`VSCodium`** في
+# بيئة البناء (قِيس في السجلّ: `APP_NAME=VSCodium`)، لا من `product.json`. فبعد أن
+# صار المضيفُ لنا بقي الطلبُ على `vscodium-reh-web-…` من **مستودعنا** — وعنوانٌ
+# صحيحُ المضيف خاطئُ الأثر أخبثُ من الخطأ الصريح: يبدو مُصلَحًا في القراءة ويردّ
+# ‏404 في التشغيل. وقِيس في أوّل ثنائيٍّ مُرقَّع: صفرُ `VSCodium/vscodium`، وبقيت
+# `vscodium` مفردةً — هي هذه.
+#
+# و`VSCODE_CLI_APP_NAME` **لا يُستعمَل لغير هذا**: موضعُه الوحيد في المصدر
+# `update_service.rs:60` داخل `get_app_name()` (قِيس). فاشتقاقُه من `applicationName`
+# لا يمسّ اسمَ تنفيذيٍّ ولا مسارًا — والسطرُ المجاور له في السكربت يقرأ
+# `serverApplicationName` من `product.json` بالصيغة نفسِها.
+APP = re.compile(r'^export VSCODE_CLI_APP_NAME=.*?(?=\r?$)', re.M)
+
 DL_DONE = re.compile(r'export VSCODE_CLI_DOWNLOAD_ENDPOINT="\$\{VSCODE_CLI_DOWNLOAD_ENDPOINT:-')
 UP_DONE = re.compile(r'if \[\[ -n "\$\{VSCODE_CLI_UPDATE_ENDPOINT:-\}" \]\]')
+APP_DONE = re.compile(r'VSCODE_CLI_APP_NAME="\$\( node -p')
 
 UP_REPLACEMENT = (
     '# محراب [BR-05]: لا مستودعَ نُسَخٍ عندنا ⇒ لا وجهةَ تحديثٍ أصلًا. والفراغُ ليس\n'
@@ -92,6 +108,17 @@ UP_REPLACEMENT = (
     'fi'
 )
 
+# ‏**لا يُخمَّن التهريب: يُشتقّ من نظيره العامل.** أوّلُ صياغةٍ كتبت سطرَ `node -p`
+# بيدٍ، فخرجت الشرطتان مزدوجتَين — و`bash -n` مرّ (النحوُ سليم) بينما القيمةُ
+# **فارغة**: `require(\../product.json\)` خطأٌ نحويٌّ في جافاسكربت.
+# ونتيجتُه أسوأُ من الحالة الأصليّة: `option_env!` يعطي `Some("")` فيصير اسمُ
+# الأثر فارغًا. أمسكه تنفيذُ السطر لا فحصُ نحوِه.
+# والسطرُ المجاور `VSCODE_CLI_BINARY_NAME` يقرأ `product.json` بالصيغة نفسِها
+# **ويعمل** — فيُؤخَذ منه القالبُ ويُبدَّل اسمُ الحقل. تهريبٌ مقيسٌ لا مُعاد كتابته.
+SIBLING = re.compile(r'^export VSCODE_CLI_BINARY_NAME=(.+?)(?=\r?$)', re.M)
+SIB_FIELD = "serverApplicationName"
+OUR_FIELD = "applicationName"
+
 
 def fail(msg):
     print("❌ " + msg, file=sys.stderr)
@@ -102,35 +129,57 @@ def main(path):
     if not os.path.isfile(path):
         return fail("لا ملفَّ build_cli.sh: " + path)
     src = io.open(path, encoding="utf-8", newline="").read()
-
-    if DL_DONE.search(src) and UP_DONE.search(src):
-        print("  ⏭️ وجهتا الـCLI مُرقَّعتان سلفًا")
-        return 0
-
     eol = "\r\n" if "\r\n" in src else "\n"
-
-    dl_hits = DL.findall(src)
-    if len(dl_hits) < 1:
-        return fail("مِرساةُ VSCODE_CLI_DOWNLOAD_ENDPOINT لم تقع — بنيةُ build_cli.sh "
-                    "ليست ما قِيس. لا يُرقَّع موضعٌ لم يُقرأ [BR-05].")
-    up_hits = UP.findall(src)
-    if len(up_hits) != 1:
-        return fail("مِرساةُ VSCODE_CLI_UPDATE_ENDPOINT وقعت " + str(len(up_hits)) +
-                    " مرّةً لا مرّةً واحدة — بنيةُ build_cli.sh ليست ما قِيس [BR-05].")
 
     def _dl(m):
         return (m.group(1) + 'export VSCODE_CLI_DOWNLOAD_ENDPOINT='
                 + '"${VSCODE_CLI_DOWNLOAD_ENDPOINT:-' + OUR_RELEASES + '}"')
 
-    out = DL.sub(_dl, src)
-    out = UP.sub(lambda _m: UP_REPLACEMENT.replace("\n", eol), out, count=1)
+    _sib = SIBLING.search(src)
+    if not _sib or SIB_FIELD not in _sib.group(1):
+        return fail("لا سطرَ VSCODE_CLI_BINARY_NAME يُشتقّ منه قالبُ اسم الأثر — "
+                    "بنيةُ build_cli.sh ليست ما قِيس [BR-05].")
+    app_new = "export VSCODE_CLI_APP_NAME=" + _sib.group(1).replace(SIB_FIELD, OUR_FIELD)
+
+    # ⚠️ **كلُّ تعديلٍ مستقلٌّ في تمامه.** كانت البوّابةُ واحدةً للاثنَين («إن تمّا
+    #    فتخطَّ») ثمّ تُطلَب المِرساتان جميعًا. فملفٌّ نُفِّذ فيه واحدٌ وبقي آخر — وهي
+    #    حالةٌ تقع **بمجرّد إضافةِ تعديلٍ جديدٍ إلى مرقِّعٍ عامل** — يُسقِط البناءَ
+    #    برسالةِ «بنيةُ الملفّ ليست ما قِيس»: تشخيصٌ يتّهم المنبعَ بتغيُّرٍ لم يقع،
+    #    وسببُه ترقيعُنا السابق. وقع فعلًا لحظةَ إضافةِ اسم الأثر.
+    #    (الاسمُ · شاهدُ التمام · المِرساةُ · البديلُ · أيلزم موضعٌ واحدٌ بالضبط؟)
+    steps = (
+        ("وجهةُ التنزيل", DL_DONE, DL, _dl, False),
+        ("وجهةُ التحديث", UP_DONE, UP,
+         (lambda _m: UP_REPLACEMENT.replace("\n", eol)), True),
+        ("اسمُ الأثر", APP_DONE, APP, (lambda _m: app_new), True),
+    )
+
+    todo = [st for st in steps if not st[1].search(src)]
+    if not todo:
+        print("  ⏭️ وجهتا الـCLI واسمُ الأثر مُرقَّعةٌ سلفًا")
+        return 0
+
+    out = src
+    counts = {}
+    for label, _done, rx, repl, single in todo:
+        hits = rx.findall(out)
+        if (len(hits) != 1) if single else (len(hits) < 1):
+            return fail("مِرساةُ «" + label + "» وقعت " + str(len(hits)) +
+                        " مرّةً — بنيةُ build_cli.sh ليست ما قِيس. "
+                        "لا يُرقَّع موضعٌ لم يُقرأ [BR-05].")
+        counts[label] = len(hits)
+        out = rx.sub(repl, out, count=(1 if single else 0))
 
     tmp = path + ".mihrab-tmp"
     io.open(tmp, "w", encoding="utf-8", newline="").write(out)
     os.replace(tmp, path)
-    print("  ✅ وجهةُ التنزيل ⇐ " + OUR_RELEASES
-          + " (" + str(len(dl_hits)) + " موضعًا)")
-    print("  ✅ وجهةُ التحديث صارت شرطيّةً — بلا ضبطٍ خارجيٍّ لا عنوانَ إطلاقًا")
+    if "وجهةُ التنزيل" in counts:
+        print("  ✅ وجهةُ التنزيل ⇐ " + OUR_RELEASES
+              + " (" + str(counts["وجهةُ التنزيل"]) + " موضعًا)")
+    if "وجهةُ التحديث" in counts:
+        print("  ✅ وجهةُ التحديث صارت شرطيّةً — بلا ضبطٍ خارجيٍّ لا عنوانَ إطلاقًا")
+    if "اسمُ الأثر" in counts:
+        print("  ✅ اسمُ الأثر ⇐ product.applicationName (كان يُشتقّ من APP_NAME=VSCodium)")
     return 0
 
 

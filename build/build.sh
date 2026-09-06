@@ -260,6 +260,7 @@ if [[ -f "$UP/build_cli.sh" ]]; then
     || { echo "❌ فشل ترقيعُ وجهتَي الـCLI — و[BR-05] يبقى مخبوزًا في الثنائيّ." >&2; exit 1; }
 fi
 
+
 # ── (ز) بيئة البناء + كشف Visual Studio و Python تلقائيًّا ──
 VSWHERE="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
 if [[ "$IS_WIN" == "yes" && -x "$VSWHERE" ]]; then
@@ -491,6 +492,12 @@ fi
 [[ -f "$ROOT/build/patch_sash_rtl.py" ]] && cp -f "$ROOT/build/patch_sash_rtl.py" "$UP/.mihrab-patch-sash-rtl.py"
 [[ -f "$ROOT/build/patch_tabsdrop_rtl.py" ]] && cp -f "$ROOT/build/patch_tabsdrop_rtl.py" "$UP/.mihrab-patch-tabsdrop-rtl.py"
 [[ -f "$ROOT/build/patch_gridview_marker.py" ]] && cp -f "$ROOT/build/patch_gridview_marker.py" "$UP/.mihrab-patch-gridview-marker.py"
+# ‏**رُقعةُ مصدرِ vscode تُحقَن بعد الـreset لا قبله.** أوّلُ صياغةٍ نادت المرقِّعَ في
+# خطوة (و) المبكّرة، فطبع «مُرقَّعٌ سلفًا» (لأنّي كنتُ رقّعتُ الملفَّ بيدي للقياس)
+# **ثمّ محا `dev/build.sh` أثرَه** بـ`git add . ; git reset --hard` — فسقط بناءُ الويب
+# بالعطب نفسِه، والسجلُّ يحمل شهادةَ ترقيعٍ لملفٍّ غيرِ مُرقَّع. وهو الفخُّ الذي يصفه
+# التعليقُ في خطوة (ز) حرفيًّا، ووقعتُ فيه بعد قراءته.
+[[ -f "$ROOT/build/patch_esbuild_fileurl.py" ]] && cp -f "$ROOT/build/patch_esbuild_fileurl.py" "$UP/.mihrab-patch-esbuild-fileurl.py"
 # محرّر Monaco RTL: لم تعد رُقعةً خاصّة بمحراب بل **تعديلٌ منبعيٌّ كامل** (خيار
 # `editor.textDirection`) مُصاغٌ للرفع إلى microsoft/vscode ومحفوظٌ هنا ملفَّ diff واحدًا.
 # يُطبَّق بـ`git apply --3way` داخل شجرة vscode بعد reset (يتسامح مع انجراف المنبع).
@@ -967,7 +974,11 @@ for _pj in "$APP_DIR"/extensions/*/package.json; do
   [[ -d "$_ext/dist/web" ]] || continue
   rm -rf "$_ext/dist/web" || { echo "❌ تعذّر تجريدُ $_ext/dist/web" >&2; exit 1; }
   # يزول إن لم يبقَ فيه شيء، ويبقى إن بقي — ولا يُجبَر.
-  rmdir "$_ext/dist" 2>/dev/null
+  # ⚠️ **`|| true` لازمة.** التعليقُ يعلن التسامحَ وbash لا يمنحه: أمرٌ بسيطٌ يفشل
+  #    تحت `set -euo pipefail` يُنهي السكربتَ، و`2>/dev/null` تبتلع السبب. فيوم
+  #    يظهر ناتجٌ آخرُ تحت `dist/` لأحد امتدادَينا يسقط البناءُ صامتًا عند آخرِ
+  #    سطرٍ مطبوع. قِيس: `rmdir` على مجلَّدٍ غيرِ فارغٍ ⇒ exit=1 بلا طباعة.
+  rmdir "$_ext/dist" 2>/dev/null || true
   _pruned=$(( _pruned + 1 ))
 done
 
@@ -1074,7 +1085,8 @@ done
 #
 # وكان هنا تسامحٌ مُعلَنٌ باسمه (`_BR05_KNOWN="bin/mihrab-tunnel"`) بحجّة «لا ننشر
 # خوادمَ REH فالبديلُ ألّا نَعِد بما لا نشحن». **والحجّةُ قامت على فرضٍ خاطئ**:
-# سطر 807 أعلاه يقول إنّ `vscode-reh-web-*` يُنتَج في **كلّ** بناء (‏428 م.ب)، وفيه
+# كتلةُ (ط-0د) [WEB-01] أعلاه تقول إنّ `vscode-reh-web-*` يُنتَج في **كلّ** بناء
+# (‏424 م.ب هناك · 428 مقيسةً على القرص اليوم)، وفيه
 # هويّةُ محرابٍ كاملةٌ و130 قاعدةَ `[dir=rtl]`، وعُرِّب عمدًا في [WEB-01]. الذي تقاعد
 # **استضافتُنا** له لا إنتاجُه — وقرارُ «لا خادم» كان عن أن نستضيفَ نحن، بينما
 # `tunnel`/`serve-web` يشغّلهما المستخدمُ على جهازه: ملفّاتُه وطرفيّتُه وباختياره.
@@ -1097,14 +1109,57 @@ done < <(find "$OUTDIR" -type f \( -name '*.exe' -o -name '*.dll' -o -name '*.no
 # غيابُ `VSCodium/vscodium` من الثنائيّ يتحقّق كذلك لو **لم يُبنَ الـCLI أصلًا**، أو
 # بُني بوجهةٍ فارغةٍ فصار `Some("")` — وكلاهما يمرّ من البوّابة أعلاه صامتًا ويترك
 # `tunnel` يطلب عنوانًا فارغًا. فيُسأل الثنائيُّ عن **وجهتنا** لا عن غياب وجهتهم.
-_TUNNEL="$OUTDIR/bin/$(node -p "require('$UP/product.json').tunnelApplicationName" 2>/dev/null)"
+# ⚠️⚠️ **المسارُ وسيطٌ لا نصٌّ داخل التعبير.** كانت الصيغةُ
+#     node -p "require('$UP/product.json').tunnelApplicationName"
+# و`$UP` مسارٌ MSYS (`/c/s_lang/…`). ووسائطُ البرامج الأصليّة تُحوَّل تلقائيًّا إلى
+# صيغة ويندوز، **أمّا النصُّ المُضمَّن داخل تعبير JS فلا** — فيرى node.exe مسارًا لا
+# يعرفه ويسقط بـMODULE_NOT_FOUND.
+# وثلاثةُ أشياءَ اجتمعت فصار العطبُ صامتًا تمامًا: `set -euo pipefail` يُنهي السكربتَ
+# عند فشل إسنادٍ من بديلِ أمر، و`2>/dev/null` تبتلع رسالةَ node، والكتلةُ لا تطبع
+# شيئًا قبلها. فانتهى السجلُّ عند الخطوة السابقة **بلا كلمةٍ واحدة**، مرّتين،
+# وشجرةُ البناء سليمةٌ في الحالتين. ومِجَسٌّ لا يقول لماذا سقط أسوأُ من غيابه.
+_TUNNEL_NAME="$(node -p "require(process.argv[1]).tunnelApplicationName" "$UP/product.json")" \
+  || { echo "❌ [BR-05] تعذّرت قراءةُ tunnelApplicationName من $UP/product.json" >&2; exit 1; }
+[[ -n "$_TUNNEL_NAME" ]] \
+  || { echo "❌ [BR-05] tunnelApplicationName فارغٌ في product.json" >&2; exit 1; }
+[[ "$_TUNNEL_NAME" == "undefined" ]] \
+  && { echo "❌ [BR-05] tunnelApplicationName غيرُ معرَّفٍ في product.json" >&2; exit 1; }
+_TUNNEL="$OUTDIR/bin/$_TUNNEL_NAME"
 [[ -f "$_TUNNEL" ]] || _TUNNEL="$_TUNNEL.exe"
-if [[ -f "$_TUNNEL" ]]; then
+# ⚠️ **غيابُ الثنائيّ ليس نجاحًا.** كان الفحصُ كلُّه داخل `if [[ -f … ]]`، والتعليقُ
+#    فوقه يَعِد بتغطية «لو لم يُبنَ الـCLI أصلًا» — وهو بالضبط ما كان يمرّ صامتًا.
+#    و`node -p` على مفتاحٍ غائبٍ يُخرِج النصَّ `undefined` (غيرَ فارغٍ فيمرّ من `-n`)
+#    فيصير المسارُ `bin/undefined` والتخطّي هو هو. حراسةٌ تقيس نيّةً لا أثرًا.
+[[ -f "$_TUNNEL" ]] || {
+  echo "❌ [BR-05] ثنائيُّ النفق مفقودٌ من المخرَج: bin/$_TUNNEL_NAME" >&2
+  echo "   وغيابُه يُخفي الفحصَ لا يُرضيه — إمّا يُبنى الـCLI أو يُسقَط من product.json." >&2
+  exit 1; }
+if true; then
   LC_ALL=C grep -qa "github.com/mihrab-org/mihrab/releases" "$_TUNNEL" || {
     echo "❌ [BR-05] ثنائيُّ النفق بلا وجهةِ تنزيلٍ خاصّةٍ بنا: ${_TUNNEL#$OUTDIR/}" >&2
     echo "   لم يصل VSCODE_CLI_DOWNLOAD_ENDPOINT إلى cargo — راجع (و-4)." >&2
     exit 1; }
-  log "ثنائيُّ النفق يحمل وجهةَ تنزيلِنا [BR-05]"
+  # واسمُ الأثر جزءٌ من العنوان لا زينةٌ حوله: بقيت `vscodium` مفردةً بعد أن صار
+  # المضيفُ لنا (قِيست في أوّل بناءٍ مُرقَّع)، فكان الطلبُ على `vscodium-reh-web-…`
+  # من مستودعنا — عنوانٌ صحيحُ المضيف خاطئُ الأثر، يبدو مُصلَحًا ويردّ 404.
+  # والاسمُ الوحيدُ الذي كان يحملها هو هذا، فالعتبةُ صفر.
+  # ‏**`|| true` لازمةٌ لا زينة.** `grep` بلا تطابقٍ يخرج بـ1، والملفُّ تحت
+  # `set -euo pipefail` — فإسنادُ نتيجةِ أنبوبٍ فاشلٍ **يُنهي البناءَ صامتًا**.
+  # أي أنّ البوّابةَ كانت تقتل البناءَ **لحظةَ نجاحها**: صفرُ تسرّبٍ = صفرُ
+  # تطابق = خروجٌ بـ1. وقع فعلًا: انتهى السجلُّ عند الخطوة السابقة بلا كلمة.
+  _v="$(LC_ALL=C grep -ca "vscodium" "$_TUNNEL" || true)"
+  # ‏**ونفيُ التطابق يُميَّز عن عجزِ الأداة.** `grep` يخرج بـ1 لعدم التطابق وبـ2
+  # لخطأٍ (ملفٌّ لا يُقرأ · I/O)، وفي الثانية يكون المخرَجُ فارغًا. و`[[ "" -eq 0 ]]`
+  # **صحيحٌ** في bash (قِيس) — أي أنّ البوّابةَ كانت تُعلن النظافةَ حين يعجز مِجَسُّها،
+  # وهو عينُ الصنف الذي كُتِبت `-e` مرّتين أعلاه لأجله.
+  [[ "$_v" =~ ^[0-9]+$ ]] || {
+    echo "❌ [BR-05] تعذّر عدُّ السلاسل في ${_TUNNEL#$OUTDIR/} — مِجَسٌّ عاجزٌ لا شهادةَ له." >&2
+    exit 1; }
+  [[ "$_v" -eq 0 ]] || {
+    echo "❌ [BR-05] اسمُ المنبع ما زال في ثنائيّ النفق ($_v مرّة) — اسمُ الأثر" >&2
+    echo "   يُشتقّ من APP_NAME لا من product.applicationName. راجع (و-4)." >&2
+    exit 1; }
+  log "ثنائيُّ النفق يحمل وجهةَ تنزيلِنا واسمَ أثرِنا [BR-05]"
 fi
 
 log "لا وجهةَ مستودعٍ منبعيٍّ في الحزم المصغَّرة ولا في الثنائيّات [BR-05]"
