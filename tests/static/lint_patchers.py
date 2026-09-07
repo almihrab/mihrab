@@ -4926,6 +4926,54 @@ def _web_host_page_contract():
         "‏startupEditor='none' يُخفي لوحَ ترحيبٍ **مبنيًّا ومعرَّبًا** — فراغٌ بلا سبب"
 
 
+@check("فهرسُ أرشيفٍ يُكتَب ثمّ يُقرأ، ولا يُمرَّر لقارئٍ يخرج مبكِّرًا [PIPE-01]")
+def _archive_listing_is_not_piped_to_early_reader():
+    """‏حارسٌ يحمرّ **لحظةَ نجاحه** — وقد وقعت هذه مرّتَين في هذا المستودع.
+
+    ‏`grep -q` يخرج عند أوّل تطابقٍ فيغلق الأنبوب، فيموت المُنتِجُ بـSIGPIPE
+    (‏141). و`set -o pipefail` يعطي الأنبوبَ حالةَ المُنتِج، فيصير **التطابقُ
+    فشلًا**. قِيس على أرشيفٍ سليمٍ بناه البناءُ نفسُه:
+
+        tar tzf … | grep -q "^./bin/mihrab-server"
+        PIPESTATUS = 141 0     ⇐ grep طابق · tar قُتِل · والحكمُ «لم يطابق»
+
+    ورسالةُ الفشل حينها تصف الأرشيفَ بأنّه بلا نقطةِ دخولٍ وهي فيه — أي
+    تشخيصٌ يقود إلى المكان الخاطئ. ولم يمسكها فحصٌ ساكنٌ ولا قياسٌ يدويّ
+    (‏الطرفيّةُ التفاعليّةُ بلا `pipefail`)، بل **بناءٌ كاملٌ بعد أربعين دقيقة**.
+
+    والنطاقُ مُعلَنٌ ولا يُوسَّع بلا قياس: **مُنتِجٌ بطيءٌ طويلُ المخرَج**
+    (`tar t`) في أنبوبٍ إلى قارئٍ يخرج مبكِّرًا. أنابيبُ `ss -ltn | grep -q`
+    وأمثالُها خارجَه: مخرَجُها يسع مخزنَ الأنبوب فلا يبلغ المُنتِجُ SIGPIPE
+    أصلًا. وحارسٌ يوسّع دعواه فوق ما قاس يمنع صوابًا ويفقد ثقةَ قارئه.
+    """
+    _early = ("grep -q", "grep -m", "head -")
+    _scripts = []
+    for _d in ("build", "deploy"):
+        for _dp, _dn, _fn in os.walk(os.path.join(ROOT, _d)):
+            _dn[:] = [x for x in _dn if x not in (".toolchain", "node_modules")]
+            _scripts += [os.path.join(_dp, f) for f in _fn if f.endswith(".sh")]
+    assert _scripts, "‏[PIPE-01] لا سكربتَ صَدَفةٍ في build/ أو deploy/ — الفحصُ يقيس صفرًا"
+    for _rel in sorted(_scripts):
+        _txt = _read(_rel)
+        if "pipefail" not in _txt:
+            continue
+        for _i, _line in enumerate(_txt.split("\n"), 1):
+            _code = _line.split("#", 1)[0]
+            if "tar t" not in _code or "|" not in _code:
+                continue
+            _rhs = _code.split("|", 1)[1]
+            _hit = [w for w in _early if w in _rhs]
+            assert not _hit, (
+                "‏[PIPE-01] " + os.path.relpath(_rel, ROOT).replace(os.sep, "/")
+                + ":" + str(_i) + " يمرّر فهرسَ أرشيفٍ إلى «" + _hit[0] + "» تحت "
+                "`pipefail` — فالقارئُ يخرج عند أوّل تطابقٍ ويموت `tar` بـSIGPIPE، "
+                "وحالةُ الأنبوب 141: **التطابقُ يصير فشلًا**. اكتب الفهرسَ إلى ملفٍّ "
+                "ثمّ اقرأه:\n"
+                "     _l=\"$(mktemp)\"; tar tzf \"$X\" > \"$_l\" || …\n"
+                "     grep -q … \"$_l\" || …\n"
+                "   وهذا أرخصُ كذلك: الفهرسُ يُقرأ مرّةً لا مرّتَين.")
+
+
 @check("سلسلةُ خادمِ النفق: عنوانٌ واحدٌ وقالبٌ واحد [BR-05]")
 def _tunnel_server_chain_is_one_url():
     """‏ثلاثةُ مواضعَ تصف الشيءَ نفسَه، ويكفي حرفٌ ليصير الأمرُ 404 عند المستخدم.
