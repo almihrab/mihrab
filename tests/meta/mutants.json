@@ -473,6 +473,26 @@
       "why": "أخطاءُ الموارد — وسمُ `<script>` يرجع 404 أو نوعَ MIME خاطئًا — **لا تصعد** إلى `window`؛ تُرى في طور الالتقاط وحدَه. وهذا وقع فعلًا: نُقلت آلةُ الحالة إلى الصفحة خصّيصًا لالتقاط فشلِ تحميل الحزمة، ثمّ لم تلتقطه، فبقي الزائرُ أمام شريطٍ يدور ١٢٠ ثانيةً على نشرٍ ناقص. حرفٌ واحدٌ يفصل بين إصلاحٍ حقيقيٍّ وإصلاحٍ شكليّ. ‏**وانتقل المُصابُ مع شيفرته**: أخرج [WEB-09] كتلةَ الإقلاع من `index.html` إلى `boot-early.js` كي تستغني السياسةُ عن `'unsafe-inline'`، فبقي المُصابُ يزرع في ملفٍّ لم يعد فيه المِرساة — و«الوسمُ ورد 0 مرّةً» تعني **مُصابًا لا يُقاس به**، أي حارسًا بلا شاهد."
     },
     {
+      "id": "web-preload-font-without-crossorigin",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/index.html",
+      "old": "<link rel=\"preload\" as=\"font\" type=\"font/woff2\" crossorigin",
+      "new": "<link rel=\"preload\" as=\"font\" type=\"font/woff2\"",
+      "expect": "خطٍّ بلا `crossorigin`",
+      "why": "‏**عطبٌ يبدو ناجحًا.** الخطوطُ تُجلَب في وضع CORS مجهولٍ حتّى من أصلِها، فتبكيرٌ بلا `crossorigin` لا يطابق طلبَ `@font-face` **فيُنزَّل الخطُّ مرّتَين** (‏106 ك.ب ⇐ 212). والخطُّ يظهر، والصفحةُ تعمل، ولا شيءَ في السجلّ يقول إنّ شيئًا انكسر — فتصير الكلفةُ ضعفَين باسم تحسينٍ للسرعة. ولا يمسكه إلّا فحصٌ يقرأ الوسمَ نفسَه [WEB-10]."
+    },
+    {
+      "id": "web-preload-points-outside-origin",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "web/index.html",
+      "old": "href=\"out/vs/workbench/kawkab-mono.woff2\"",
+      "new": "href=\"https://fonts.googleapis.com/kawkab-mono.woff2\"",
+      "expect": "تبكيرٌ إلى أصلٍ خارجيّ",
+      "why": "‏تبكيرٌ إلى أصلٍ خارجيّ يخالف [CSP-01] (`font-src 'self' data:`) فيُحجَب — ويجرّ مع ذلك **طرفًا ثالثًا إلى كلّ زيارة**: طلبُ DNS وبصمةُ عنوانٍ لمن لم يخترْه الزائر. وهو الصنفُ الذي يدخل بسطرٍ واحدٍ في تحسينٍ حسنِ النيّة، ولا يظهر في شيءٍ إلّا في سجلّ الشبكة [WEB-10]."
+    },
+    {
       "id": "web-host-trust-by-accident",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
@@ -661,6 +681,26 @@
       "new": "",
       "expect": "تخالف المقيس",
       "why": "‏`openvsx.eclipsecontent.org` شبكةُ توصيل Open VSX — **لم تكن في أوّل صياغةٍ للسياسة، وكشفها القياسُ لا التخمين**. وحذفُها يمنع تنزيلَ حزمة اللغة العربيّة **صامتًا**: لا رسالةَ للمستخدم، ولا خطأً في سجلّ الخادم — واجهةٌ إنجليزيّةٌ وحسب. والحارسُ يقارن المجموعةَ بالمقيس في الاتّجاهَين: الزائدُ يحتاج قياسًا يشرحه كما يحتاجه الناقص."
+    },
+    {
+      "id": "tunnel-server-base-drifts",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/publish_server.sh",
+      "old": "BASE_URL=\"${MIHRAB_SERVER_BASE:-https://sad-lang.org/mihrab/dl/server}\"",
+      "new": "BASE_URL=\"${MIHRAB_SERVER_BASE:-https://sad-lang.org/mihrab/dl/servers}\"",
+      "expect": "تختلف بين مواضعها",
+      "why": "‏**حرفٌ واحدٌ ينشر بنجاحٍ ويكسر عند المستخدم وحدَه.** الناشرُ يكتب الأثرَ تحت قاعدةٍ والبناءُ يخبز أخرى في بايتات الثنائيّ — فلا بناءٌ يحمرّ ولا نشرٌ يشتكي، ويُخفِق `tunnel` على جهازٍ لا نراه برسالةٍ لا تدلّ على السبب. وهو عينُ ما وقع مرّةً: مضيفٌ صحيحٌ واسمُ أثرٍ خاطئ — يبدو مُصلَحًا في القراءة ويردّ 404 [BR-05]."
+    },
+    {
+      "id": "tunnel-gate-ignores-probe",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "  if [[ -n \"${_CLI_ENDPOINT:-}\" ]]; then",
+      "new": "  if [[ -n \"\" ]]; then",
+      "expect": "لا تقرأ نتيجةَ",
+      "why": "‏بوّابةٌ لا تقرأ نتيجةَ القياس تصير **حارسًا يشهد لنيّةٍ لا لأثر**: تُجيز أن تُصدَّر الوجهةُ ولا تبلغ `option_env!` — فيُشحَن CLI أعمى والسجلُّ يقول إنّه مُبكَّر. وهذا أسوأُ من غيابٍ صريح، لأنّه يُقنع القارئَ بأنّ الفئةَ مغلقة [BR-05]."
     }
   ],
   "uncovered": [

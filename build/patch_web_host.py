@@ -20,6 +20,7 @@
 """
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -215,6 +216,39 @@ def verify(web):
             _sdl = str(got.get("serverDownloadUrlTemplate") or "")
             if any(k in _sdl.lower() for k in LEAKS):
                 errs.append("serverDownloadUrlTemplate يشير إلى المنبع: " + _sdl[:90])
+
+    # ── [WEB-10] كلّ عنوانٍ مُبكّرٍ يشير إلى ملفٍّ موجود في الشجرة ──
+    # ‏`preload` و`modulepreload` عناوينُ **مكتوبةٌ باليد** في `web/index.html`،
+    # ومقابلاتُها في الشجرة يولّدها `gulp` ويسمّيها المنبع. فإعادةُ تسميةٍ
+    # واحدةٌ في ترقيةٍ تترك الوسمَ يشير إلى لا شيء — **والمتصفّح لا يشتكي شكوى
+    # مرئيّة**: يدفع رحلةً، يقبض 404، يمضي. فيبقى السطرُ في الصفحة سنينَ
+    # يكلّف ولا ينفع، وهو **عكسُ ما وُضِع له** بالضبط. ومُلتقِطُ `boot-early.js`
+    # يتخطّى التبكيرَ عمدًا (سطر 149 هناك) — فلا حارسَ حيًّا عليه إطلاقًا،
+    # وهذا موضعُ الفحص الوحيد الذي يرى الصفحةَ والشجرةَ معًا.
+    idx = os.path.join(web, "index.html")
+    if os.path.isfile(idx):
+        _page = open(idx, encoding="utf-8").read()
+        _pre = re.findall(
+            r'<link\s(?=[^>]*rel="(?:module)?preload")[^>]*\shref="([^"]+)"', _page)
+        if not _pre:
+            errs.append("‏لا وسمَ تبكيرٍ في index.html — والفحصُ يقيس صفرًا. "
+                        "إن أُسقِط التبكيرُ عمدًا فأسقِط هذا معه بسببٍ مكتوب [WEB-10]")
+        for href in _pre:
+            if "://" in href or href.startswith("//"):
+                errs.append("‏تبكيرٌ إلى أصلٍ خارجيّ: " + href +
+                            " — والصفحةُ تخدم من أصلِها وحده [CSP-01]")
+                continue
+            if not os.path.isfile(os.path.join(web, *href.split("/"))):
+                errs.append("‏تبكيرٌ إلى ملفٍّ ليس في الشجرة: " + href +
+                            " — رحلةٌ تُدفع لتقبض 404، وتبكيرٌ يُبطِئ بدل أن يُسرِع [WEB-10]")
+        # ‏**والخطُّ خاصّةً: تبكيرٌ بلا `crossorigin` يضاعف التنزيل ولا يوفّر.**
+        # الخطوطُ تُجلَب في وضع CORS مجهولٍ حتّى من أصلِها، فطلبُ التبكير
+        # بلا الرّاية لا يطابق طلبَ `@font-face` فيُنزّل الملفُّ مرّتَين. وهذا
+        # عطبٌ **يبدو ناجحًا**: الخطُّ يظهر، والكلفةُ وحدها تضاعفت.
+        for m in re.finditer(r'<link\s[^>]*\sas="font"[^>]*>', _page):
+            if "crossorigin" not in m.group(0):
+                errs.append("‏تبكيرُ خطٍّ بلا `crossorigin` — يُنزّل الخطُّ مرّتَين "
+                            "والمظهرُ سليم [WEB-10]")
 
     mpath = os.path.join(web, "manifest.json")
     try:
