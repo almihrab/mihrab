@@ -998,6 +998,15 @@ done
 if compgen -G "$APP_DIR/extensions/*/dist/web/extension.js" >/dev/null; then
   echo "❌ بقيت حزمةُ متصفّحٍ في الشجرة المكتبيّة بعد التجريد." >&2; exit 1
 fi
+# ‏**ونفيُ البقاء ليس إثباتَ التجريد.** «لم يبقَ» صادقٌ كذلك لو «لم يوجد»: تغيُّرُ
+# مخرَج `patch_bundle_extensions.py` (إلى `dist/browser/` مثلًا) أو حقلِ `browser`
+# يجعل `_pruned=0` والكتلةَ بلا أثر — فتمرّ خضراءَ وتعود المئتا كيلوبايتٍ صامتةً.
+# والعددُ معلومٌ سلفًا: امتدادانا وحدَهما يكتبان `./dist/web/extension.js`.
+[[ "$_pruned" -ge 1 ]] || {
+  echo "❌ لم تُجرَّد حزمةُ متصفّحٍ واحدة — والمنتظَر امتدادان على الأقلّ." >&2
+  echo "   الأرجح: تغيّر مخرَجُ patch_bundle_extensions.py أو حقلُ browser، فصار" >&2
+  echo "   الانتقاءُ لا يطابق شيئًا. التجريدُ الصامتُ يعيد الوزنَ الميّتَ بلا كلمة." >&2
+  exit 1; }
 for _canary in typescript-language-features/dist/extension.js git/dist/main.js \
                markdown-language-features/dist/extension.js; do
   [[ -s "$APP_DIR/extensions/$_canary" ]] || {

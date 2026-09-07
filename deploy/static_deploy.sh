@@ -35,7 +35,7 @@ BACKUP=/root/mihrab-nginx-$(date +%Y%m%d-%H%M%S).bak
 # ولحظةِ تشغيله نافذةٌ يمكن أن تُبدَّل فيها. البصمتان مثبَّتتان هنا — في ملفٍّ يملكه
 # الجذر — فالتبديلُ يُكشَف ولا يُنفَّذ. حدِّثهما مع كلّ حمولةٍ جديدة.
 SHA_TREE=7b4d60428d8622a7f95ab66c8569f2d7042bdb72cbe7825de1d710cc7a0c5c8e
-SHA_CONF=c8e1f208351ecb593a4bc66bffccfe533cb11d4bd1e2e0568598319ef5533787
+SHA_CONF=cc6ecde9a6c15341b60ab78007f95621eda296df4c97d76ed6aff374275325bb
 
 die() { echo "❌ $*" >&2; exit 1; }
 say() { echo "── $*"; }
@@ -232,16 +232,50 @@ verify_serving() {
 # ما في `sites-enabled` — وقد يفترقان: تركيبٌ فشل، أو كتلةٌ أسبقُ تلتقط المسار،
 # أو `add_header` في مستوًى أدنى ألغى وراثةَ ما فوقه. فيُسأل السلكُ نفسُه.
 # ومساراتُ `/out/` غيرُ مبصومة ⇒ أيُّ طزاجةٍ موجبةٍ نافذةُ عمًى لا يبلغها نشرٌ.
+# ‏**عمرُ الطزاجة يُحسَب، ولا يُطابَق بسلسلةٍ فرعيّة.** كان الشرطُ `*no-cache*`،
+# وهي تقع كذلك في `no-cache="Set-Cookie"` — وذاك **اسمُ حقلٍ** لا تصفيرَ طزاجة،
+# فترويسةُ `max-age=600, no-cache="Set-Cookie"` كانت تمرّ وعمرُها ستّمئة ثانية.
+# والادّعاءُ المكتوب «يقيس العقدَ لا الكلمة» لم يكن محقَّقًا في تلك الصياغة.
+# فتُنزَع القيمُ ذاتُ الوسائط أوّلًا، ثمّ يُقرأ ما بقي.
+_freshness() {
+  local v="${1,,}" ma
+  # ‏`no-cache=…` و`private=…` قيمٌ ذاتُ وسائطَ لا تُصفِّر شيئًا.
+  v="$(printf '%s' "$v" | sed -E 's/(no-cache|private)="[^"]*"//g')"
+  case "$v" in
+    *no-store*|*no-cache*) echo 0; return ;;
+  esac
+  ma="$(printf '%s' "$v" | sed -nE 's/.*max-age[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p')"
+  [[ -n "$ma" ]] && { echo "$ma"; return; }
+  echo -1   # لا توجيهَ ⇒ يستدلّ المتصفّحُ من عنده
+}
+
 verify_cache() {
-  local cc rc=0
+  local rc=0 code cc fresh
+  code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' \
+          "https://127.0.0.1/out/nls.messages.js")"
   cc="$(_cc /out/nls.messages.js)"
+  fresh="$(_freshness "$cc")"
   printf '   %-34s %s' "/out/ Cache-Control" "${cc:-—}"
-  if [[ -z "$cc" ]]; then
-    printf '   ⚠️ لا ترويسةَ تخزينٍ أصلًا'; rc=1
-  elif [[ "$cc" == *no-store* || "$cc" == *no-cache* || "$cc" =~ max-age=0([^0-9]|$) ]]; then
+
+  # ── أرضيّةُ صدقٍ لمِجَسِّه، كنظيرتها في verify_serving ──
+  # ‏`_cc` أنبوبٌ من خمس حلقات (`curl -D - | grep | head | cut | tr | sed`) مقابل
+  # حلقةِ `_ct` الواحدة. فترويسةٌ فارغةٌ **مع رمزِ 200** لا تصف موقعًا مكسورًا:
+  # nginx الذي يردّ 200 يردّ ترويساتِه معه. تصف الأنبوبَ وقد عطب — ولو صُدِّقت
+  # لَتراجع النشرُ عن شجرةٍ تخدم بالكامل، وهو ما وقع مرّةً في مِجَسّ الأنواع.
+  if [[ -z "$cc" && "$code" == "200" ]]; then
+    printf '   ⛔ لا ترويسةَ مع رمزِ 200 — العطبُ في المِجَسّ لا في الموقع'; echo
+    echo "      افحص \`_cc\` قبل أن تلوم النشر:" >&2
+    echo "        curl -sk -D - -o /dev/null -H 'Host: mihrab.dev' https://127.0.0.1/out/nls.messages.js" >&2
+    return 1
+  fi
+  if [[ "$code" != "200" ]]; then
+    printf '   ⚠️ رمزُ %s — لا يُقاس تخزينُ ما لا يُخدَم' "$code"; rc=1
+  elif [[ "$fresh" == "0" ]]; then
     printf '   ✅ طزاجةٌ صفريّة'
+  elif [[ "$fresh" == "-1" ]]; then
+    printf '   ⚠️ بلا توجيهِ طزاجةٍ — يستدلّ المتصفّحُ من عنده'; rc=1
   else
-    printf '   ⚠️ طزاجةٌ موجبةٌ على اسمٍ غيرِ مبصوم'; rc=1
+    printf '   ⚠️ طزاجةٌ %s ثانيةً على اسمٍ غيرِ مبصوم' "$fresh"; rc=1
   fi
   echo
   return $rc

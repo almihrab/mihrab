@@ -523,6 +523,16 @@
       "why": "‏**المُصابُ هو الأمسُ نفسُه.** هذا السطرُ بالحرف هو ما كان يخدم يومَ نُشِرت `sad-lang` فلم تُلوِّن عند المُبلِّغ — ومرّ من حارسَي `immutable` و«فوق يومٍ واحد» أخضرَ، لأنّهما يقيسان الحدَّ الفادحَ ويتركان الفادحَ الصغير. وعشرُ دقائقَ تكفي: قائمةُ الامتدادات المضمَّنة مخبوزةٌ في الحزمة، فحزمةٌ عمرُها دقائقُ لا تعرف اللغةَ الجديدة إطلاقًا. فإن بقي أخضرَ فالحارسُ يحرس نيّةً مكتوبةً لا عقدًا."
     },
     {
+      "id": "cache-contract-substring-match",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "deploy/nginx/mihrab.dev.static.conf",
+      "old": "add_header Cache-Control \"no-cache\" always;",
+      "new": "add_header Cache-Control \"public, max-age=600, no-cache=\\\"Set-Cookie\\\"\" always;",
+      "expect": "نافذةُ عمًى",
+      "why": "‏**المُصابُ يُثبِت أنّ العقدَ يُحسَب ولا يُطابَق بسلسلةٍ فرعيّة.** `no-cache=\"Set-Cookie\"` **اسمُ حقلٍ** لا تصفيرُ طزاجة — والترويسةُ هنا عمرُها ستّمئة ثانية. والصياغةُ الأولى للحارس كانت تسأل `\"no-cache\" in _v` فتمرّ عليها خضراءَ، بينما ديباجتُها تقول إنّها «تقيس العقدَ — عمرَ الطزاجة صفرًا — لا الكلمة». أي حارسٌ يدّعي في نصّه ما لا يفعله في شرطه، وهو أخبثُ من حارسٍ صريحِ الضعف. فتُنزَع القيمُ ذاتُ الوسائط أوّلًا ثمّ يُقرأ ما بقي — وكذلك في المِجَسّ الحيّ `_freshness` في `static_deploy.sh`."
+    },
+    {
       "id": "deploy-cache-excuse-same-line",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
