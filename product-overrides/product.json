@@ -58,6 +58,8 @@
   "win32UserAppId": "{{6421D471-2689-4085-A30F-342313254186}",
   "win32x64UserAppId": "{{768C494B-556F-4137-9D89-41D861E77DDD}",
   "win32arm64UserAppId": "{{66DE78C2-0E59-402F-9951-9E02F6339D79}",
+  "_comment_tunnel": "‏**أمرٌ معروضٌ ولا خلفيّةَ له يُطفَأ من هنا.** أوامرُ النفق («تمكين الوصول إلى النفق البعيد…») معروضةٌ في لوح الأوامر وقائمةِ الحسابات، معرَّبةً بالكامل وباسمنا. وشرطُ تسجيلِها في remoteTunnel.contribution.ts:117 هو `tunnelApplicationConfig` و`tunnelApplicationName` معًا — و`prepare_vscode.sh:124` يضبط الأولى `{}`، **وهي صادقةٌ في جافاسكربت** فيمرّ الشرط. فالمستخدمُ ينقر ثمّ يقرأ «تعذّر تمكين…» ثمّ سطرًا إنجليزيًّا في السجلّ: `no update url`. وجملةُ الفشل تصف **مستخدمًا فشل** لا منتَجًا لم يُنشَر بعد، فيُعيد المحاولةَ ويشكّ في شبكته. ولا يُعترَض أمرٌ أساسيٌّ من امتداد، فالمفتاحُ هنا: `null` يُرجِع المُساهِمَ مبكّرًا فلا تُسجَّل الأوامرُ أصلًا. و`tunnelApplicationName` يبقى: منه يُشتقّ اسمُ الثنائيّ وعليه تقيس بوّابةُ [BR-05]. ويومَ تُفعَّل القناةُ (MIHRAB_TUNNEL=yes وأثرٌ منشور) يُعاد هذا إلى `{}` — سطران يُعادان معًا.",
+  "tunnelApplicationConfig": null,
   "tunnelApplicationName": "mihrab-tunnel",
   "win32TunnelServiceMutex": "mihrab-tunnelservice",
   "win32TunnelMutex": "mihrab-tunnel",

@@ -709,7 +709,7 @@
  "No changes in this session yet.": "لا تغييرات في هذه الجلسة بعد.",
  "No customizations resolved": "لم تُحلَّ تخصيصات",
  "No details found for event ID: {0}": "لم يُعثَر على تفاصيل لمعرّف الحدث: {0}",
- "No dev tunnels with agent host support were found. Start a tunnel with 'code tunnel' on another machine.": "لم يُعثَر على أنفاق تطوير تدعم مضيف الوكيل. ابدأ نفقًا بـ'code tunnel' على جهاز آخر.",
+ "No dev tunnels with agent host support were found. Start a tunnel with 'code tunnel' on another machine.": "لم يُعثَر على أنفاق تطوير تدعم مضيف الوكيل. ابدأ نفقًا بـ'mihrab tunnel' على جهاز آخر.",
  "No divergence detected in the captured wire delta. The full reconstructed prompt prefix is provider-side for this continuation request.": "لم يُكتشَف تباعد في دلتا السلك الملتقَطة. بادئة الموجّه الكاملة المعاد بناؤها في جانب الموفّر لطلب المتابعة هذا.",
  "No event with ID \"{0}\" found in the current session.": "لم يُعثَر على حدث بالمعرّف \"{0}\" في الجلسة الحاليّة.",
  "No explanation provided": "لم يُقدَّم تفسير",

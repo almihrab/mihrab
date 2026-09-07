@@ -687,8 +687,8 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "build/publish_server.sh",
-      "old": "BASE_URL=\"${MIHRAB_SERVER_BASE:-https://sad-lang.org/mihrab/dl/server}\"",
-      "new": "BASE_URL=\"${MIHRAB_SERVER_BASE:-https://sad-lang.org/mihrab/dl/servers}\"",
+      "old": "BASE_URL=\"${MIHRAB_SERVER_BASE-https://sad-lang.org/mihrab/dl/server}\"",
+      "new": "BASE_URL=\"${MIHRAB_SERVER_BASE-https://sad-lang.org/mihrab/dl/servers}\"",
       "expect": "تختلف بين مواضعها",
       "why": "‏**حرفٌ واحدٌ ينشر بنجاحٍ ويكسر عند المستخدم وحدَه.** الناشرُ يكتب الأثرَ تحت قاعدةٍ والبناءُ يخبز أخرى في بايتات الثنائيّ — فلا بناءٌ يحمرّ ولا نشرٌ يشتكي، ويُخفِق `tunnel` على جهازٍ لا نراه برسالةٍ لا تدلّ على السبب. وهو عينُ ما وقع مرّةً: مضيفٌ صحيحٌ واسمُ أثرٍ خاطئ — يبدو مُصلَحًا في القراءة ويردّ 404 [BR-05]."
     },
@@ -707,10 +707,30 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "build/build.sh",
-      "old": "grep -q \"^\\./bin/$_PKG_SRV\" \"$_REH_LIST\" || {",
-      "new": "tar tzf \"$REH_TGZ\" | grep -q \"^\\./bin/$_PKG_SRV\" || {",
+      "old": "    grep -qE \"^(\\./)?bin/$_PKG_SRV(\\.cmd|\\.sh)?$\" \"$_REH_LIST\" || {",
+      "new": "    tar tzf \"$REH_TGZ\" | grep -qE \"^(\\./)?bin/$_PKG_SRV(\\.cmd|\\.sh)?$\" || {",
       "expect": "يمرّر فهرسَ أرشيفٍ",
       "why": "‏**حارسٌ يحمرّ لحظةَ نجاحه.** `grep -q` يخرج عند أوّل تطابقٍ فيغلق الأنبوب، فيموت `tar` بـSIGPIPE، و`pipefail` يعطي الأنبوبَ 141. قُيس على أرشيفٍ سليم: `PIPESTATUS = 141 0` — طابق وأُعلِن فاشلًا، والرسالةُ تقول إنّ الأرشيفَ بلا نقطةِ دخولٍ وهي فيه. أسقطت البناءَ السابعَ بعد أربعين دقيقة، ولم يمسكها قياسٌ يدويٌّ لأنّ الطرفيّةَ التفاعليّةَ بلا `pipefail` [PIPE-01]."
+    },
+    {
+      "id": "tunnel-surface-on-while-frozen",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "product-overrides/product.json",
+      "old": "\"tunnelApplicationConfig\": null,",
+      "new": "\"tunnelApplicationConfig\": {},",
+      "expect": "[BR-07] القناةُ مُجمَّدةٌ في `build.sh",
+      "why": "‏زرٌّ معروضٌ لم يُقَس أنّه يعمل. `{}` صادقةٌ في جافاسكربت، فتُسجَّل أوامرُ النفق معرَّبةً باسمنا ولا خلفيّةَ لها [BR-07]."
+    },
+    {
+      "id": "our-text-names-upstream-binary",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/mihrab_ar_supplement.json",
+      "old": "'mihrab tunnel'",
+      "new": "'code tunnel'",
+      "expect": "[BR-06] نصٌّ عربيٌّ من عندنا يأم",
+      "why": "‏رسالةٌ كتبناها نحن تعلّم المستخدمَ أمرًا لا وجودَ له على جهازه — وهو المعيارُ عينُه الذي يطبّقه publish_server.sh على البايتات [BR-06]."
     }
   ],
   "uncovered": [

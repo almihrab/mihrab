@@ -4926,6 +4926,90 @@ def _web_host_page_contract():
         "‏startupEditor='none' يُخفي لوحَ ترحيبٍ **مبنيًّا ومعرَّبًا** — فراغٌ بلا سبب"
 
 
+@check("سطحُ النفق مطفأٌ ما دامت القناةُ مُجمَّدة [BR-07]")
+def _tunnel_surface_matches_channel_state():
+    """‏**لا يُعرَض زرٌّ لم يُقَس أنّه يعمل** — امتدادُ القاعدة التي تحكم البايتات.
+
+    ‏(و-4ب) لا تصدّر عنوانًا لم يُقَس. وبين تلك المعرفةِ والمستخدمِ الذي يقرأ
+    «تمكين الوصول إلى النفق البعيد…» في لوحه كانت فجوةٌ: الأوامرُ تُسجَّل حين
+    يجتمع `tunnelApplicationConfig` و`tunnelApplicationName`
+    (‏`remoteTunnel.contribution.ts:117`)، و`prepare_vscode.sh:124` يضبط الأولى
+    **`{}`** — وهي **صادقةٌ في جافاسكربت**، فالشرطُ يمرّ والأوامرُ تظهر.
+
+    وقِيست في المخرَج: `workbench.remoteTunnel.actions.turnOn` حاضرٌ في
+    `workbench.desktop.main.js` و`sessions.desktop.main.js`. فالرحلةُ: عربيّةٌ
+    نظيفةٌ ⇒ «تعذّر تمكين…» ⇒ سطرٌ إنجليزيٌّ في السجلّ. وجملةُ الفشل تصف
+    **مستخدمًا فشل** لا منتَجًا لم يُنشَر، فيُعيد المحاولةَ ويشكّ في شبكته.
+
+    فالسطران يُعادان معًا: `MIHRAB_TUNNEL=yes` في البناء، و`{}` هنا.
+    """
+    over = json.loads(_read(os.path.join(ROOT, "product-overrides", "product.json")))
+    b = _read(os.path.join(ROOT, "build", "build.sh"))
+    frozen = 'MIHRAB_TUNNEL="${MIHRAB_TUNNEL-no}"' in b
+
+    assert "tunnelApplicationConfig" in over, (
+        "‏[BR-07] `tunnelApplicationConfig` غائبٌ عن التجاوزات — فيبقى `{}` الذي "
+        "يضبطه `prepare_vscode.sh`، وتظهر أوامرُ نفقٍ لا خلفيّةَ لها. والمفتاحُ "
+        "يجب أن يُذكَر صراحةً بقيمةٍ تطابق حالةَ القناة.")
+    cfg = over["tunnelApplicationConfig"]
+
+    if frozen:
+        assert cfg is None, (
+            "‏[BR-07] القناةُ مُجمَّدةٌ في `build.sh` (`MIHRAB_TUNNEL` افتراضُها `no`) "
+            "و`tunnelApplicationConfig` = " + repr(cfg) + " — فتُسجَّل أوامرُ "
+            "النفق ويقرأ المستخدمُ «تعذّر تمكين…» ثمّ `no update url` بالإنجليزيّة. "
+            "‏`null` يُرجِع المُساهِمَ مبكّرًا فلا تُسجَّل أصلًا [BR-07]")
+    else:
+        assert cfg is not None, (
+            "‏[BR-07] القناةُ مفعَّلةٌ في `build.sh` و`tunnelApplicationConfig` = null "
+            "— فالميزةُ تعمل ولا سبيلَ إليها من الواجهة. أعِد `{}` معها [BR-07]")
+
+    # واسمُ الثنائيّ يبقى في الحالتَين: عليه تقيس بوّابةُ [BR-05].
+    assert over.get("tunnelApplicationName"), (
+        "‏[BR-07] `tunnelApplicationName` زال — ومنه يُشتقّ اسمُ الثنائيّ، وبوّابةُ "
+        "[BR-05] تشترط وجودَ الملفّ (غيابُه يُخفي الفحصَ لا يُرضيه).")
+
+
+@check("نصوصُنا العربيّةُ لا تأمر بأمرٍ ليس أمرَنا [BR-06]")
+def _our_arabic_text_names_our_own_binary():
+    """‏رسالةٌ تعلّم المستخدمَ أمرًا **غيرَ موجودٍ على جهازه** — وكتبناها نحن.
+
+    قِيست في `build/mihrab_ar_supplement.json` (وهو **من عندنا**، لا من المنبع):
+
+        «لم يُعثَر على أنفاق تطوير… ابدأ نفقًا بـ'code tunnel' على جهاز آخر.»
+
+    و`code` ليس ثنائيَّنا: ثنائيُّنا `mihrab` و`mihrab-tunnel`. فالمستخدمُ الذي
+    يطيع الرسالةَ حرفيًّا يقرأ `command not found` **بالإنجليزيّة** — أي تُنفَق
+    ثقتُه مرّتَين: في الفشل، وفي اكتشاف أنّ المنتَجَ لا يعرف اسمَ نفسِه.
+
+    وهو المعيارُ عينُه الذي يطبّقه `publish_server.sh` على البايتات حين يرفض
+    أرشيفَ `vscodium-…` («هذا ليس خادمَنا») — مطبَّقًا هناك وغائبًا عن النصّ.
+    """
+    import json as _json
+    sup = os.path.join(ROOT, "build", "mihrab_ar_supplement.json")
+    assert os.path.isfile(sup), (
+        "‏[BR-06] `build/mihrab_ar_supplement.json` غائب — والفحصُ يقيس صفرًا")
+    _d = _json.loads(_read(sup))
+    _app = _json.loads(_read(os.path.join(
+        ROOT, "product-overrides", "product.json")))["applicationName"]
+    # أسماءُ ثنائيّاتِ المنبع التي قد تتسلّل إلى نصٍّ نكتبه نحن.
+    _foreign = ("code tunnel", "code serve-web", "code-server", "codium tunnel",
+                "codium serve-web", "code-tunnel")
+    _bad = []
+    for _k, _v in _d.items():
+        if not isinstance(_v, str):
+            continue
+        for _f in _foreign:
+            if _f in _v:
+                _bad.append((_f, _v[:80]))
+    assert not _bad, (
+        "‏[BR-06] نصٌّ عربيٌّ من عندنا يأمر بأمرِ منبعٍ لا وجودَ له على جهاز "
+        "المستخدم:\n   "
+        + "\n   ".join("«" + f + "» في: " + v for f, v in _bad)
+        + "\n   وثنائيُّنا «" + _app + "» — فالمستخدمُ الذي يطيع الرسالةَ يقرأ "
+        "`command not found` بالإنجليزيّة، ويكتشف أنّ المنتَجَ لا يعرف اسمَ نفسِه.")
+
+
 @check("فهرسُ أرشيفٍ يُكتَب ثمّ يُقرأ، ولا يُمرَّر لقارئٍ يخرج مبكِّرًا [PIPE-01]")
 def _archive_listing_is_not_piped_to_early_reader():
     """‏حارسٌ يحمرّ **لحظةَ نجاحه** — وقد وقعت هذه مرّتَين في هذا المستودع.
@@ -5015,7 +5099,7 @@ def _tunnel_server_chain_is_one_url():
     #     بلا أثرٍ خلفه، يبدو مُصلَحًا ويردّ 404.
     _blk = b[b.find("(و-4ب)"):b.find("بدء dev/build.sh")]
     assert _blk, "‏كتلةُ (و-4ب) غائبةٌ عن build.sh — لا موضعَ يُقاس فيه العنوان [BR-05]"
-    assert "latest.json" in _blk and "http_code" in _blk, (
+    assert "_MAN_CODE" in _blk and "http_code" in _blk, (
         "‏(و-4ب) تصدّر وجهةً بلا قياسٍ حيّ (لا جلبَ مانيفستٍ ولا رمزَ حالةٍ للأثر) — "
         "وهذا عينُ ما أُغلِق: وعدٌ بلا خلفيّة [BR-05]")
     for _v in ("VSCODE_CLI_DOWNLOAD_ENDPOINT", "VSCODE_CLI_UPDATE_ENDPOINT"):
@@ -5023,10 +5107,43 @@ def _tunnel_server_chain_is_one_url():
             "‏" + _v + " يُصدَّر " + str(_blk.count("export " + _v)) + " مرّةً في "
             "(و-4ب) — والمنتظَر مرّةً واحدةً داخل فرع «قِيس أنّه يخدم» [BR-05]")
 
-    # (د) والبوّابةُ تقيس الحالتَين: ما خُبِز يجب أن يُرى، وما لم يُخبَز يجب ألّا يُرى.
+    # (د) **والوجهةُ الموروثةُ تُنزَع، ولا يُكتفى بألّا تُصدَّر.**
+    #     `build_cli.sh` مُرقَّعٌ ليصدّر `${VAR:-}` **الموروثةَ من البيئة**. فمن
+    #     ضبطها في CI أو في صَدَفته خبزها في الثنائيّ بينما السجلُّ يقول «لا
+    #     تُخبَز وجهةُ النفق» — أي أنّ الكتلةَ المكتوبةَ لإغلاق التسريب كانت
+    #     تتركه مفتوحًا من الباب الذي سمّته بنفسها.
+    assert "unset VSCODE_CLI_DOWNLOAD_ENDPOINT" in _blk, (
+        "‏(و-4ب) لا تنزع وجهةَ التنزيل الموروثةَ من البيئة — و`build_cli.sh` يصدّر "
+        "ما يجده. فالسجلُّ يقول «لا تُخبَز» والثنائيُّ يحمل عنوانَ من شغّل البناء [BR-05]")
+
+    # (هـ) **والمسارُ يُشتقّ من الشجرة المُرقَّعة لا يُكتَب بيد.**
+    #     رقعةُ ويندوز `41-cli-fix-update-url.patch` تُقحِم `user/` في مسار
+    #     المانيفست. ومسارٌ مكتوبٌ بيدٍ من رقعة REH وحدَها يقيس عنوانًا **لا
+    #     يطلبه العميلُ على منصّتنا الأولى**: يُرفَع الأثرُ، ويقيس البناءُ عنوانًا
+    #     يخدم، ويخبز وجهةً يردّ عليها الخادمُ 404 عند المستخدم وحدَه.
+    assert "cli_url_shape.py" in _blk and "cli_url_shape.py" in p, (
+        "‏مسارُ المانيفست لا يُشتقّ من `update_service.rs` في أحد الطرفَين — "
+        "و`patches/windows/41-cli-fix-update-url.patch` تغيّره. عنوانٌ صحيحُ الشكل "
+        "خاطئُ المسار يُنشَر بنجاحٍ ويُخفِق عند المستخدم وحدَه [BR-05]")
+    for _lit in ("/latest.json", "stable/win32"):
+        assert _lit not in p.replace("`", ""), (
+            "‏`publish_server.sh` يكتب «" + _lit + "» حرفيًّا — والمسارُ يُشتقّ [BR-05]")
+
+    # (و) **والبوّابةُ تقيس الحالتَين، ومضيفَنا لا `releases/download` وحدَه.**
     assert '${_CLI_ENDPOINT:-}' in b, (
         "‏بوّابةُ الثنائيّ لا تقرأ نتيجةَ (و-4ب) — فهي إمّا تمنع وجهةً صحيحةً وإمّا "
         "تُجيز غيابَ ما صُدِّر. حارسٌ يشهد لنيّةٍ لا لأثر [BR-05]")
+    assert '"$MIHRAB_SERVER_BASE"' in b[b.find("_TUNNEL"):], (
+        "‏الفرعُ السالبُ في البوّابة يفحص `releases/download` وحدَه — وتعليقُه يقول "
+        "«ولا مضيفُنا». حارسٌ يدّعي في نصّه ما لا يفعله في شرطه [BR-05]")
+
+    # (ز) **والسلسلةُ مُجمَّدةٌ افتراضًا — قرارٌ ملكيٌّ لا هندسيّ.**
+    #     تفعيلُها لا رجعةَ فيه: العنوانُ يُخبَز في البايتات ولا مستودعَ نُسَخٍ
+    #     للـCLI، فكلُّ ثنائيٍّ يُشحَن بعده يشير إلى ذلك المضيف أبدًا.
+    assert 'MIHRAB_TUNNEL="${MIHRAB_TUNNEL-no}"' in b, (
+        "‏سلسلةُ النفق لم تعد مُجمَّدةً افتراضًا — والتفعيلُ قرارٌ ملكيٌّ لا يُتّخذ "
+        "بتعديل سطرٍ: 132 م.ب لكلّ بناء، واستضافةٌ بلا سياسةِ استبقاء، وقناةُ "
+        "توزيعٍ ثانيةٌ غيرُ موصوفةٍ في سياسة التوقيع [BR-05]")
 
 
 @check("إعدادُ النشر لا يسلّم المحرِّرَ لزائرٍ مجهول [DEP-02]")

@@ -82,15 +82,56 @@ def fail(msg):
     sys.exit(1)
 
 
+def _sheets_with_rule(app_dir):
+    """كلُّ ورقةٍ في `out/` تحمل قاعدةَ Kawkab — **مسحًا لا قائمةً**.
+
+    ‏**والقائمةُ المكتوبةُ بيدٍ تُغلِق ما عُرِف يومَ كُتِبت لا ما يجيء.** كانت
+    ثلاثةَ أسماء، ثمّ قِيست ورقةٌ رابعةٌ خارجَها في الشجرة الثابتة:
+
+        out/vs/sessions/sessions.web.main.internal.css
+        @font-face{font-family:Kawkab Mono;…;src:url(data:font/woff2;base64,…)}
+
+    وأثرُها اليومَ صفرٌ في السلوك (‏`boot.js` لا يستوردها) و≈112 ك.ب ميتةٍ في
+    شجرةٍ تُنشَر. لكنّ **الصنفَ** هو [AR-02] بعينه: سياستُنا `font-src 'self'`
+    بلا `data:`، فيومَ تُفتَح تلك الواجهةُ — والنواةُ تضيفها لا نحن — تُصيَّر
+    عربيّتُها بلاتينيٍّ ساقطٍ **بصمت**، وتُقرأ انحدارَ ترقيةٍ وهي أقدمُ منها.
+    وذاك التشخيصُ الخاطئُ عينُه كلّف سنةً في المرّة الأولى.
+
+    والمسحُ مقصورٌ على `out/`: امتداداتُ المنبع تحمل خطوطَها ولا شأنَ لنا بها.
+    """
+    hits = []
+    out = os.path.join(app_dir, "out")
+    if not os.path.isdir(out):
+        return hits
+    for dp, dn, fn in os.walk(out):
+        dn[:] = [d for d in dn if d != "node_modules"]
+        for f in fn:
+            if not f.endswith(".css"):
+                continue
+            p = os.path.join(dp, f)
+            try:
+                txt = io.open(p, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            if RULE_RE.search(txt) or NEW_RULE in txt:
+                hits.append(p)
+    return sorted(hits)
+
+
 def main(app_dir):
-    found = [os.path.join(app_dir, rel) for rel in CSS_CANDIDATES]
-    found = [p for p in found if os.path.isfile(p)]
+    found = _sheets_with_rule(app_dir)
     if not found:
-        fail("لا ورقةَ أنماطٍ محزومة في أيٍّ من: " +
-             " · ".join(CSS_CANDIDATES) + " (تحت " + app_dir + ")")
-    # **حلقةٌ لا `found[0]`**: اليومَ كلُّ شجرةٍ تحوي مرشّحًا واحدًا (قِيس)، فالأولى
-    # صحيحة. لكنّ «الأولى فقط» تترك الثانيةَ بلا رقعةٍ **صامتةً** لو وُجدتا يومًا،
-    # والحلقةُ لا تخطئ أبدًا. غيّرنا السطرَ لا المنطق.
+        # ‏القائمةُ القديمةُ تبقى **أرضيّةَ تشخيصٍ** لا معيارَ انتقاء: غيابُ كلّ
+        # ورقةٍ يعني بناءً بلا خطٍّ (سقوطٌ رشيقٌ معلَن) أو شجرةً ليست ما قِيس،
+        # وذكرُ المرشَّحين المعروفين يفرّق بين الحالتَين للقارئ.
+        _known = [r for r in CSS_CANDIDATES
+                  if os.path.isfile(os.path.join(app_dir, r))]
+        if not _known:
+            fail("لا ورقةَ أنماطٍ محزومة تحت " + app_dir + "/out — والمعروفُ منها: "
+                 + " · ".join(CSS_CANDIDATES))
+        print("  ⏭️ لا قاعدةَ @font-face لـKawkab Mono في أيّ ورقة — "
+              "بناءٌ بلا خطٍّ عربيّ (سقوطٌ رشيق).")
+        return 0
     rc = 0
     for css in found:
         rc = _patch_one(css, app_dir) or rc
