@@ -166,7 +166,7 @@
     "vs/base/common/errorMessage": {
       "error.defaultMessage": "حدث خطأ غير معروف. يرجى مراجعة السجل للحصول على مزيد من التفاصيل.",
       "error.moreErrors": "{0} ({1} أخطاء إجمالاً)",
-      "nodeExceptionMessage": "حدث خطأ في النظام ({0})",
+      "nodeExceptionMessage": "حدث خطأ في النظام ⁨({0})⁩",
       "stackTrace.format": "{0}: {1}"
     },
     "vs/base/common/jsonErrorMessages": {
@@ -316,10 +316,10 @@
       "diff-aria-navigation-tip": " استخدم {0} لفتح مساعدة إمكانية الوصول."
     },
     "vs/editor/browser/widget/diffEditor/components/diffEditorViewZones/inlineDiffDeletedCodeMargin": {
-      "diff.clipboard.copyChangedLineContent.label": "نسخ السطر المعدّل ({0})",
+      "diff.clipboard.copyChangedLineContent.label": "نسخ السطر المعدّل ⁨({0})⁩",
       "diff.clipboard.copyChangedLinesContent.label": "نسخ الأسطر المعدّلة",
       "diff.clipboard.copyChangedLinesContent.single.label": "نسخ السطر المعدّل",
-      "diff.clipboard.copyDeletedLineContent.label": "نسخ السطر المحذوف ({0})",
+      "diff.clipboard.copyDeletedLineContent.label": "نسخ السطر المحذوف ⁨({0})⁩",
       "diff.clipboard.copyDeletedLinesContent.label": "نسخ الأسطر المحذوفة",
       "diff.clipboard.copyDeletedLinesContent.single.label": "نسخ السطر المحذوف",
       "diff.inline.revertChange.label": "التراجع عن التعديل"
@@ -1086,7 +1086,7 @@
     },
     "vs/editor/common/viewLayout/viewLineRenderer": {
       "overflow.chars": "{0} حرف",
-      "showMore": "عرض المزيد ({0})"
+      "showMore": "عرض المزيد ⁨({0})⁩"
     },
     "vs/editor/contrib/anchorSelect/browser/anchorSelect": {
       "anchorSet": "تم تعيين المرساة عند {0}:{1}",
@@ -1179,13 +1179,13 @@
     "vs/editor/contrib/codeAction/browser/lightBulbWidget": {
       "codeAction": "عرض إجراءات الكود",
       "codeActionAutoRun": "تشغيل: {0}",
-      "codeActionWithKb": "عرض إجراءات الكود ({0})",
+      "codeActionWithKb": "عرض إجراءات الكود ⁨({0})⁩",
       "gutterLightbulbAIFixAutoFixWidget": "أيقونة تُنشئ قائمة إجراءات الكود من الهامش عندما لا توجد مساحة وإصلاح AI وإصلاح سريع متاحان.",
       "gutterLightbulbAIFixWidget": "أيقونة تُنشئ قائمة إجراءات الكود من الهامش عندما لا توجد مساحة وإصلاح AI متاح.",
       "gutterLightbulbAutoFixWidget": "أيقونة تُنشئ قائمة إجراءات الكود من الهامش عندما لا توجد مساحة وإصلاح سريع متاح.",
       "gutterLightbulbSparkleFilledWidget": "أيقونة تُنشئ قائمة إجراءات الكود من الهامش عند توفر إصلاح AI وإصلاح سريع.",
       "gutterLightbulbWidget": "أيقونة تُنشئ قائمة إجراءات الكود من الهامش.",
-      "preferredcodeActionWithKb": "عرض إجراءات الكود. إصلاح سريع افتراضي متاح ({0})"
+      "preferredcodeActionWithKb": "عرض إجراءات الكود. إصلاح سريع افتراضي متاح ⁨({0})⁩"
     },
     "vs/editor/contrib/codelens/browser/codelensController": {
       "placeHolder": "حدد أمراً",
@@ -1551,8 +1551,8 @@
     "vs/editor/contrib/inlayHints/browser/inlayHintsHover": {
       "hint.cmd": "تنفيذ الأمر",
       "hint.dbl": "انقر مرتين للإدراج",
-      "hint.def": "الانتقال إلى التعريف ({0})",
-      "hint.defAndCommand": "الانتقال إلى التعريف ({0})، انقر بزر الماوس الأيمن لمزيد من الخيارات.",
+      "hint.def": "الانتقال إلى التعريف ⁨({0})⁩",
+      "hint.defAndCommand": "الانتقال إلى التعريف ⁨({0})⁩، انقر بزر الماوس الأيمن لمزيد من الخيارات.",
       "links.navigate.kb.alt": "alt + نقر",
       "links.navigate.kb.alt.mac": "option + نقر",
       "links.navigate.kb.meta": "ctrl + نقر",
@@ -1596,7 +1596,7 @@
       "tabShouldJumpToInlineEdit": "يشير إلى ما إذا كان التبويب يجب أن ينتقل إلى تعديل مضمّن."
     },
     "vs/editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController": {
-      "showAccessibleViewHint": "فحص هذا في العرض المتاح ({0})"
+      "showAccessibleViewHint": "فحص هذا في العرض المتاح ⁨({0})⁩"
     },
     "vs/editor/contrib/inlineCompletions/browser/hintsWidget/hoverParticipant": {
       "hoverAccessibilityStatusBar": "توجد إكمالات مضمّنة هنا",
@@ -1784,38 +1784,38 @@
       "gotoLineToggleButton": "تبديل الإزاحة المبنية على الصفر"
     },
     "vs/editor/contrib/quickAccess/browser/gotoSymbolQuickAccess": {
-      "_constructor": "المُنشئات ({0})",
-      "array": "المصفوفات ({0})",
-      "boolean": "القيم المنطقية ({0})",
+      "_constructor": "المُنشئات ⁨({0})⁩",
+      "array": "المصفوفات ⁨({0})⁩",
+      "boolean": "القيم المنطقية ⁨({0})⁩",
       "cannotRunGotoSymbolWithoutEditor": "للانتقال إلى رمز، افتح محرر نصوص أولاً.",
       "cannotRunGotoSymbolWithoutSymbolProvider": "المحرر النشط لا يوفر معلومات رموز.",
-      "class": "الفئات ({0})",
-      "constant": "الثوابت ({0})",
-      "enum": "التعدادات ({0})",
-      "enumMember": "أعضاء التعداد ({0})",
-      "event": "الأحداث ({0})",
-      "field": "الحقول ({0})",
-      "file": "الملفات ({0})",
-      "function": "الدوال ({0})",
-      "interface": "الواجهات ({0})",
-      "key": "المفاتيح ({0})",
-      "method": "الطرق ({0})",
-      "modules": "الوحدات ({0})",
-      "namespace": "فضاءات الأسماء ({0})",
+      "class": "الفئات ⁨({0})⁩",
+      "constant": "الثوابت ⁨({0})⁩",
+      "enum": "التعدادات ⁨({0})⁩",
+      "enumMember": "أعضاء التعداد ⁨({0})⁩",
+      "event": "الأحداث ⁨({0})⁩",
+      "field": "الحقول ⁨({0})⁩",
+      "file": "الملفات ⁨({0})⁩",
+      "function": "الدوال ⁨({0})⁩",
+      "interface": "الواجهات ⁨({0})⁩",
+      "key": "المفاتيح ⁨({0})⁩",
+      "method": "الطرق ⁨({0})⁩",
+      "modules": "الوحدات ⁨({0})⁩",
+      "namespace": "فضاءات الأسماء ⁨({0})⁩",
       "noMatchingSymbolResults": "لا توجد رموز محرر مطابقة",
       "noSymbolResults": "لا توجد رموز محرر",
-      "number": "الأرقام ({0})",
-      "object": "الكائنات ({0})",
+      "number": "الأرقام ⁨({0})⁩",
+      "object": "الكائنات ⁨({0})⁩",
       "openToBottom": "فتح في الأسفل",
       "openToSide": "فتح على الجانب",
-      "operator": "العوامل ({0})",
-      "package": "الحزم ({0})",
-      "property": "الخصائص ({0})",
-      "string": "السلاسل النصية ({0})",
-      "struct": "الهياكل ({0})",
-      "symbols": "الرموز ({0})",
-      "typeParameter": "معاملات الأنواع ({0})",
-      "variable": "المتغيرات ({0})"
+      "operator": "العوامل ⁨({0})⁩",
+      "package": "الحزم ⁨({0})⁩",
+      "property": "الخصائص ⁨({0})⁩",
+      "string": "السلاسل النصية ⁨({0})⁩",
+      "struct": "الهياكل ⁨({0})⁩",
+      "symbols": "الرموز ⁨({0})⁩",
+      "typeParameter": "معاملات الأنواع ⁨({0})⁩",
+      "variable": "المتغيرات ⁨({0})⁩"
     },
     "vs/editor/contrib/readOnlyMessage/browser/contribution": {
       "editor.readonly": "لا يمكن التعديل في محرر للقراءة فقط",
@@ -2489,21 +2489,21 @@
       "extensionDescription.activationEvents1": "الخاصية '{0}' يمكن حذفها أو يجب أن تكون من النوع 'string[]'",
       "extensionDescription.activationEvents2": "الخاصية '{0}' يجب حذفها إذا لم تكن للإضافة خاصية '{1}' أو '{2}'.",
       "extensionDescription.browser1": "الخاصية '{0}' يمكن حذفها أو يجب أن تكون من النوع 'string'",
-      "extensionDescription.browser2": "'browser' ({0}) من المفترض أن يكون مضمناً في مجلد ({1}) الإضافة. قد يجعل هذا الإضافة غير قابلة للنقل.",
+      "extensionDescription.browser2": "'browser' ⁨({0})⁩ من المفترض أن يكون مضمناً في مجلد ({1}) الإضافة. قد يجعل هذا الإضافة غير قابلة للنقل.",
       "extensionDescription.engines": "الخاصية '{0}' مطلوبة ويجب أن تكون من النوع 'object'",
       "extensionDescription.engines.vscode": "الخاصية '{0}' مطلوبة ويجب أن تكون من النوع 'string'",
       "extensionDescription.extensionAffinity": "الخاصية '{0}' يمكن حذفها أو يجب أن تكون من النوع 'string[]'",
       "extensionDescription.extensionDependencies": "الخاصية '{0}' يمكن حذفها أو يجب أن تكون من النوع 'string[]'",
       "extensionDescription.extensionKind": "الخاصية '{0}' لا يمكن تعيينها إلا إذا كانت خاصية 'main' محددة أيضاً.",
       "extensionDescription.main1": "الخاصية '{0}' يمكن حذفها أو يجب أن تكون من النوع 'string'",
-      "extensionDescription.main2": "'main' ({0}) من المفترض أن يكون مضمناً في مجلد ({1}) الإضافة. قد يجعل هذا الإضافة غير قابلة للنقل.",
+      "extensionDescription.main2": "'main' ⁨({0})⁩ من المفترض أن يكون مضمناً في مجلد ({1}) الإضافة. قد يجعل هذا الإضافة غير قابلة للنقل.",
       "extensionDescription.name": "الخاصية '{0}' مطلوبة ويجب أن تكون من النوع 'string'",
       "extensionDescription.publisher": "خاصية الناشر يجب أن تكون من النوع 'string'.",
       "extensionDescription.version": "الخاصية '{0}' مطلوبة ويجب أن تكون من النوع 'string'",
       "notSemver": "إصدار الإضافة غير متوافق مع SemVer.",
       "versionMismatch": "الإضافة غير متوافقة مع Code {0}. الإضافة تتطلب {1}.",
-      "versionSpecificity1": "الإصدار المحدد في 'engines.vscode' ({0}) ليس دقيقاً بما فيه الكفاية. لإصدارات vscode قبل 1.0.0، حدد على الأقل الإصدارين الرئيسي والفرعي المطلوبين. مثال: ^0.10.0، 0.10.x، 0.11.0، إلخ.",
-      "versionSpecificity2": "الإصدار المحدد في 'engines.vscode' ({0}) ليس دقيقاً بما فيه الكفاية. لإصدارات vscode بعد 1.0.0، حدد على الأقل الإصدار الرئيسي المطلوب. مثال: ^1.10.0، 1.10.x، 1.x.x، 2.x.x، إلخ.",
+      "versionSpecificity1": "الإصدار المحدد في 'engines.vscode' ⁨({0})⁩ ليس دقيقاً بما فيه الكفاية. لإصدارات vscode قبل 1.0.0، حدد على الأقل الإصدارين الرئيسي والفرعي المطلوبين. مثال: ^0.10.0، 0.10.x، 0.11.0، إلخ.",
+      "versionSpecificity2": "الإصدار المحدد في 'engines.vscode' ⁨({0})⁩ ليس دقيقاً بما فيه الكفاية. لإصدارات vscode بعد 1.0.0، حدد على الأقل الإصدار الرئيسي المطلوب. مثال: ^1.10.0، 1.10.x، 1.x.x، 2.x.x، إلخ.",
       "versionSyntax": "تعذر تحليل قيمة {0} لـ `engines.vscode`. يرجى استخدام مثلاً: ^1.22.0، ^1.22.x، ..."
     },
     "vs/platform/externalTerminal/node/externalTerminalService": {
@@ -2580,10 +2580,10 @@
       "iconLabel.loading": "جارٍ التحميل... يرجى الانتظار."
     },
     "vs/platform/keybinding/common/abstractKeybindingService": {
-      "first.chord": "تم استخدام المفتاح ({0}). في انتظار مفتاح ثانٍ...",
+      "first.chord": "تم استخدام المفتاح ⁨({0})⁩. في انتظار مفتاح ثانٍ...",
       "keybindingLabel": "{0} ({1})",
       "missing.chord": "مجموعة المفاتيح ({0}، {1}) ليست أمراً.",
-      "next.chord": "تم الضغط على ({0}). في انتظار المفتاح التالي..."
+      "next.chord": "تم الضغط على ⁨({0})⁩. في انتظار المفتاح التالي..."
     },
     "vs/platform/keyboardLayout/common/keyboardConfig": {
       "dispatch": "التحكم بمنطق توزيع ضغطات المفاتيح لاستخدام 'code' (مُوصى به) أو 'keyCode'.",
@@ -2762,7 +2762,7 @@
       "custom": "مخصص",
       "ok": "موافق",
       "quickInput.back": "رجوع",
-      "quickInput.backWithKeybinding": "السابق ({0})",
+      "quickInput.backWithKeybinding": "السابق ⁨({0})⁩",
       "quickInput.checkAll": "تبديل جميع خانات الاختيار",
       "quickInput.countSelected": "{0} محدد",
       "quickInput.visibleCount": "{0} نتائج"
@@ -3467,7 +3467,7 @@
       "updatingApp": "جارٍ تحديث {0}"
     },
     "vs/sessions/contrib/agentFeedback/browser/agentFeedback.contribution": {
-      "agentFeedback.submitFeedbackCount": "إرسال ملاحظات ({0})"
+      "agentFeedback.submitFeedbackCount": "إرسال ملاحظات ⁨({0})⁩"
     },
     "vs/sessions/contrib/agentFeedback/browser/agentFeedbackAttachment": {
       "agentFeedback.many": "{0} ملاحظات",
@@ -3539,18 +3539,18 @@
     },
     "vs/sessions/contrib/aiCustomizationTreeView/browser/aiCustomizationTreeViewViews": {
       "aiCustomizationTree": "عناصر تخصيص المحادثة الفورية",
-      "builtinWithCount": "مدمجة ({0})",
+      "builtinWithCount": "مدمجة ⁨({0})⁩",
       "customAgents": "وكلاء مخصصون",
-      "extensionsWithCount": "إضافات ({0})",
+      "extensionsWithCount": "إضافات ⁨({0})⁩",
       "fileAriaLabel": "{0}، {1}",
       "fileAriaLabelDisabled": "{0}، معطّل",
       "instructions": "تعليمات",
       "mcpServers": "خوادم MCP",
-      "pluginsWithCount": "إضافات ({0})",
+      "pluginsWithCount": "إضافات ⁨({0})⁩",
       "prompts": "طلبات",
       "skills": "مهارات",
-      "userWithCount": "المستخدم ({0})",
-      "workspaceWithCount": "مساحة العمل ({0})"
+      "userWithCount": "المستخدم ⁨({0})⁩",
+      "workspaceWithCount": "مساحة العمل ⁨({0})⁩"
     },
     "vs/sessions/contrib/applyCommitsToParentRepo/browser/applyChangesToParentRepo": {
       "agentSessionHasWorktreeAndRepository": "صحيح عندما تمتلك جلسة الوكيل النشطة شجرة عمل ومستودعاً أصلياً.",
@@ -3898,9 +3898,9 @@
     "vs/sessions/contrib/sessions/browser/views/sessionsView": {
       "filterArchived": "مؤرشف",
       "filterRead": "مقروء",
-      "newSessionButtonAriaLabel": "جلسة جديدة ({0})",
+      "newSessionButtonAriaLabel": "جلسة جديدة ⁨({0})⁩",
       "newSessionButtonAriaLabelWithoutKeybinding": "جلسة جديدة",
-      "newSessionButtonTitle": "جلسة جديدة ({0})",
+      "newSessionButtonTitle": "جلسة جديدة ⁨({0})⁩",
       "newSessionButtonTitleWithoutKeybinding": "جلسة جديدة",
       "resetFilters": "إعادة تعيين",
       "sessionLabel": "الجلسة",
@@ -5128,8 +5128,8 @@
       "indentConvert": "تحويل الملف",
       "indentView": "تعديل العرض",
       "inputModeOvertype": "RFP",
-      "languageDescription": "({0}) - لغة مكوّنة",
-      "languageDescriptionConfigured": "({0})",
+      "languageDescription": "⁨({0})⁩ - لغة مكوّنة",
+      "languageDescriptionConfigured": "⁨({0})⁩",
       "languagesPicks": "اللغات (المعرّف)",
       "multiSelection": "{0} تحديدات",
       "multiSelectionRange": "{0} تحديدات ({1} حرف محدد)",
@@ -5188,7 +5188,7 @@
       "textEditor": "محرر النصوص"
     },
     "vs/workbench/browser/parts/editor/textDiffEditor": {
-      "fileTooLargeForHeapErrorWithSize": "لم يتم عرض ملف واحد على الأقل في محرر مقارنة النصوص لأنه كبير جداً ({0}).",
+      "fileTooLargeForHeapErrorWithSize": "لم يتم عرض ملف واحد على الأقل في محرر مقارنة النصوص لأنه كبير جداً ⁨({0})⁩.",
       "fileTooLargeForHeapErrorWithoutSize": "لم يتم عرض ملف واحد على الأقل في محرر مقارنة النصوص لأنه كبير جداً.",
       "textDiffEditor": "محرر فروقات النصوص"
     },
@@ -6386,8 +6386,8 @@
       "openDoc": "\r\nفتح نافذة متصفح بمزيد من المعلومات حول إمكانية الوصول{0}.",
       "runInTerminal": " - تشغيل كتلة الكود في الطرفية{0}.\r\n",
       "selectKeybinding": "حدد معرّف أمر لتكوين اختصار لوحة مفاتيح له",
-      "symbolLabel": "({0}) {1}",
-      "symbolLabelAria": "({0}) {1}",
+      "symbolLabel": "⁨({0})⁩ {1}",
+      "symbolLabelAria": "⁨({0})⁩ {1}",
       "toolbar": "الوصول إلى شريط الأدوات (Shift+Tab)."
     },
     "vs/workbench/contrib/accessibility/browser/accessibleViewActions": {
@@ -7007,7 +7007,7 @@
       "openChatCustomizations": "فتح التخصيصات",
       "openChatFeatureSettings": "إعدادات الدردشة",
       "openChatFeatureSettings.short": "إعدادات الدردشة",
-      "openChatMode": "فتح الدردشة ({0})",
+      "openChatMode": "فتح الدردشة ⁨({0})⁩",
       "quotaResetDate": "ستتم إعادة تعيين الحصة في {0}.",
       "resetTrustedTools": "إعادة تعيين تأكيدات الأداة",
       "resetTrustedToolsSuccess": "تمت إعادة تعيين تفضيلات تأكيد الأداة.",
@@ -7513,11 +7513,11 @@
       "agentStatusToolbarLabel": "حالة المساعد",
       "agentStatusWidget.search": "بحث",
       "askAnythingPlaceholder": "اسأل أي شيء أو صِف ما تريد بناءه",
-      "askTooltip": "فتح الوصول السريع ({0})",
+      "askTooltip": "فتح الوصول السريع ⁨({0})⁩",
       "askTooltip2": "فتح الوصول السريع",
       "chatQuotaExceededButton": "تم الوصول إلى حصة رسائل الدردشة في خطة GitHub Copilot المجانية. انقر للمزيد من التفاصيل.",
       "enterAgentSessionProjection": "الدخول في إسقاط جلسة المساعد",
-      "enterAgentSessionProjectionTooltip": "مراجعة التعديلات ({0})",
+      "enterAgentSessionProjectionTooltip": "مراجعة التعديلات ⁨({0})⁩",
       "enterAgentSessionProjectionTooltipNoKey": "مراجعة التعديلات",
       "exitAgentSessionProjection": "الخروج من إسقاط جلسة المساعد",
       "exitAgentSessionProjectionTooltip": "الخروج من إسقاط جلسة المساعد (Esc)",
@@ -7527,7 +7527,7 @@
       "needsInputSessionsTooltip1": "{0} جلسة تحتاج إدخالاً",
       "openQuickAccess": "فتح الوصول السريع",
       "openQuickOpen": "فتح الفتح السريع",
-      "openQuickOpenTooltip": "الانتقال إلى ملف ({0})",
+      "openQuickOpenTooltip": "الانتقال إلى ملف ⁨({0})⁩",
       "openQuickOpenTooltip2": "الانتقال إلى ملف",
       "review": "مراجعة",
       "signInToChatSetup": "سجّل الدخول لاستخدام ميزات الذكاء الاصطناعي...",
@@ -8060,20 +8060,20 @@
       "chatDebug.configureLocations": "تكوين المواقع",
       "chatDebug.discoveryResults": "نتائج اكتشاف {0}",
       "chatDebug.duplicateOf": "مكرر من {0}",
-      "chatDebug.loadedFiles": "محمّل ({0})",
+      "chatDebug.loadedFiles": "محمّل ⁨({0})⁩",
       "chatDebug.loadedFilesList": "الملفات المحمّلة",
       "chatDebug.openExtension": "فتح {0} في الملحقات",
       "chatDebug.openSettingsTooltip": "تكوين المواقع",
       "chatDebug.plainText.discoveryResults": "نتائج اكتشاف {0}",
       "chatDebug.plainText.duplicateOf": "مكرر من {0}",
-      "chatDebug.plainText.loaded": "محمّل ({0})",
-      "chatDebug.plainText.skipped": "تم تخطيه ({0})",
-      "chatDebug.plainText.sourceFolders": "المصادر ({0})",
+      "chatDebug.plainText.loaded": "محمّل ⁨({0})⁩",
+      "chatDebug.plainText.skipped": "تم تخطيه ⁨({0})⁩",
+      "chatDebug.plainText.sourceFolders": "المصادر ⁨({0})⁩",
       "chatDebug.plainText.totalFiles": "إجمالي الملفات: {0}",
       "chatDebug.plainText.unknown": "غير معروف",
-      "chatDebug.skippedFiles": "تم تخطيه ({0})",
+      "chatDebug.skippedFiles": "تم تخطيه ⁨({0})⁩",
       "chatDebug.skippedFilesList": "الملفات المتخطاة",
-      "chatDebug.sourceFolders": "المصادر ({0})",
+      "chatDebug.sourceFolders": "المصادر ⁨({0})⁩",
       "chatDebug.sourceFoldersContent": "مجلدات المصادر",
       "chatDebug.sourcesNote": "تم اكتشاف {0} بفحص المصادر التالية بالترتيب:",
       "chatDebug.totalFiles": "إجمالي الملفات: {0}",
@@ -8128,7 +8128,7 @@
       "chatDebug.flowChart": "مخطط تدفق المساعد",
       "chatDebug.flowChart.noEvents": "لم يتم تسجيل أحداث لهذه الجلسة.",
       "chatDebug.flowChart.noMatches": "لا توجد قواعد مطابقة للتصفية الحالية.",
-      "chatDebug.flowChart.showMore": "عرض المزيد ({0})",
+      "chatDebug.flowChart.showMore": "عرض المزيد ⁨({0})⁩",
       "chatDebug.flowChart.showMoreTitle": "تحميل المزيد من العقد",
       "chatDebug.flowchart.filterAriaLabel": "تصفية عقد مخطط التدفق",
       "chatDebug.flowchart.search": "تصفية العقد...",
@@ -8218,8 +8218,8 @@
     },
     "vs/workbench/contrib/chat/browser/chatDebug/chatDebugMessageContentRenderer": {
       "chatDebug.agentResponse": "رد المساعد",
-      "chatDebug.promptSections": "أقسام الطلب ({0})",
-      "chatDebug.responseSections": "أقسام الرد ({0})",
+      "chatDebug.promptSections": "أقسام الطلب ⁨({0})⁩",
+      "chatDebug.responseSections": "أقسام الرد ⁨({0})⁩",
       "chatDebug.userMessage": "رسالة المستخدم"
     },
     "vs/workbench/contrib/chat/browser/chatDebug/chatDebugModelTurnContentRenderer": {
@@ -8239,7 +8239,7 @@
       "chatDebug.modelTurn.outputTokens": "رموز الإخراج: {0}",
       "chatDebug.modelTurn.outputTokensLabel": "رموز الإخراج: {0}",
       "chatDebug.modelTurn.requestLabel": "الطلب: {0}",
-      "chatDebug.modelTurn.sections": "الأقسام ({0})",
+      "chatDebug.modelTurn.sections": "الأقسام ⁨({0})⁩",
       "chatDebug.modelTurn.statusLabel": "الحالة: {0}",
       "chatDebug.modelTurn.title": "دور النموذج",
       "chatDebug.modelTurn.totalTokens": "إجمالي الرموز: {0}",
@@ -9142,7 +9142,7 @@
       "tool.rename.invocationMessage": "إعادة تسمية `{0}` إلى `{1}`",
       "tool.rename.oneEdit": "أُعيدت تسمية `{0}` إلى `{1}` – تعديل واحد في {2} ملف.",
       "tool.rename.userDescription": "إعادة تسمية رمز في مساحة العمل",
-      "tool.rename.userDescriptionWithLanguages": "إعادة تسمية رمز في مساحة العمل ({0})"
+      "tool.rename.userDescriptionWithLanguages": "إعادة تسمية رمز في مساحة العمل ⁨({0})⁩"
     },
     "vs/workbench/contrib/chat/browser/tools/toolSetsContribution": {
       "bad_name1": "اسم ملف غير صالح",
@@ -9156,7 +9156,7 @@
       "schema.description": "وصف موجز لمجموعة الأدوات هذه.",
       "schema.icon": "أيقونة لاستخدامها لمجموعة الأدوات هذه في واجهة المستخدم. تستخدم صيغة \"$(name)\"، مثل \"$(zap)\"",
       "schema.tools": "قائمة الأدوات أو مجموعات الأدوات لتضمينها في هذه المجموعة. لا يمكن أن تكون فارغة ويجب أن تشير إلى الأدوات كما تُشار إليها في الطلبات.",
-      "tool.description": "{1} ({0})\n\n{2}",
+      "tool.description": "{1} ⁨({0})⁩\n\n{2}",
       "toolsetSchema.json": "تكوين مجموعات أدوات المستخدم"
     },
     "vs/workbench/contrib/chat/browser/tools/usagesTool": {
@@ -9166,7 +9166,7 @@
       "tool.usages.oneResult": "تم تحليل استخدامات `{0}`، نتيجة واحدة",
       "tool.usages.results": "تم تحليل استخدامات `{0}`، {1} نتيجة",
       "tool.usages.userDescription": "البحث عن المراجع والتعريفات والتطبيقات لرمز",
-      "tool.usages.userDescriptionWithLanguages": "البحث عن المراجع والتعريفات والتطبيقات لرمز ({0})"
+      "tool.usages.userDescriptionWithLanguages": "البحث عن المراجع والتعريفات والتطبيقات لرمز ⁨({0})⁩"
     },
     "vs/workbench/contrib/chat/browser/viewsWelcome/chatViewsWelcomeHandler": {
       "chatViewsWelcome.content": "محتوى رسالة الترحيب. سيُعرض أول رابط أمر كزر.",
@@ -9603,7 +9603,7 @@
       "chatInput.accessibilityHelpNoKb": "إدخال الدردشة {0}{1} اضغط Enter لإرسال الطلب. لمزيد من المعلومات، استخدم أمر مساعدة إمكانية الوصول في الدردشة.",
       "chatInput.mode.agent": "(مساعد)، عدّل ملفات مساحة العمل.",
       "chatInput.mode.ask": "(سؤال)، اطرح أسئلة أو اكتب / للمواضيع.",
-      "chatInput.mode.custom": "({0})، {1}",
+      "chatInput.mode.custom": "⁨({0})⁩، {1}",
       "chatInput.mode.edit": "(تعديل)، عدّل ملفات مساحة العمل.",
       "chatInput.model": "، {0}. "
     },
@@ -10070,8 +10070,8 @@
       "askQuestionsTool.invalidOptions": "السؤال \"{0}\" يجب أن يحتوي على خيارين على الأقل، أو لا شيء للإدخال النصي الحر.",
       "askQuestionsTool.invocation.multiple": "طرح {0} أسئلة ({1})",
       "askQuestionsTool.invocation.multiple.past": "تم طرح {0} أسئلة ({1})",
-      "askQuestionsTool.invocation.single": "طرح سؤال واحد ({0})",
-      "askQuestionsTool.invocation.single.past": "تم طرح سؤال واحد ({0})",
+      "askQuestionsTool.invocation.single": "طرح سؤال واحد ⁨({0})⁩",
+      "askQuestionsTool.invocation.single.past": "تم طرح سؤال واحد ⁨({0})⁩",
       "askQuestionsTool.noQuestions": "لم تُقدم أسئلة. يجب أن يحتوي مصفوفة الأسئلة على سؤال واحد على الأقل.",
       "askQuestionsTool.progress": "جارٍ تحليل إجاباتك...",
       "tool.askQuestions.displayName": "طرح أسئلة توضيحية",
@@ -10538,7 +10538,7 @@
     "vs/workbench/contrib/codeEditor/browser/dictation/editorDictation": {
       "startDictation": "بدء الإملاء في المحرر",
       "stopDictation": "إيقاف الإملاء في المحرر",
-      "stopDictationShort1": "إيقاف الإملاء ({0})",
+      "stopDictationShort1": "إيقاف الإملاء ⁨({0})⁩",
       "stopDictationShort2": "إيقاف الإملاء",
       "voiceCategory": "الصوت"
     },
@@ -10676,8 +10676,8 @@
       "defaultHintAriaLabelWithoutInlineChat": "نفّذ {0} لتحديد لغة والبدء. ابدأ الكتابة للتجاهل.",
       "disableEditorEmptyHint": "تعطيل تلميح المحرر الفارغ",
       "disableHint": " بدّل {0} في الإعدادات لتعطيل هذا التلميح.",
-      "emptyTextEditorHintWithInlineChat": "[[إنشاء كود]] ({0}) أو [[اختيار لغة]] ({1}). ابدأ الكتابة للتجاهل، أو [[لا تعرض هذا مجدداً]].",
-      "emptyTextEditorHintWithoutInlineChat": "[[اختر لغة]] ({0}) للبدء. ابدأ الكتابة للتجاهل، أو [[لا تعرض هذا مجدداً]]."
+      "emptyTextEditorHintWithInlineChat": "[[إنشاء كود]] ⁨({0})⁩ أو [[اختيار لغة]] ({1}). ابدأ الكتابة للتجاهل، أو [[لا تعرض هذا مجدداً]].",
+      "emptyTextEditorHintWithoutInlineChat": "[[اختر لغة]] ⁨({0})⁩ للبدء. ابدأ الكتابة للتجاهل، أو [[لا تعرض هذا مجدداً]]."
     },
     "vs/workbench/contrib/codeEditor/browser/find/simpleFindWidget": {
       "accessibilityHelpHintInLabel": "اضغط {0} لمساعدة إمكانية الوصول",
@@ -10920,7 +10920,7 @@
       "comments.addCommand.error": "يجب أن يكون المؤشر في نطاق تعليق لإضافة تعليق.",
       "comments.addFileCommentCommand.error": "تعليقات الملف غير مسموح بها في هذا الملف.",
       "hasCommentRanges": "المحرر يحتوي على نطاقات تعليقات.",
-      "hasCommentRangesKb": "المحرر يحتوي على نطاقات تعليقات. لمزيد من المعلومات، نفّذ أمر فتح مساعدة إمكانية الوصول ({0}).",
+      "hasCommentRangesKb": "المحرر يحتوي على نطاقات تعليقات. لمزيد من المعلومات، نفّذ أمر فتح مساعدة إمكانية الوصول ⁨({0})⁩.",
       "hasCommentRangesNoKb": "المحرر يحتوي على نطاقات تعليقات. لمزيد من المعلومات، نفّذ أمر فتح مساعدة إمكانية الوصول الذي لا يمكن تشغيله عبر اختصار لوحة مفاتيح حالياً.",
       "pickCommentService": "تحديد مزوّد التعليقات"
     },
@@ -10954,7 +10954,7 @@
       "outdated": "قديم"
     },
     "vs/workbench/contrib/comments/browser/commentsView": {
-      "accessibleViewHint": "\r\nفحص هذا في العرض المتاح ({0}).",
+      "accessibleViewHint": "\r\nفحص هذا في العرض المتاح ⁨({0})⁩.",
       "acessibleViewHintNoKbOpen": "\r\nافحص هذا في العرض المتاح عبر أمر فتح العرض المتاح الذي لا يمكن تشغيله عبر اختصار لوحة مفاتيح حالياً.",
       "comments.filter.ariaLabel": "تصفية التعليقات",
       "comments.filter.placeholder": "تصفية (مثال: نص، مؤلف)",
@@ -11111,7 +11111,7 @@
       "dataBreakpoint": "نقطة توقف بيانات",
       "dataBreakpointAccessType": "تحديد نوع الوصول للمراقبة",
       "dataBreakpointAddrFormat": "يجب أن يكون العنوان نطاق أرقام بتنسيق \"[بداية] - [نهاية]\" أو \"[بداية] + [بايت]\"",
-      "dataBreakpointAddrOrder": "النهاية ({1}) يجب أن تكون أكبر من البداية ({0})",
+      "dataBreakpointAddrOrder": "النهاية ({1}) يجب أن تكون أكبر من البداية ⁨({0})⁩",
       "dataBreakpointAddrStartEnd": "يجب أن يكون الرقم عدداً صحيحاً عشرياً أو قيمة ست عشرية تبدأ بـ \"0x\"، حصلنا على {0}",
       "dataBreakpointError": "فشل تعيين نقطة توقف البيانات عند {0}: {1}",
       "dataBreakpointExpressionPlaceholder": "التوقف عندما يكون التعبير صحيحاً",
@@ -11214,7 +11214,7 @@
       "stackTraceLabel": "{0}، السطر {1} في {2}"
     },
     "vs/workbench/contrib/debug/browser/debugActionViewItems": {
-      "addConfigTo": "إضافة تكوين ({0})...",
+      "addConfigTo": "إضافة تكوين ⁨({0})⁩...",
       "addConfiguration": "إضافة تكوين...",
       "commentLabelWithKeybinding": "{0}، استخدم ({1}) لمساعدة إمكانية الوصول",
       "commentLabelWithKeybindingNoKeybinding": "{0}، نفّذ أمر فتح مساعدة إمكانية الوصول الذي لا يمكن تشغيله عبر اختصار لوحة مفاتيح حالياً.",
@@ -11304,7 +11304,7 @@
       "toggleExceptionBreakpoints": "تبديل نقاط توقف الاستثناءات"
     },
     "vs/workbench/contrib/debug/browser/debugConfigurationManager": {
-      "DebugConfig.failed": "تعذّر إنشاء ملف 'launch.json' في المجلد '.vscode' ({0}).",
+      "DebugConfig.failed": "تعذّر إنشاء ملف 'launch.json' في المجلد '.vscode' ⁨({0})⁩.",
       "editLaunchConfig": "تعديل تكوين التصحيح في launch.json",
       "selectConfiguration": "تحديد تكوين إطلاق",
       "user settings": "إعدادات المستخدم",
@@ -11409,7 +11409,7 @@
       "watchViewIcon": "أيقونة عرض المراقبة."
     },
     "vs/workbench/contrib/debug/browser/debugQuickAccess": {
-      "addConfigTo": "إضافة تكوين ({0})...",
+      "addConfigTo": "إضافة تكوين ⁨({0})⁩...",
       "addConfiguration": "إضافة تكوين...",
       "configure": "تكوين",
       "contributed": "مُساهَم بها",
@@ -11426,7 +11426,7 @@
       "breakpointRemoved": "تمت إزالة نقطة توقف، السطر {0}، الملف {1}",
       "compoundMustHaveConfigurations": "يجب تعريف سمة \"configurations\" للمركّب لبدء تكوينات متعددة.",
       "configMissing": "التكوين '{0}' مفقود في 'launch.json'.",
-      "debugAdapterCrash": "انتهت عملية محول التصحيح بشكل غير متوقع ({0})",
+      "debugAdapterCrash": "انتهت عملية محول التصحيح بشكل غير متوقع ⁨({0})⁩",
       "debugRequesMissing": "السمة '{0}' غير موجودة في تكوين التصحيح المختار.",
       "debugRequestNotSupported": "السمة '{0}' لها قيمة '{1}' غير مدعومة في تكوين التصحيح المختار.",
       "debugTrust": "يقوم التصحيح بتنفيذ مهام بناء لكود البرنامج من مساحة العمل.",
@@ -11873,7 +11873,7 @@
       "resume": "استئناف",
       "resume cloud changes": "استئناف تغييرات البيانات المُتسلسلة",
       "resume edit session warning 1": "استئناف تغييرات العمل من السحابة سيستبدل {0}. هل تريد المتابعة؟",
-      "resume edit session warning many": "استئناف تغييرات العمل من السحابة سيستبدل الملفات التالية ({0}). هل تريد المتابعة؟",
+      "resume edit session warning many": "استئناف تغييرات العمل من السحابة سيستبدل الملفات التالية ⁨({0})⁩. هل تريد المتابعة؟",
       "resume failed": "فشل استئناف تغييرات العمل من السحابة.",
       "resume latest cloud changes": "استئناف أحدث تغييرات السحابة",
       "resuming working changes window": "جارٍ استئناف تغييرات العمل...",
@@ -11952,7 +11952,7 @@
       "workbench.enableExperiments": "جلب الميزات التجريبية للتشغيل من خدمة Microsoft عبر الإنترنت."
     },
     "vs/workbench/contrib/extensions/browser/abstractRuntimeExtensionsEditor": {
-      "copy id": "نسخ المعرّف ({0})",
+      "copy id": "نسخ المعرّف ⁨({0})⁩",
       "disable": "تعطيل",
       "disable workspace": "تعطيل (مساحة العمل)",
       "errors": " {0} أخطاء غير مُكتشفة",
@@ -11994,7 +11994,7 @@
       "details": "التفاصيل",
       "detailstooltip": "تفاصيل الإضافة، معروضة من ملف 'README.md' الخاص بالإضافة",
       "disk space used": "حجم ذاكرة التخزين المؤقت",
-      "extension pack": "حزمة إضافات ({0})",
+      "extension pack": "حزمة إضافات ⁨({0})⁩",
       "extension version": "إصدار الإضافة",
       "extensionpack": "حزمة إضافات",
       "extensionpacktooltip": "يسرد الإضافات التي سيتم تثبيتها مع هذه الإضافة",
@@ -12036,12 +12036,12 @@
       "extension features list": "ميزات الإضافة",
       "grant": "السماح بالوصول",
       "label": "استخدام {0}",
-      "messaages": "رسائل ({0})",
+      "messaages": "رسائل ⁨({0})⁩",
       "noFeatures": "لم يتم إبراز أي ميزات.",
       "revoke": "إلغاء الوصول",
       "revoked": "لا يوجد وصول",
       "runtime": "حالة وقت التشغيل",
-      "uncaught errors": "أخطاء غير مُكتشفة ({0})"
+      "uncaught errors": "أخطاء غير مُكتشفة ⁨({0})⁩"
     },
     "vs/workbench/contrib/extensions/browser/extensionRecommendationNotificationService": {
       "donotShowAgain": "عدم العرض مجدداً لهذا المستودع",
@@ -12337,7 +12337,7 @@
       "Install in remote server to enable": "هذه الإضافة مُعطّلة في مساحة العمل لأنها مُعرّفة للتشغيل في مضيف الإضافات البعيد. ثبّت الإضافة في '{0}' لتفعيلها.",
       "Install language pack also in remote server": "ثبّت إضافة حزمة اللغة على '{0}' لتفعيلها هناك أيضاً.",
       "Install language pack also locally": "ثبّت إضافة حزمة اللغة محلياً لتفعيلها هناك أيضاً.",
-      "OpenExtensionsFile.failed": "تعذّر إنشاء ملف 'extensions.json' في مجلد '.vscode' ({0}).",
+      "OpenExtensionsFile.failed": "تعذّر إنشاء ملف 'extensions.json' في مجلد '.vscode' ⁨({0})⁩.",
       "Show alternate extension": "فتح {0}",
       "Uninstalling": "جارٍ إلغاء التثبيت",
       "VS Code for Web": "{0} للويب",
@@ -12502,7 +12502,7 @@
       "message": "رسالة واحدة",
       "messages": "{0} رسائل",
       "privateExtension": "إضافة خاصة",
-      "publisher": "الناشر ({0})",
+      "publisher": "الناشر ⁨({0})⁩",
       "publisher verified tooltip": "هذا الناشر تحقق من ملكية {0}.",
       "ratedLabel": "متوسط التقييم: {0} من 5",
       "recommendationHasBeenIgnored": "اخترت عدم تلقي توصيات لهذه الإضافة.",
@@ -12737,7 +12737,7 @@
     "vs/workbench/contrib/files/browser/editors/textFileEditor": {
       "createFile": "إنشاء ملف",
       "fileIsDirectory": "الملف غير معروض في محرر النصوص لأنه مجلد.",
-      "fileTooLargeForHeapErrorWithSize": "الملف غير معروض في محرر النصوص لأنه كبير جداً ({0}).",
+      "fileTooLargeForHeapErrorWithSize": "الملف غير معروض في محرر النصوص لأنه كبير جداً ⁨({0})⁩.",
       "fileTooLargeForHeapErrorWithoutSize": "الملف غير معروض في محرر النصوص لأنه كبير جداً.",
       "openFolder": "فتح مجلد",
       "reveal": "كشف المجلد",
@@ -13083,7 +13083,7 @@
       "noWorkspace": "لا يوجد مجلد مفتوح"
     },
     "vs/workbench/contrib/files/browser/views/explorerDecorationsProvider": {
-      "canNotResolve": "تعذّر حل مجلد مساحة العمل ({0})",
+      "canNotResolve": "تعذّر حل مجلد مساحة العمل ⁨({0})⁩",
       "label": "المستكشف",
       "symbolicLlink": "رابط رمزي",
       "unknown": "نوع ملف غير معروف"
@@ -13472,7 +13472,7 @@
       "interactiveSession.focusInput.label": "تركيز الإدخال",
       "interactiveSession.history.label": "عرض السجل",
       "interactiveSession.history.pick": "تحديد جلسة محادثة لاستعادتها",
-      "interactiveSession.open": "فتح المحرر ({0})"
+      "interactiveSession.open": "فتح المحرر ⁨({0})⁩"
     },
     "vs/workbench/contrib/interactiveSession/browser/actions/interactiveSessionCodeblockActions": {
       "interactive.copyCodeBlock.label": "نسخ",
@@ -14035,7 +14035,7 @@
       "mcp.installFromManifest": "تثبيت خادم من البيان...",
       "mcp.installFromManifest.description": "تثبيت خادم MCP من ملف بيان JSON",
       "mcp.list": "سرد الخوادم",
-      "mcp.newTools": "أدوات جديدة متاحة ({0})",
+      "mcp.newTools": "أدوات جديدة متاحة ⁨({0})⁩",
       "mcp.newTools.md.multi": "تم تحديث خوادم MCP وقد تحتوي على أدوات جديدة متاحة:\r\n\r\n{0}",
       "mcp.newTools.md.single": "تم تحديث خادم MCP {0} وقد يحتوي على أدوات جديدة متاحة.",
       "mcp.options": "خيارات الخادم",
@@ -14132,7 +14132,7 @@
       "mcp.elicit.false": "خطأ",
       "mcp.elicit.give": "إجابة",
       "mcp.elicit.reject": "إلغاء",
-      "mcp.elicit.source": "خادم MCP ({0})",
+      "mcp.elicit.source": "خادم MCP ⁨({0})⁩",
       "mcp.elicit.true": "صحيح",
       "mcp.elicit.url.instruction": "هل تريد فتح عنوان URL هذا؟",
       "mcp.elicit.url.instruction2": "سيفتح هذا {0}",
@@ -14303,7 +14303,7 @@
     },
     "vs/workbench/contrib/mcp/browser/mcpServerWidgets": {
       "mcpIconStarForeground": "لون أيقونة MCP المُميّز بنجمة.",
-      "publisher": "ناشر الخادم ({0})",
+      "publisher": "ناشر الخادم ⁨({0})⁩",
       "remote user extension": "خادم MCP بعيد",
       "verified publisher": "تحقق هذا الناشر من ملكية {0}.",
       "workspace extension": "خادم MCP لمساحة العمل"
@@ -14895,8 +14895,8 @@
       "doNotAskAgain": "لا تسألني مرة أخرى",
       "indentConvert": "تحويل الملف",
       "indentView": "تعديل العرض",
-      "languageDescription": "({0}) - اللغة الحالية",
-      "languageDescriptionConfigured": "({0})",
+      "languageDescription": "⁨({0})⁩ - اللغة الحالية",
+      "languageDescriptionConfigured": "⁨({0})⁩",
       "languagesPicks": "اللغات (المعرّف)",
       "noDetection": "تعذّر اكتشاف لغة الخلية",
       "noNotebookEditor": "لا يوجد محرر دفتر ملاحظات نشط حالياً",
@@ -15141,7 +15141,7 @@
       "notebookOpenEnableMissingViewType": "تمكين الإضافة لـ '{0}'",
       "notebookOpenInTextEditor": "فتح في محرر النصوص",
       "notebookOpenInstallMissingViewType": "تثبيت إضافة لـ '{0}'",
-      "notebookTooLargeForHeapErrorWithSize": "لا يتم عرض دفتر الملاحظات في محرر النصوص لأنه كبير جداً ({0}).",
+      "notebookTooLargeForHeapErrorWithSize": "لا يتم عرض دفتر الملاحظات في محرر النصوص لأنه كبير جداً ⁨({0})⁩.",
       "notebookTooLargeForHeapErrorWithoutSize": "لا يتم عرض دفتر الملاحظات في محرر النصوص لأنه كبير جداً."
     },
     "vs/workbench/contrib/notebook/browser/notebookEditorWidget": {
@@ -15249,7 +15249,7 @@
       "workbench.notebook.clearNotebookKernelsMRUCache": "مسح ذاكرة MRU لنوى دفتر الملاحظات"
     },
     "vs/workbench/contrib/notebook/browser/services/notebookKeymapServiceImpl": {
-      "disableOtherKeymapsConfirmation": "تعطيل تعيينات المفاتيح الأخرى ({0}) لتجنب تعارضات الاختصارات؟",
+      "disableOtherKeymapsConfirmation": "تعطيل تعيينات المفاتيح الأخرى ⁨({0})⁩ لتجنب تعارضات الاختصارات؟",
       "no": "لا",
       "yes": "نعم"
     },
@@ -15277,8 +15277,8 @@
       "unavailableRenderInfo": "عارض غير متاح"
     },
     "vs/workbench/contrib/notebook/browser/view/cellParts/codeCell": {
-      "cellExpandInputButtonLabel": "توسيع مدخلات الخلية ({0})",
-      "cellExpandInputButtonLabelWithDoubleClick": "انقر مزدوجاً لتوسيع مدخلات الخلية ({0})"
+      "cellExpandInputButtonLabel": "توسيع مدخلات الخلية ⁨({0})⁩",
+      "cellExpandInputButtonLabelWithDoubleClick": "انقر مزدوجاً لتوسيع مدخلات الخلية ⁨({0})⁩"
     },
     "vs/workbench/contrib/notebook/browser/view/cellParts/codeCellExecutionIcon": {
       "notebook.cell.status.executing": "تنفيذ",
@@ -15290,8 +15290,8 @@
       "notebook.moreRunActionsLabel": "المزيد..."
     },
     "vs/workbench/contrib/notebook/browser/view/cellParts/collapsedCellOutput": {
-      "cellExpandOutputButtonLabel": "توسيع مخرجات الخلية ({0})",
-      "cellExpandOutputButtonLabelWithDoubleClick": "انقر مزدوجاً لتوسيع مخرجات الخلية ({0})",
+      "cellExpandOutputButtonLabel": "توسيع مخرجات الخلية ⁨({0})⁩",
+      "cellExpandOutputButtonLabelWithDoubleClick": "انقر مزدوجاً لتوسيع مخرجات الخلية ⁨({0})⁩",
       "cellOutputsCollapsedMsg": "المخرجات مطوية"
     },
     "vs/workbench/contrib/notebook/browser/view/cellParts/foldedCellHint": {
@@ -15299,8 +15299,8 @@
       "hiddenCellsLabelPlural": "{0} خلايا مخفية"
     },
     "vs/workbench/contrib/notebook/browser/view/cellParts/markupCell": {
-      "cellExpandInputButtonLabel": "توسيع مدخلات الخلية ({0})",
-      "cellExpandInputButtonLabelWithDoubleClick": "انقر مزدوجاً لتوسيع مدخلات الخلية ({0})"
+      "cellExpandInputButtonLabel": "توسيع مدخلات الخلية ⁨({0})⁩",
+      "cellExpandInputButtonLabelWithDoubleClick": "انقر مزدوجاً لتوسيع مدخلات الخلية ⁨({0})⁩"
     },
     "vs/workbench/contrib/notebook/browser/view/renderers/backLayerWebView": {
       "notebook.emptyMarkdownPlaceholder": "خلية Markdown فارغة. انقر مزدوجاً عليها أو اضغط Enter للتحرير.",
@@ -15510,7 +15510,7 @@
       "editKeybindingLabel": "تغيير اختصار لوحة المفاتيح",
       "editWhen": "تغيير تعبير when",
       "error": "خطأ '{0}' أثناء تحرير اختصار لوحة المفاتيح. افتح ملف 'keybindings.json' وأصلح الأخطاء.",
-      "extension label": "إضافة ({0})",
+      "extension label": "إضافة ⁨({0})⁩",
       "foundResults": "{0} نتائج",
       "keybinding": "اختصار لوحة المفاتيح",
       "keybindingsLabel": "اختصارات لوحة المفاتيح",
@@ -15560,8 +15560,8 @@
       "openGlobalKeybindingsFile": "فتح اختصارات لوحة المفاتيح (JSON)",
       "openGlobalSettings": "فتح إعدادات المستخدم",
       "openRawDefaultSettings": "فتح الإعدادات الافتراضية (JSON)",
-      "openRemoteSettings": "فتح إعدادات الاستخدام عن بُعد ({0})",
-      "openRemoteSettingsJSON": "فتح إعدادات الاستخدام عن بُعد (JSON) ({0})",
+      "openRemoteSettings": "فتح إعدادات الاستخدام عن بُعد ⁨({0})⁩",
+      "openRemoteSettingsJSON": "فتح إعدادات الاستخدام عن بُعد (JSON) ⁨({0})⁩",
       "openSettings2": "إظهار الإعدادات (واجهة المستخدم)",
       "openSettingsJson": "إظهار الإعدادات (JSON)",
       "openUserSettingsJson": "فتح إعدادات المستخدم (JSON)",
@@ -15587,7 +15587,7 @@
     },
     "vs/workbench/contrib/preferences/browser/preferencesActions": {
       "configureLanguageBasedSettings": "تكوين الإعدادات الخاصة باللغة...",
-      "languageDescriptionConfigured": "({0})",
+      "languageDescriptionConfigured": "⁨({0})⁩",
       "pickLanguage": "تحديد لغة"
     },
     "vs/workbench/contrib/preferences/browser/preferencesEditor": {
@@ -16416,7 +16416,7 @@
       "scm history": "سجل التحكم بالمصادر",
       "scmGraphHistoryItemRef": "اختر مرجعاً واحداً أو أكثر لعرضه، اكتب للفلترة",
       "scmGraphRepository": "اختر المستودع للعرض، اكتب للفلترة",
-      "scmGraphViewOutdated": "قم بتحديث الرسم البياني باستخدام إجراء التحديث ({0}).",
+      "scmGraphViewOutdated": "قم بتحديث الرسم البياني باستخدام إجراء التحديث ⁨({0})⁩.",
       "setListViewMode": "العرض كقائمة",
       "setTreeViewMode": "العرض كشجرة"
     },
@@ -16908,8 +16908,8 @@
       "bad_name1": "اسم ملف غير صالح",
       "bad_name2": "'{0}' ليس اسم ملف صالحاً",
       "bad_name3": "'{0}' موجود بالفعل",
-      "detail.label": "({0}) {1}",
-      "global.1": "({0})",
+      "detail.label": "⁨({0})⁩ ⁨{1}⁩",
+      "global.1": "⁨({0})⁩",
       "global.scope": "(عام)",
       "group.global": "المقتطفات الموجودة",
       "miOpenSnippets": "مقتطفات الكود",
@@ -17143,7 +17143,7 @@
       "disallow": "منع",
       "openTask": "فتح ملف",
       "openTasks": "فتح الملفات",
-      "tasks.run.allowAutomatic": "مساحة العمل هذه تحتوي على مهام ({0}) مُعرَّفة ({1}) يمكنها تشغيل العمليات تلقائياً عند فتح مساحة العمل. هل تريد السماح بتنفيذ المهام تلقائياً في جميع مساحات العمل الموثوقة؟",
+      "tasks.run.allowAutomatic": "مساحة العمل هذه تحتوي على مهام ⁨({0})⁩ مُعرَّفة ({1}) يمكنها تشغيل العمليات تلقائياً عند فتح مساحة العمل. هل تريد السماح بتنفيذ المهام تلقائياً في جميع مساحات العمل الموثوقة؟",
       "workbench.action.tasks.allowAutomaticTasks": "السماح بالمهام التلقائية",
       "workbench.action.tasks.disallowAutomaticTasks": "منع المهام التلقائية",
       "workbench.action.tasks.manageAutomaticRunning": "إدارة المهام التلقائية"
@@ -18065,19 +18065,19 @@
     },
     "vs/workbench/contrib/terminalContrib/chat/browser/terminalChatAccessibilityHelp": {
       "chat.signals": "يمكن تعديل إشارات إمكانية الوصول عبر الإعدادات التي تبدأ بـ signals.chat. افتراضياً، إذا استغرق الطلب أكثر من 4 ثوانٍ، ستسمع صوتاً يشير إلى أن التقدم لا يزال جارياً.",
-      "inlineChat.access": "يمكن تفعيلها باستخدام الأمر: الطرفية: بدء المحادثة ({0})، والذي سيركّز على منطقة الإدخال.",
-      "inlineChat.focusInput": "الوصول إلى منطقة الإدخال من الاستجابة ({0}).",
+      "inlineChat.access": "يمكن تفعيلها باستخدام الأمر: الطرفية: بدء المحادثة ⁨({0})⁩، والذي سيركّز على منطقة الإدخال.",
+      "inlineChat.focusInput": "الوصول إلى منطقة الإدخال من الاستجابة ⁨({0})⁩.",
       "inlineChat.focusInputNoKb": "الوصول إلى الاستجابة من منطقة الإدخال بالضغط على Shift+Tab أو بتعيين اختصار لأمر: إدخال التركيز على الطرفية.",
-      "inlineChat.focusResponse": "الوصول إلى الاستجابة من منطقة الإدخال ({0}).",
+      "inlineChat.focusResponse": "الوصول إلى الاستجابة من منطقة الإدخال ⁨({0})⁩.",
       "inlineChat.focusResponseNoKb": "الوصول إلى الاستجابة من منطقة الإدخال باستخدام Tab أو بتعيين اختصار لأمر: التركيز على استجابة الطرفية.",
-      "inlineChat.input": "تتيح منطقة الإدخال للمستخدم كتابة طلب وتنفيذه ({0}). سيتم إغلاق العنصر وتجاهل كل المحتوى عند الضغط على Esc وستستعيد الطرفية التركيز.",
+      "inlineChat.input": "تتيح منطقة الإدخال للمستخدم كتابة طلب وتنفيذه ⁨({0})⁩. سيتم إغلاق العنصر وتجاهل كل المحتوى عند الضغط على Esc وستستعيد الطرفية التركيز.",
       "inlineChat.inputNoKb": "تتيح منطقة الإدخال للمستخدم كتابة طلب وتنفيذه باستخدام Tab للوصول إلى زر إنشاء طلب، والذي لا يمكن تشغيله حالياً عبر اختصار. سيتم إغلاق العنصر وتجاهل كل المحتوى عند الضغط على Esc وستستعيد الطرفية التركيز.",
-      "inlineChat.insertCommand": "مع التركيز في محرر الأوامر في منطقة الإدخال، إجراء الطرفية: إدراج أمر محادثة ({0}).",
+      "inlineChat.insertCommand": "مع التركيز في محرر الأوامر في منطقة الإدخال، إجراء الطرفية: إدراج أمر محادثة ⁨({0})⁩.",
       "inlineChat.insertCommandNoKb": "أدرج أمراً بالضغط على الزر، حيث لا يتم تشغيل الإجراء حالياً بواسطة اختصار.",
-      "inlineChat.inspectResponseMessage": "يمكن فحص الاستجابة في العرض المتاح ({0}).",
+      "inlineChat.inspectResponseMessage": "يمكن فحص الاستجابة في العرض المتاح ⁨({0})⁩.",
       "inlineChat.inspectResponseNoKb": "عندما يكون التركيز على منطقة الإدخال، افحص الاستجابة في العرض المتاح عبر أمر فتح العرض المتاح، والذي لا يتم تشغيله حالياً بواسطة اختصار.",
       "inlineChat.overview": "تحدث المحادثة المضمّنة داخل الطرفية. وهي مفيدة لاقتراح أوامر الطرفية. تذكر أن الكود المُنشأ بواسطة الذكاء الاصطناعي قد يكون غير صحيح.",
-      "inlineChat.runCommand": "مع التركيز في منطقة الإدخال أو محرر الأوامر، إجراء الطرفية: تشغيل أمر المحادثة ({0}).",
+      "inlineChat.runCommand": "مع التركيز في منطقة الإدخال أو محرر الأوامر، إجراء الطرفية: تشغيل أمر المحادثة ⁨({0})⁩.",
       "inlineChat.runCommandNoKb": "شغّل أمراً بالضغط على الزر، حيث لا يتم تشغيل الإجراء حالياً بواسطة اختصار.",
       "inlineChat.toolbar": "استخدم Tab للوصول إلى الأجزاء الشرطية مثل الأوامر والحالة واستجابات الرسائل وغيرها."
     },
@@ -18943,7 +18943,7 @@
       "delete profile": "حذف ملف التعريف...",
       "delete specific profile": "حذف ملف تعريف...",
       "export profile": "تصدير ملف التعريف...",
-      "export profile in share": "تصدير ملف التعريف ({0})...",
+      "export profile in share": "تصدير ملف التعريف ⁨({0})⁩...",
       "invalid profile": "ملف التعريف المُسقَط غير صالح.",
       "manage profiles": "ملفات التعريف",
       "miOpenProfiles": "ملفات التعريف",
@@ -18955,7 +18955,7 @@
       "openShort": "{0}",
       "pick profile": "تحديد ملف تعريف",
       "pick profile to delete": "تحديد ملفات التعريف للحذف",
-      "profiles": "ملف التعريف ({0})",
+      "profiles": "ملف التعريف ⁨({0})⁩",
       "save profile as": "حفظ ملف التعريف الحالي باسم...",
       "selectProfile": "تحديد ملف تعريف",
       "switchProfile": "تبديل ملف التعريف...",
@@ -19091,7 +19091,7 @@
       "replace remote": "استبدال النسخة البعيدة",
       "report issue": "الإبلاغ عن مشكلة",
       "reset": "مسح البيانات السحابية...",
-      "resolveConflicts_global": "عرض التعارضات ({0})",
+      "resolveConflicts_global": "عرض التعارضات ⁨({0})⁩",
       "service changed and turned off": "تم تعطيل مزامنة الإعدادات لأن {0} يستخدم الآن خدمة منفصلة. أعد تفعيل المزامنة.",
       "service switched to insiders": "تم تبديل مزامنة الإعدادات إلى خدمة Insiders",
       "service switched to stable": "تم تبديل مزامنة الإعدادات إلى الخدمة المستقرة",
@@ -19292,7 +19292,7 @@
       "dialogClose": "إغلاق مربع الحوار"
     },
     "vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted": {
-      "acessibleViewHint": "فحص هذا في العرض القابل للوصول ({0}).\r\n",
+      "acessibleViewHint": "فحص هذا في العرض القابل للوصول ⁨({0})⁩.\r\n",
       "acessibleViewHintNoKbOpen": "فحص هذا في العرض القابل للوصول عبر أمر فتح العرض القابل للوصول الذي لا يمكن تشغيله عبر اختصار لوحة المفاتيح حالياً.\r\n",
       "allDone": "تعليم كمكتمل",
       "checkboxTitle": "عند تحديد هذا الخيار، تُعرض هذه الصفحة عند بدء التشغيل.",
@@ -19602,7 +19602,7 @@
       "change keybinding": "تكوين اختصار لوحة المفاتيح",
       "file": "ملف",
       "miNewFile2": "ملف نصي",
-      "miNewFileWithName": "إنشاء ملف ({0})",
+      "miNewFileWithName": "إنشاء ملف ⁨({0})⁩",
       "newFilePlaceholder": "تحديد نوع ملف أو إدخال اسم ملف...",
       "newFileTitle": "ملف جديد...",
       "notebook": "دفتر ملاحظات",
@@ -20748,7 +20748,7 @@
       "contributes.css.path": "مسار ملف CSS. المسار نسبي لمجلد الإضافة.",
       "invalid.css.configuration": "\"contributes.css\" يجب أن تكون مصفوفة.",
       "invalid.css.path": "\"contributes.css.path\" يجب أن تكون سلسلة نصية.",
-      "invalid.css.path.location": "\"contributes.css.path\" ({0}) يجب أن يكون ضمن مجلد الإضافة ({1})."
+      "invalid.css.path.location": "\"contributes.css.path\" ⁨({0})⁩ يجب أن يكون ضمن مجلد الإضافة ({1})."
     },
     "vs/workbench/services/themes/browser/fileIconThemeData": {
       "error.cannotparseicontheme": "مشاكل أثناء تحليل ملف أيقونات الملفات: {0}",
@@ -20876,7 +20876,7 @@
       "invalid.icons.configuration": "\"configuration.icons\" يجب أن تكون كائناً تكون خصائصه أسماء الأيقونات.",
       "invalid.icons.default": "\"configuration.icons.default\" يجب أن يكون مرجعاً لمعرف أيقونة سمة أخرى (سلسلة نصية) أو تعريف أيقونة (كائن) بخصائص \"fontPath\" و\"fontCharacter\".",
       "invalid.icons.default.fontPath.extension": "\"contributes.icons.default.fontPath\" يجب أن يكون بامتداد ملف \"woff\" أو \"woff2\" أو \"ttf\"، الحالي هو \"{0}\".",
-      "invalid.icons.default.fontPath.path": "\"contributes.icons.default.fontPath\" ({0}) يجب أن يكون ضمن مجلد الإضافة ({0}).",
+      "invalid.icons.default.fontPath.path": "\"contributes.icons.default.fontPath\" ⁨({0})⁩ يجب أن يكون ضمن مجلد الإضافة ⁨({0})⁩.",
       "invalid.icons.description": "'configuration.icons.description' يجب تعريفه ولا يمكن أن يكون فارغاً",
       "invalid.icons.id.format": "مفاتيح \"configuration.icons\" تمثل معرف الأيقونة ويمكن أن تحتوي فقط على حروف وأرقام وعلامات ناقص. يجب أن تتكون من جزأين على الأقل بالشكل \"مكون-اسمالأيقونة\"."
     },
@@ -21226,7 +21226,7 @@
       "noProvider": "لا يوجد مزود متاح لهذا التبويب",
       "openChat": "فتح المحادثة",
       "openChatTooltipNoKeybinding": "فتح المحادثة",
-      "openChatTooltipWithKeybinding": "فتح المحادثة ({0})",
+      "openChatTooltipWithKeybinding": "فتح المحادثة ⁨({0})⁩",
       "pressSendOrEnter": "اضغط Enter أو انقر إرسال لإنشاء جلسة وكيل جديدة",
       "send": "إرسال",
       "sendToAgentAria": "إرسال رسالة إلى الوكيل: {0}",
@@ -21342,7 +21342,7 @@
       "watch": "المراقبة"
     },
     "vs/workbench/contrib/extensions/common/extensionsUtils": {
-      "disableOtherKeymapsConfirmation": "تعطيل خرائط المفاتيح الأخرى ({0}) لتجنب تعارضات الاختصارات؟",
+      "disableOtherKeymapsConfirmation": "تعطيل خرائط المفاتيح الأخرى ⁨({0})⁩ لتجنب تعارضات الاختصارات؟",
       "no": "لا",
       "yes": "نعم"
     },
@@ -21609,7 +21609,7 @@
       "suggest.cdPath.absolute": "تفعيل الميزة واستخدام مسارات مطلقة. مفيد عندما لا تدعم الصدفة '$CDPATH' أصلياً.",
       "suggest.cdPath.off": "تعطيل الميزة.",
       "suggest.cdPath.relative": "تفعيل الميزة واستخدام مسارات نسبية.",
-      "suggest.enabled": "تفعيل اقتراحات IntelliSense في الطرفية (وتُسمى أيضاً الإكمال التلقائي) للمفسّرات المدعومة ({0}). يتطلب تفعيل {1} وعمله أو [تثبيته يدوياً](https://code.visualstudio.com/docs/terminal/shell-integration#_manual-installation-install).",
+      "suggest.enabled": "تفعيل اقتراحات IntelliSense في الطرفية (وتُسمى أيضاً الإكمال التلقائي) للمفسّرات المدعومة ⁨({0})⁩. يتطلب تفعيل {1} وعمله أو [تثبيته يدوياً](https://code.visualstudio.com/docs/terminal/shell-integration#_manual-installation-install).",
       "suggest.inlineSuggestion": "يتحكم فيما إذا كان يتم اكتشاف اقتراح الصدفة المضمّن وكيفية ترتيبه.",
       "suggest.inlineSuggestion.alwaysOnTop": "تفعيل الميزة ووضع الاقتراح المضمّن دائماً في الأعلى.",
       "suggest.inlineSuggestion.alwaysOnTopExceptExactMatch": "تفعيل الميزة وترتيب الاقتراح المضمّن بدون فرض ظهوره أولاً. المطابقات الدقيقة تظهر فوق الاقتراح المضمّن.",

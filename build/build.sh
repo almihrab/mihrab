@@ -257,7 +257,12 @@ fi
 # ولا بديلَ عن ترقيعِ السكربت قبل `cargo build`: بعده يصير العنوانُ بايتاتٍ.
 if [[ -f "$UP/build_cli.sh" ]]; then
   "$PY_BIN" "$ROOT/build/patch_cli_endpoints.py" "$UP/build_cli.sh" \
-    || { echo "❌ فشل ترقيعُ وجهتَي الـCLI — و[BR-05] يبقى مخبوزًا في الثنائيّ." >&2; exit 1; }
+    || { echo "❌ فشل ترقيعُ وجهتَي الـCLI — [BR-05] يبقى مخبوزًا في الثنائيّ، أي أنّ" >&2
+         echo "   الـCLI سيظلّ يخاطب خوادمَ المنبع من جهاز المستخدم." >&2
+         echo "   الملفّ: $UP/build_cli.sh · المرقِّع: build/patch_cli_endpoints.py" >&2
+         echo "   الأرجحُ بعد ترقية منبع: المِرساةُ لم تعد تُطابق. شغّله وحدَه لترى سببَه:" >&2
+         echo "     \"$PY_BIN\" \"$ROOT/build/patch_cli_endpoints.py\" \"$UP/build_cli.sh\"" >&2
+         exit 1; }
 fi
 
 
@@ -703,7 +708,11 @@ if [[ "${SKIP_SOURCE:-no}" == "yes" ]]; then BUILD_ARGS+=("-s"); fi
 # فشلٌ قاتل: بلا هذا يعود لوحُ الترحيب يجلب إعلاناتِ المنبع من مستودعه في كلّ
 # فتحةٍ أولى، ويُخبِره بكلّ زائرٍ جديد.
 "$PY_BIN" "$ROOT/build/patch_dev_build_env.py" "$UP/dev/build.sh" || {
-  echo "❌ فشل ترقيعُ بيئة dev/build.sh — و[BR-05] يعود صامتًا." >&2; exit 1; }
+  echo "❌ فشل ترقيعُ بيئة dev/build.sh — [BR-05] يعود صامتًا، أي أنّ لوحَ الترحيب" >&2
+  echo "   سيجلب إعلاناتِ المنبع ومُبلِّغُ الأعطاب سيبحث في قضاياه." >&2
+  echo "   الملفّ: $UP/dev/build.sh · المرقِّع: build/patch_dev_build_env.py" >&2
+  echo "   شغّله وحدَه لترى سببَه:  \"$PY_BIN\" \"$ROOT/build/patch_dev_build_env.py\" \"$UP/dev/build.sh\"" >&2
+  exit 1; }
 
 log "بدء dev/build.sh ${BUILD_ARGS[*]:-}"
 # "${BUILD_ARGS[@]:-}" يمنع خطأ unbound تحت set -u عند مصفوفة فارغة في إصدارات bash الأقدم.

@@ -5154,6 +5154,85 @@ def _vscode_source_patchers_survive_reset():
         "الفحصُ يقيس صفرًا (المنتظَر اثنان على الأقلّ: esbuild_fileurl · welcome_web_entries).")
 
 
+@check("ثوابتُ المخرج متطابقةٌ بين مداخل المتصفّح [UX-02]")
+def _web_entries_share_exit_copy():
+    """‏[UX-02] رابطُ التنزيل وأزرارُه مكرَّرةٌ حرفيًّا في مدخلَي متصفّحٍ لا يستوردان.
+
+    `mihrab-welcome` و`sad-lang` امتدادان مستقلّان، يُحزَم مدخلُ كلٍّ منهما بـesbuild
+    وحدَه — فلا سبيلَ إلى ثابتٍ مشترك. والحُجّةُ المكتوبةُ في `extension.web.js` ضدّ
+    تكرار النصّ داخل الملفّ تسري بين الملفَّين بحرفها: يومَ يتغيّر عنوانُ التنزيل
+    يتغيّر في واحدٍ ويُنسى الآخر، فيبقى نصفُ المنتَج يشير إلى صفحةٍ زائلة.
+
+    وإذ يتعذّر التجريد يُحرَس **الأثر**: القيمُ متطابقة، أو البناءُ يحمرّ.
+    """
+    import re as _re
+    entries = []
+    exts = os.path.join(ROOT, "extensions")
+    for ext in sorted(os.listdir(exts)):
+        f = os.path.join(exts, ext, "extension.web.js")
+        if os.path.isfile(f):
+            entries.append((ext, _read(f)))
+    assert len(entries) >= 2, (
+        "‏[UX-02] وُجد " + str(len(entries)) + " مدخلَ متصفّحٍ — الفحصُ يقيس صفرًا "
+        "(المنتظَر اثنان على الأقلّ: mihrab-welcome · sad-lang).")
+
+    # ⚠️ **ورابطُ التنزيل يسكن أربعةَ مواضعَ لا اثنَين.** الصياغةُ الأولى حرست
+    #    مدخلَي المتصفّح وحدَهما، فكان البناءُ يحمرّ إن نُسي أحدُهما **ويصمت** إن
+    #    نُسي مدخلُ المكتب أو هويّةُ المنتَج — وهما نصفُ المواضع. وحارسٌ يمنح
+    #    طمأنينةً أوسعَ ممّا يقيس أسوأُ من غيابه، لأنّه يُقنع القارئَ بأنّ الفئةَ
+    #    مغلقة. فيُقاس **كلُّ** موضعٍ يحمل العنوان.
+    _url_sites = [
+        ("extensions/mihrab-welcome/extension.web.js", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
+        ("extensions/sad-lang/extension.web.js", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
+        ("extensions/mihrab-welcome/extension.js", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
+        ("product-overrides/product.json", r'"downloadUrl"\s*:\s*"([^"]+)"'),
+    ]
+    _urls = {}
+    for rel, pat in _url_sites:
+        f = os.path.join(ROOT, *rel.split("/"))
+        assert os.path.isfile(f), (
+            "‏[UX-02] موضعُ رابطِ تنزيلٍ زال: " + rel + " — إن كان الحذفُ مقصودًا "
+            "فأزِله من `_url_sites` بسببٍ مكتوب، وإلّا فالفحصُ صار يقيس أقلَّ ممّا يدّعي.")
+        m = _re.search(pat, _read(f))
+        assert m, (
+            "‏[UX-02] لا رابطَ تنزيلٍ في " + rel + " — إمّا زال المخرجُ الذي نعرضه "
+            "للمستخدم، وإمّا تغيّر اسمُ المفتاح فصار هذا الموضعُ خارجَ القياس.")
+        _urls.setdefault(m.group(1), []).append(rel)
+    assert len(_urls) == 1, (
+        "‏[UX-02] رابطُ التنزيل يختلف بين مواضعه:\n   "
+        + "\n   ".join(repr(v) + " ⇐ " + "، ".join(x) for v, x in sorted(_urls.items()))
+        + "\n   فيومَ يتغيّر العنوانُ يتغيّر في بعضها ويُنسى الباقي، ويبقى جزءٌ من "
+        "المنتَج يشير إلى صفحةٍ زائلة.")
+
+    # ⚠️ **الغيابُ عطبٌ كالاختلاف — وهو الفرعُ الأرجح.** أوّلُ صياغةٍ جمعت القيمَ
+    #    الموجودةَ ثمّ سألت «أهي واحدة؟». فقِيست عليها أربعُ طفراتٍ فمرّت ثلاثٌ:
+    #    حذفُ الثابت من الاثنين، وحذفُه من واحد، وإعادةُ تسميته في واحد — وكلُّها
+    #    ما يقع فعلًا أثناء إعادة صياغة، لا «قيمتان مختلفتان» التي أمسكتها وحدَها.
+    #    فصار السؤالُ: **أموجودٌ في كلّ مدخل، وبقيمةٍ واحدة؟**
+    names = [e for e, _ in entries]
+    for name, pat in (("DOWNLOAD_URL", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
+                      ("COPY.download", r'download:\s*"([^"]+)"'),
+                      ("COPY.ok", r'ok:\s*"([^"]+)"')):
+        vals, missing = {}, []
+        for ext, code in entries:
+            m = _re.search(pat, _code(code))
+            if m:
+                vals.setdefault(m.group(1), []).append(ext)
+            else:
+                missing.append(ext)
+        assert not missing, (
+            "‏[UX-02] «" + name + "» غائبٌ عن: " + "، ".join(missing)
+            + " (وموجودٌ في: " + "، ".join(sorted(set(names)) if not vals else
+                                          sorted(x for v in vals.values() for x in v)) + ").\n"
+            "   وهما امتدادان لا يستورد أحدُهما الآخر، فالغيابُ لا يُكشَف إلّا هنا: "
+            "يبقى نصفُ المنتَج يعرض المخرجَ ونصفُه لا يعرضه، أو يشير أحدُهما إلى "
+            "صفحةٍ زائلة. إن كان الحذفُ مقصودًا فأزِل الاسمَ من هذا الفحص بسببٍ مكتوب.")
+        assert len(vals) == 1, (
+            "‏[UX-02] «" + name + "» يختلف بين مداخل المتصفّح:\n   "
+            + "\n   ".join(repr(v) + " ⇐ " + ", ".join(x) for v, x in sorted(vals.items()))
+            + "\n   وهما امتدادان لا يستورد أحدُهما الآخر، فالتطابقُ يُحرَس ولا يُفترَض.")
+
+
 @check("مِرساةٌ لا تبتلع نهايةَ السطر [CRLF-02]")
 def _patcher_anchors_do_not_eat_cr():
     """‏[CRLF-02] مِرساةٌ تستهلك نهايةَ السطر تُنتج ملفًّا مختلطَ النهايات.
