@@ -65,7 +65,23 @@ for _s in (sys.stdout, sys.stderr):
 
 FILES = ("build_cli.sh",)
 
-OUR_RELEASES = "https://github.com/mihrab-org/mihrab/releases"
+# ⛔ **لا وجهةَ تنزيلٍ إطلاقًا — ولا حتّى وجهتُنا.** أوّلُ صياغةٍ وجّهت القالبَ إلى
+#    `github.com/mihrab-org/mihrab/releases`، وقِيس بعدها أنّ `mihrab-org` **غيرُ
+#    مسجَّلٍ على GitHub** (‏404 للمنظّمة والمستخدم والمستودع). فصار الثنائيُّ يشير
+#    إلى اسمٍ يستطيع أيُّ أحدٍ تسجيلَه، ثمّ رفعَ أرشيفٍ بالاسم المتوقَّع، فيُنزَّل
+#    ويُشغَّل خادمًا على جهاز المستخدم — بلا توقيعٍ ولا بصمةٍ محقَّقة.
+#
+#    وقبل التوجيه كان الخطرُ **أقلّ**: وجهةُ المنبع تسريبُ خصوصيّةٍ حقيقيّ، لكنّ
+#    اسمَها مملوكٌ لجهةٍ حقيقيّةٍ لا تُنتحَل. أي أنّ ذلك «الإصلاح» بادَل تسريبَ
+#    بياناتٍ وصفيّةٍ **بسطحِ انتحال** — وهو أسوأُ ما فيه أنّه يبدو إصلاحًا.
+#
+#    والصوابُ ألّا تُصدَّر الوجهةُ أصلًا: `option_env!` يعطي `None` فيردّ الـCLI
+#    «no download url» صراحةً. ولا يُشحَن وعدٌ بلا خلفيّة: لا خطوةَ تحزم
+#    `…-reh-web-….tar.gz` ولا ترفعه (‏`publish_release.sh` ينشر إلى
+#    `sad-lang.org/mihrab/dl/` وبلا معرّفٍ لأثرِ REH). فالتوجيهُ إلى **أيّ** عنوانٍ
+#    اليومَ يُنتج 404 — والفرقُ الوحيد أنّ عنوانًا لا نملكه يُنتج ما هو أسوأ.
+#
+#    ويُعاد سطرًا واحدًا يومَ يُنشَر الأثرُ فعلًا: `${VSCODE_CLI_DOWNLOAD_ENDPOINT:-<وجهتنا>}`.
 
 # ‏المِرساتان تقبلان أيَّ قيمةٍ افتراضيّة: ترقيةُ المنبع تغيّرها (‏`vscodium-insiders`
 # مثلًا)، والمقصودُ **الشكلُ** — `export VAR="قيمةٌ حرفيّةٌ بلا شرط"` — لا القيمةُ
@@ -93,7 +109,7 @@ UP = re.compile(r'^export VSCODE_CLI_UPDATE_ENDPOINT="([^"$]+)"(?=\r?$)', re.M)
 # `serverApplicationName` من `product.json` بالصيغة نفسِها.
 APP = re.compile(r'^export VSCODE_CLI_APP_NAME=.*?(?=\r?$)', re.M)
 
-DL_DONE = re.compile(r'export VSCODE_CLI_DOWNLOAD_ENDPOINT="\$\{VSCODE_CLI_DOWNLOAD_ENDPOINT:-')
+DL_DONE = re.compile(r'if \[\[ -n "\$\{VSCODE_CLI_DOWNLOAD_ENDPOINT:-\}" \]\]')
 UP_DONE = re.compile(r'if \[\[ -n "\$\{VSCODE_CLI_UPDATE_ENDPOINT:-\}" \]\]')
 APP_DONE = re.compile(r'VSCODE_CLI_APP_NAME="\$\( node -p')
 
@@ -132,8 +148,11 @@ def main(path):
     eol = "\r\n" if "\r\n" in src else "\n"
 
     def _dl(m):
-        return (m.group(1) + 'export VSCODE_CLI_DOWNLOAD_ENDPOINT='
-                + '"${VSCODE_CLI_DOWNLOAD_ENDPOINT:-' + OUR_RELEASES + '}"')
+        pad = m.group(1)
+        return (pad + '# محراب [BR-05]: لا وجهةَ تنزيلٍ — لا أثرَ REH منشورًا بعد.' + eol
+                + pad + 'if [[ -n "${VSCODE_CLI_DOWNLOAD_ENDPOINT:-}" ]]; then' + eol
+                + pad + '  export VSCODE_CLI_DOWNLOAD_ENDPOINT' + eol
+                + pad + 'fi')
 
     _sib = SIBLING.search(src)
     if not _sib or SIB_FIELD not in _sib.group(1):
@@ -174,8 +193,8 @@ def main(path):
     io.open(tmp, "w", encoding="utf-8", newline="").write(out)
     os.replace(tmp, path)
     if "وجهةُ التنزيل" in counts:
-        print("  ✅ وجهةُ التنزيل ⇐ " + OUR_RELEASES
-              + " (" + str(counts["وجهةُ التنزيل"]) + " موضعًا)")
+        print("  ✅ وجهةُ التنزيل رُفِعت — بلا ضبطٍ خارجيٍّ لا عنوانَ إطلاقًا ("
+              + str(counts["وجهةُ التنزيل"]) + " موضعًا)")
     if "وجهةُ التحديث" in counts:
         print("  ✅ وجهةُ التحديث صارت شرطيّةً — بلا ضبطٍ خارجيٍّ لا عنوانَ إطلاقًا")
     if "اسمُ الأثر" in counts:

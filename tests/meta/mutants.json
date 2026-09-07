@@ -377,7 +377,7 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "product-overrides/product.json",
-      "old": "\"releaseNotesUrl\": \"https://github.com/mihrab-org/mihrab/releases\"",
+      "old": "\"releaseNotesUrl\": \"https://github.com/sadlang/mihrab/releases\"",
       "new": "\"releaseNotesUrl\": \"https://github.com/sadlang/mihrab-ide/releases\"",
       "expect": "مرجعٌ بائتٌ للمستودع القديم",
       "why": "رابطٌ يصل المستخدمَ في «ملاحظات الإصدار» ويُطبَع في ثنائيّاتٍ موقَّعة. يعمل اليومَ بتحويل GitHub، ويسقط يومَ يُعاد استعمالُ الاسم القديم."
@@ -427,7 +427,7 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "build/build.sh",
-      "old": "export GH_REPO_PATH=\"mihrab-org/mihrab\"",
+      "old": "export GH_REPO_PATH=\"sadlang/mihrab\"",
       "new": "export GH_REPO_PATH=\"VSCodium/vscodium\"",
       "expect": "يشير إلى المنبع",
       "why": "عنوانٌ يُضرَب في الحزمة المصغَّرة وقتَ الترقيع، فلا يراه فحصُ `product.json` ولا فحصُ النصّ المخبوز. وأثرُه أنّ لوحَ الترحيب يجلب `announcements-extra.json` من مستودع المنبع في كلّ فتحةٍ أولى — يُخبِره بزائرِنا ويعرض إعلاناتِه في لوحِنا. قِيس حيًّا على mihrab.dev عبر CDP بعد النشر، لا استُنتج."

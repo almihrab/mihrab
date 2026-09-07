@@ -5207,7 +5207,7 @@ def _repo_references_are_current():
     # **يُبنى من جزأين لا يُكتب حرفيًّا**: الفحصُ يمسح الشجرةَ المتعقَّبة ومنها هذا
     # الملفّ، فكتابةُ الاسم القديم حرفيًّا تجعله يبلّغ عن نفسِه. أُوقِع فعلًا.
     OLD = "sadlang" + "/mihrab" + "-ide"
-    NEW = "mihrab-org" + "/mihrab"
+    NEW = "sadlang" + "/mihrab"
     try:
         out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
                              capture_output=True, timeout=60)

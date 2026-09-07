@@ -1022,7 +1022,7 @@ a{color:var(--accent)}
   <p>ومفسّرُ ألف من <a href="{rt_src}">{rt_src_short}</a>، الإصدار {rt_ver}،
   مشحونٌ في <code>bin/</code> داخل الإضافة وبصمةُ حزمةِ كلِّ منصّةٍ مثبَّتةٌ كذلك.</p>
   <p>محراب — منصّةُ تطويرٍ عربيّةٌ مفتوحةُ المصدر (MIT) ·
-  <a href="https://github.com/mihrab-org/mihrab">المستودع</a></p>
+  <a href="https://github.com/sadlang/mihrab">المستودع</a></p>
 </footer>
 </div>""".format(
         src=html.escape(ext.get("source", "")),

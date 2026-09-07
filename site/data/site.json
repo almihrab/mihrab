@@ -2,7 +2,7 @@
   "_comment": "نصُّ الصفحة الأولى وصفحة التنزيل — بياناتٌ لا كود. تغييرُ جملةٍ تسويقيّة يجب ألّا يمرَّ بمراجعةِ بايثون.",
   "canonical": "https://sad-lang.org/mihrab/",
   "mirror": "https://sadlang.github.io/mihrab-ide/",
-  "repo": "https://github.com/mihrab-org/mihrab",
+  "repo": "https://github.com/sadlang/mihrab",
   "hero": {
     "tagline": "للمِحرابِ اتّجاه، ولكودِك وِجهة.",
     "lede": "محرّرُ أكوادٍ عربيُّ الواجهة والاتّجاه. لا ترجمةً فوق قشرةٍ إنجليزيّة — بل تخطيطٌ من اليمين إلى اليسار في المحرّر نفسه، وفي الطرفيّة، وفي لوحة الإعدادات.",
