@@ -5583,6 +5583,76 @@ def _repo_references_are_current():
         f"الحارس) أو أنّ المراجعَ زالت. لا يُترَك أخضرَ فارغًا.")
 
 
+
+@check("ملاحظاتُ الإصدار: العقدُ الرباعيّ [RN-01]")
+def _release_notes_contract_holds():
+    """عنوانٌ واحدٌ مكتوبٌ في أربعة ملفّاتٍ لا يعرف بعضُها بعضًا — ومن غيّر واحدًا صمت الباقي.
+
+    المسارُ كاملًا: رقعةُ النواة ‎036‎ تجعل المحرِّرَ يطلب
+    ‏`<releaseNotesBaseUrl>/v<كبير>_<صغير>.md`؛ والقاعدةُ في `product-overrides/product.json`؛
+    وكتلةُ `location` في إعداد nginx هي ما يخدم ذلك المسار؛ و`publish_release_notes.sh` هو
+    ما يضع الملفَّ هناك؛ والمصدرُ في `release-notes/`.
+
+    **والفشلُ عند القارئ صامتٌ لا صاخب**: جلبٌ يعود ‎404‎ — أو نصٌّ لا يبدأ بـ«# » —
+    يرتدّ بالقارئ إلى صفحةِ إصداراتٍ في المتصفّح، فيبدو كأنّ الميزةَ لم تُبنَ أصلًا.
+    ولا طبقةَ أخرى تمسك هذا: البناءُ ينجح، والرقعةُ تُطبَّق، والاختبارُ الحيُّ لا يملك
+    خادمًا. فيُقاس الاتّساقُ هنا.
+    """
+    import json as _json
+    import re as _re
+
+    prod = _json.loads(_read(os.path.join(ROOT, "product-overrides", "product.json")))
+    base = prod.get("releaseNotesBaseUrl")
+    assert base, ("لا `releaseNotesBaseUrl` في هوية محراب — بلا مفتاحٍ ترتدّ رقعةُ ‎036‎ إلى "
+                  "المنبع ويقرأ المستخدمُ ملاحظاتِ إصدارِ Visual Studio Code")
+    assert base.startswith("https://"), f"قاعدةُ الملاحظات ليست https: {base}"
+    assert not base.endswith("/"), (
+        f"قاعدةُ الملاحظات تنتهي بشرطة: {base} — والمحرِّرُ يضيف شرطةً بنفسه "
+        "(`${baseUrl}/v…`) فيصير المسارُ مزدوجَ الشرطة")
+
+    # مسارُ الخدمة مشتقٌّ من القاعدة لا مكتوبٌ هنا: من غيّر النطاقَ ولم يغيّر nginx
+    # يجب أن يحمرّ هذا الحارسُ لا أن يمرّ.
+    m = _re.match(r"^https://([^/]+)(/.*)$", base)
+    assert m, f"قاعدةُ الملاحظات بلا مسارٍ بعد النطاق: {base}"
+    host, path = m.group(1), m.group(2)
+    conf = _read(os.path.join(ROOT, "deploy", "nginx", "%s.static.conf" % host))
+    assert ("location %s/ {" % path) in conf, (
+        "لا كتلةَ `location %s/` في إعداد nginx لـ%s — القاعدةُ في الهويّة تشير إلى "
+        "مسارٍ لا يخدمه الخادم، فيجلب المحرِّرُ ‎404‎ ويرتدّ إلى المتصفّح" % (path, host))
+    # النوعُ صراحةً: `nosniff` في الإعداد نفسِه يمنع تخمينَ المتصفّح، وخرائطُ الأنواع
+    # لا تعرف `.md` — فتصير الملاحظاتُ تنزيلًا لا صفحةً في نسخة المتصفّح.
+    assert "default_type text/markdown;" in conf, (
+        "كتلةُ الملاحظات بلا `default_type text/markdown;` — مع `nosniff` يصير النصُّ تنزيلًا. "
+        "و`charset_types` وحدَه لا يكفي: هو يضبط الترميزَ لا النوع")
+
+    pub = os.path.join(ROOT, "build", "publish_release_notes.sh")
+    assert os.path.isfile(pub), "لا سكربتَ نشرٍ للملاحظات — لا طريقَ يضع الملفَّ على الخادم"
+
+    # والمصدرُ نفسُه: اسمُ الملفّ هو ما يطلبه المحرِّر حرفًا بحرف، ومقدّمتُه هي ما
+    # يتحقّق منه قبل العرض (`Invalid release notes` وإلّا).
+    src = os.path.join(ROOT, "release-notes")
+    assert os.path.isdir(src), "لا مجلّدَ `release-notes/` — لا مصدرَ للنصّ"
+    # ‏`README.md` شرحُ المسار لا ملاحظاتُ إصدار — والتمييزُ بالبادئة `v` لا باستثناءِ
+    # اسمٍ واحد: أيُّ ملفٍّ آخرَ يبدأ بـ`v` هو ادّعاءُ إصدارٍ ويجب أن يطابق الصيغة.
+    notes = sorted(n for n in os.listdir(src) if n.endswith(".md") and n.startswith("v"))
+    assert notes, "‏`release-notes/` فارغ — الرقعةُ مبنيّةٌ ولا نصَّ تعرضه"
+    for name in notes:
+        assert _re.match(r"^v\d+_\d+\.md$", name), (
+            f"اسمُ ملفّ ملاحظاتٍ لا يطابق ما يطلبه المحرِّر: {name} (المتوقَّع v<كبير>_<صغير>.md)")
+        text = _read(os.path.join(src, name))
+        assert text.startswith("# "), (
+            f"{name} لا يبدأ بـ«# » — يرفضه المحرِّرُ بـInvalid release notes ويرتدّ بالقارئ "
+            "إلى المتصفّح")
+
+    # وإصدارُ المنبع المثبَّت لا بدّ أن يجد ملاحظاتِه: بلا هذا يُرقّى المنبعُ فيصمت
+    # النظامُ كلُّه — الطلبُ يقصد نسخةً لم تُكتَب ملاحظاتُها بعد.
+    pinned = _json.loads(_read(os.path.join(ROOT, "upstream.json")))["vscode"]["version"]
+    expected = "v%s.md" % pinned.replace(".", "_")
+    assert expected in notes, (
+        f"لا ملاحظاتٍ للإصدار المثبَّت {pinned}: ينقص release-notes/{expected} — "
+        f"الموجود: {', '.join(notes)}")
+
+
 def _assert_lines():
     return {i + 1 for i, line in enumerate(_read(__file__).splitlines())
             if line.strip().startswith("assert ")}

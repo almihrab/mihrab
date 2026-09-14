@@ -1,0 +1,59 @@
+diff --git a/src/vs/base/common/product.ts b/src/vs/base/common/product.ts
+index 85064c8c..8c38dba9 100644
+--- a/src/vs/base/common/product.ts
++++ b/src/vs/base/common/product.ts
+@@ -187,6 +187,13 @@ export interface IProductConfiguration {
+ 	readonly documentationUrl?: string;
+ 	readonly serverDocumentationUrl?: string;
+ 	readonly releaseNotesUrl?: string;
++
++	/**
++	 * Base URL the release notes editor fetches its markdown from: it asks for
++	 * `<releaseNotesBaseUrl>/v<major>_<minor>.md`. Absent, it falls back to the
++	 * Visual Studio Code notes — which describe the upstream build, not this one.
++	 */
++	readonly releaseNotesBaseUrl?: string;
+ 	readonly keyboardShortcutsUrlMac?: string;
+ 	readonly keyboardShortcutsUrlLinux?: string;
+ 	readonly keyboardShortcutsUrlWin?: string;
+diff --git a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
+index 835f4980..c87f2eec 100644
+--- a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
++++ b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
+@@ -36,6 +36,8 @@ import { Schemas } from '../../../../base/common/network.js';
+ import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
+ import { dirname } from '../../../../base/common/resources.js';
+ import { asWebviewUri } from '../../webview/common/webview.js';
++import { mainWindow } from '../../../../base/browser/window.js';
++import { language } from '../../../../base/common/platform.js';
+ 
+ export class ReleaseNotesManager extends Disposable {
+ 	private readonly _simpleSettingRenderer: SimpleSettingRenderer;
+@@ -154,7 +156,10 @@ export class ReleaseNotesManager extends Disposable {
+ 		}
+ 
+ 		const versionLabel = match[1].replace(/\./g, '_');
+-		const baseUrl = 'https://code.visualstudio.com/raw';
++		// The notes describe *this* build, so the host that publishes them is product
++		// configuration, not a literal. A fork that ships its own notes sets
++		// `releaseNotesBaseUrl`; without one the upstream notes are still the best answer.
++		const baseUrl = this._productService.releaseNotesBaseUrl ?? 'https://code.visualstudio.com/raw';
+ 		const url = `${baseUrl}/v${versionLabel}.md`;
+ 		const unassigned = nls.localize('unassigned', "unassigned");
+ 
+@@ -272,8 +277,14 @@ export class ReleaseNotesManager extends Disposable {
+ 		const css = colorMap ? generateTokensCSSForColorMap(colorMap) : '';
+ 		const showReleaseNotes = Boolean(this._configurationService.getValue<boolean>('update.showReleaseNotes'));
+ 
++		// The notes are a document, and a document in a right-to-left shell has to be laid
++		// out right to left: headings, lists, tables and the scrollbar all take their side
++		// from here. The webview is its own document and inherits nothing, so the shell's
++		// own direction is carried across explicitly rather than assumed either way.
++		const direction = mainWindow.document.documentElement.dir || 'ltr';
++
+ 		return `<!DOCTYPE html>
+-		<html>
++		<html dir="${direction}" lang="${escape(language)}">
+ 			<head>
+ 				<base href="${asWebviewUri(fileContent.base).toString(true)}/" >
+ 				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">

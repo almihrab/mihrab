@@ -276,6 +276,12 @@ _INJECT_TEMPLATE = """
     git apply --3way ../.mihrab-inputbox-content-direction.patch || { echo "محراب: فشل تطبيق رُقعة اتّجاه حقول الإدخال" >&2; exit 1; }
     echo "محراب: طُبِّق اتّجاهُ حقول الإدخال (يتبع المحتوى، وافتراضُه اتّجاهُ المستند)"
   fi
+  # مصدرُ ملاحظات الإصدار: بلا هذه الرقعة يجلب المحرِّرُ `code.visualstudio.com/raw`
+  # مهما كتبنا في الهويّة — فيقرأ المستخدمُ ملاحظاتِ منتَجٍ آخر. فشلٌ قاتل.
+  if [ -f ../.mihrab-release-notes-source.patch ]; then
+    git apply --3way ../.mihrab-release-notes-source.patch || { echo "محراب: فشل تطبيق رُقعة مصدر ملاحظات الإصدار" >&2; exit 1; }
+    echo "محراب: طُبِّق مصدرُ ملاحظات الإصدار (releaseNotesBaseUrl + اتّجاهُ المستند)"
+  fi
   # رُقعة صفحة الترحيب: شعار القوس + الجملة الاستعاريّة في ترويسة Get Started (شكل الشعار في mihrab-identity.css — ورقةُ الهويّة [VA-05]).
   if [ -f ../.mihrab-patch-welcome-rtl.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-welcome-rtl.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts || { echo "محراب: فشلت رُقعة صفحة الترحيب" >&2; exit 1; }

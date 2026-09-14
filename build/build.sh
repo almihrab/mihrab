@@ -545,6 +545,11 @@ fi
 # محرفًا قويًّا يرتدّ إلى **اتّجاه المستند** — يمينًا في محراب — لا إلى اليسار كما يرتدّ
 # `dir="auto"` المنصوصُ عليه في HTML. فشلٌ قاتلٌ كسابقاته.
 [[ -f "$ROOT/patches/core/035-inputbox-content-direction.patch" ]] && cp -f "$ROOT/patches/core/035-inputbox-content-direction.patch" "$UP/.mihrab-inputbox-content-direction.patch"
+# مصدرُ نصّ ملاحظات الإصدار: كان عنوانُ الجلب **مكتوبًا حرفيًّا** في
+# `releaseNotesEditor.ts` فلا يبلغه مفتاحٌ في الهويّة — يقرأ مستخدمُ محرابٍ ملاحظاتِ
+# إصدارِ VS Code: إنجليزيّةً، يساريّةً، وتصف بناءً غيرَ الذي بين يديه. الرقعةُ تُخرِجه
+# إلى `releaseNotesBaseUrl`، وتُورِث مستندَ العرضِ اتّجاهَ القشرة ولغتَها. فشلٌ قاتلٌ كسابقاته.
+[[ -f "$ROOT/patches/core/036-release-notes-source.patch" ]] && cp -f "$ROOT/patches/core/036-release-notes-source.patch" "$UP/.mihrab-release-notes-source.patch"
 [[ -f "$ROOT/build/patch_welcome_rtl.py" ]] && cp -f "$ROOT/build/patch_welcome_rtl.py" "$UP/.mihrab-patch-welcome-rtl.py"
 [[ -f "$ROOT/build/patch_walkthrough_dir.py" ]] && cp -f "$ROOT/build/patch_walkthrough_dir.py" "$UP/.mihrab-patch-walkthrough-dir.py"
 [[ -f "$ROOT/build/patch_walkthroughs_drop.py" ]] && cp -f "$ROOT/build/patch_walkthroughs_drop.py" "$UP/.mihrab-patch-walkthroughs-drop.py"
