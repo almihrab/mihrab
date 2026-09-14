@@ -359,6 +359,39 @@ export async function editorGeometry(cdp) {
   })()`);
 }
 
+/**
+ * موضعُ النافذة الأفقيّ في محرّرٍ RTL: هل تفتح عند **بداية** الأسطر (حافّة الصندوق اليمنى)؟
+ *
+ * كلُّ الأسطر بعرض أعرض سطر، والأسطر اليمينيّة تُحاذى يمين ذلك الصندوق — فـ`scrollLeft = 0`
+ * (وهو ما يبدأ به المحرّر، وما تحمله حالةُ عرضٍ حُفِظت قبل أن يفيض السطر) يعرض **الطرف
+ * الفارغ**. القياسُ حتميّ: `scrollLeft` مأخوذٌ من إزاحة `.lines-content`، وأقصاه
+ * `عرضُ التمرير − عرضُ إطار المحتوى`. لا فيضَ ⇒ لا مشهودَ عليه (تخطٍّ صريح).
+ */
+export async function horizontalAnchorRtl(cdp) {
+  await bringToFront(cdp);
+  return cdp.evaluate(`(() => {
+    let ed = null, area = -1;
+    for (const e of document.querySelectorAll('.monaco-editor')) {
+      const r = e.getBoundingClientRect(), a = r.width * r.height;
+      if (a > area) { area = a; ed = e; }
+    }
+    if (!ed) return { present: false };
+    const lc = ed.querySelector('.lines-content');
+    const vls = ed.querySelector('.view-lines');
+    const box = ed.querySelector('.monaco-scrollable-element.editor-scrollable');
+    if (!lc || !vls || !box) return { present: false };
+    const viewportW = Math.round(box.getBoundingClientRect().width);
+    const scrollW = Math.round(parseFloat(vls.style.width) || vls.getBoundingClientRect().width);
+    const scrollLeft = Math.round(-(parseFloat(lc.style.left) || 0));
+    return {
+      present: true,
+      rtl: ed.className.includes('text-direction-rtl'),
+      viewportW, scrollW, scrollLeft,
+      maxScrollLeft: Math.max(0, scrollW - viewportW),
+    };
+  })()`);
+}
+
 // يفتح الاقتراحات ويقيس الفجوة (يسار الـcaret المرساة − يمين الودجة).
 // **القياس الحاسم (درس مثبَت): طابِق الودجة بالـcaret المُرسي بالتجاور** لا cs[0] (قد يكون
 // مؤشّرًا شبحيًّا/ثانويًّا ⇒ فشل زائف): الودجة تفتح أسفل مرساتها فـ`caret.bottom ≈ widget.top`
@@ -652,6 +685,329 @@ export async function confirmDialog(cdp) {
  *
  * الآن تُحسَب من `.view-lines` وقتَ النداء؛ والثابتان بقيا احتياطًا إن لم يوجد محرّر.
  */
+/**
+ * مقابضُ حقول البحث (‏`monaco-findInput > .controls`) لا تركب النصّ المكتوب.
+ *
+ * الحجزُ في المنبع تضييقُ الحقل لا حشوٌ (`inputBox.paddingRight` ⇒ `width: calc(100% - Npx)`)،
+ * فنقلُ المقابض إلى الحافّة التابعة في RTL بلا نقلِ الفراغ يضعها **فوق بداية النصّ**. القياسُ
+ * تقاطعُ مستطيلين: صندوقُ المقابض وصندوقُ الحقل. يمسح كلَّ حقلِ بحثٍ ظاهرٍ في اللحظة (جزء
+ * البحث، ودجةُ المحرّر، بحثُ الطرفيّة…) ويعيد المتقاطعَ منها.
+ */
+export async function findInputControls(cdp) {
+  await bringToFront(cdp);
+  await escape(cdp);
+  // **يفتح جزءَ البحث بنفسه.** المقاسُ يحتاج حقلًا **ظاهرًا وبعرضٍ حقيقيّ**: ودجةُ بحث
+  // المحرّر تنكمش مع الشريط الجانبيّ مفتوحًا حتّى تصير مقابضُها بعرض صفر، فيُبلَّغ تخطٍّ
+  // بلا قياس. وجزءُ البحث هو السطحُ المُبلَّغ عنه أصلًا، وعرضُه ثابتٌ لا يتبع المحرّر.
+  await key(cdp, 70, "KeyF", MOD.CTRL | MOD.SHIFT);
+  await sleep(1200);
+  // ويُفتَح صفُّ الاستبدال في جزء البحث كذلك — القاعدةُ عامّةٌ فليشملها المسح.
+  await key(cdp, 72, "KeyH", MOD.CTRL | MOD.SHIFT);
+  await sleep(900);
+  const scan = `(() => {
+    const out = [];
+    for (const fi of document.querySelectorAll('.monaco-findInput')) {
+      const box = fi.getBoundingClientRect();
+      if (box.width < 40 || box.height < 8) continue;
+      const c = fi.querySelector('.controls');
+      const f = fi.querySelector('textarea.input, input.input');
+      if (!c || !f) continue;
+      const cb = c.getBoundingClientRect(), fb = f.getBoundingClientRect();
+      if (cb.width < 2 || fb.width < 2) continue;
+      const overlap = Math.round(Math.min(cb.right, fb.right) - Math.max(cb.left, fb.left));
+      out.push({
+        host: (fi.closest('.replace-part') ? (fi.closest('.search-view') ? 'استبدال جزء البحث' : 'صفّ الاستبدال في ودجة المحرّر')
+             : fi.closest('.search-view') ? 'جزء البحث'
+             : fi.closest('.find-part, .find-widget') ? 'ودجة بحث المحرّر'
+             : fi.closest('.terminal-outer-container, .panel') ? 'بحث اللوحة' : 'حقل بحث'),
+        box: [Math.round(box.left), Math.round(box.right)],
+        controls: [Math.round(cb.left), Math.round(cb.right)],
+        field: [Math.round(fb.left), Math.round(fb.right)],
+        controlsOnLeadingSide: cb.right <= fb.left + 2,
+        overlap: overlap > 0 ? overlap : 0,
+      });
+    }
+    return out;
+  })()`;
+  const result = await cdp.evaluate(scan);
+  // **وودجةُ بحث المحرّر كذلك — وإلّا بقي نصفُ الإصلاح بلا حارس.** قاعدةُ `margin-left: auto`
+  // تخصّها وحدَها (صندوقُها يجري في تدفّقٍ يساريّ لأنّ `.monaco-editor` جذرُه ltr)، ومقابضُها
+  // تنكمش إلى عرضِ صفرٍ ما دام الشريطُ الجانبيّ مفتوحًا فتُتخطّى بلا قياس. فنطوي الشريطَ،
+  // ونفتحها، ونقيس، ثمّ نعيد ما كان.
+  await escape(cdp);
+  const sidebarWasOpen = await cdp.evaluate(`(() => {
+    const p = document.querySelector('.part.sidebar');
+    return !!p && !p.classList.contains('hidden') && p.getBoundingClientRect().width > 40;
+  })()`);
+  if (sidebarWasOpen) { await key(cdp, 66, "KeyB", MOD.CTRL); await sleep(900); }
+  try { await focusEditor(cdp); } catch { /* لا محرّر — تُقاس الأسطحُ المتاحة وحدَها */ }
+  await key(cdp, ...KEY.F, MOD.CTRL);
+  await sleep(900);
+  for (const one of await cdp.evaluate(scan)) {
+    if (!result.some(r => r.host === one.host)) result.push(one);
+  }
+  // **وصفُّ الاستبدال كذلك — `Ctrl+F` وحدَه لا يعرضه.** وهو السطحُ الذي ينكسر فعلًا: المنبع
+  // يخصّه بقاعدتَي `findWidget.css:193` و`:364` بخصوصيّةٍ تغلب قاعدتَنا العامّة، فمقابضُه
+  // تتمدّد على الحقل بينما صفُّ البحث فوقه سليم. حارسٌ لا يفتحه يمرّ خضراءَ على البلاغ نفسِه.
+  await key(cdp, 72, "KeyH", MOD.CTRL);
+  await sleep(1100);
+  for (const one of await cdp.evaluate(scan)) {
+    if (!result.some(r => r.host === one.host)) result.push(one);
+  }
+  await escape(cdp);
+  if (sidebarWasOpen) { await key(cdp, 66, "KeyB", MOD.CTRL); await sleep(900); }
+  // أعِد المستكشفَ سطحًا نشطًا كي لا يرث ما بعده حالةً لم يطلبها.
+  await key(cdp, 69, "KeyE", MOD.CTRL | MOD.SHIFT);
+  await sleep(600);
+  return result;
+}
+
+/**
+ * كشفُ **نهاية** أطولِ سطرٍ في محرّرٍ يمينيّ: هل تتبع النافذةُ المؤشّرَ إليها؟
+ *
+ * في التخطيط اليمينيّ تقع نهايةُ أعرضِ سطرٍ عند **الحافّة اليسرى** لصندوق المحتوى، أي عند
+ * `scrollLeft = 0` بالضبط — وهو الرقمُ نفسُه الذي تحمله الحالاتُ التي «لا تعني موضعًا».
+ * فمن يخلط بينهما يبتلع كشفًا مشروعًا ويترك المؤشّرَ خارج الشاشة والكتابةُ تجري حيث لا يُرى.
+ * القياسُ: مستطيلُ المؤشّر داخل مستطيل إطار المحتوى.
+ */
+/**
+ * موضعُ القارئ الأفقيّ يُستعاد كما تركه — **مسافةً من بداية الأسطر لا رقمًا من اليسار**.
+ *
+ * `scrollLeft` مقيسٌ من الحافّة اليسرى، وأسطرُ التخطيط اليمينيّ مرساةٌ في اليمنى، فالرقمُ
+ * نفسُه يقع في مكانٍ آخر متى تغيّرت حافّةٌ (تكبير · حجمُ نافذة · تحريرٌ يوسّع أعرضَ سطر).
+ * فتُحفَظ المسافةُ (`IViewState.scrollLeftFromRightEdge`) وتُستعاد. القياسُ: مرِّرْ، ثمّ بدِّلِ
+ * الملفَّ وعُدْ، ثمّ أغلقِ التبويبَ وأعِدْ فتحَه — والمسافةُ هي هي في الثلاثة.
+ */
+export async function restoredHorizontalPositionRtl(cdp) {
+  await bringToFront(cdp);
+  await escape(cdp);
+  // **فعِّلْ تبويبَ العيّنة أوّلًا.** المِجَسّ يقيس أكبرَ محرّرٍ ظاهرٍ ثمّ يغلق التبويبَ **النشط**:
+  // لو لم يكونا واحدًا لقارنّا ملفَّين مختلفَين وأبلغنا نتيجةً لا تخصّ المنتَج.
+  const tabIsActive = await activateSadTab(cdp);
+  if (!tabIsActive) return { present: true, activated: false };
+  await sleep(600);
+  const M = `(() => {
+    let ed = null, area = -1;
+    for (const e of document.querySelectorAll('.monaco-editor')) {
+      const r = e.getBoundingClientRect(), a = r.width * r.height;
+      if (a > area) { area = a; ed = e; }
+    }
+    if (!ed) return null;
+    const lc = ed.querySelector('.lines-content');
+    const vls = ed.querySelector('.view-lines');
+    const box = ed.querySelector('.monaco-scrollable-element.editor-scrollable');
+    if (!lc || !vls || !box) return null;
+    const b = box.getBoundingClientRect();
+    const scrollLeft = Math.round(-(parseFloat(lc.style.left) || 0));
+    const max = Math.max(0, Math.round((parseFloat(vls.style.width) || 0) - b.width));
+    return { rtl: ed.className.includes('text-direction-rtl'), scrollLeft, max, gap: max - scrollLeft,
+             at: { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) } };
+  })()`;
+  const before = await cdp.evaluate(M);
+  if (!before) return { present: false };
+  if (!before.rtl) return { present: true, activated: true, rtl: false };
+  if (before.max < 200) return { present: true, activated: true, rtl: true, overflow: false, max: before.max };
+  // ضَعِ الموضعَ بالعجلة (إيماءةُ القارئ نفسُها) بعيدًا عن الطرفين كي لا يُخلَط بالمرساة.
+  // النقطةُ مشتقّةٌ من مستطيل الصندوق لا ثابتةً: إحداثيّاتٌ مكتوبةٌ بيدٍ قد تقع خارجه في هندسةٍ
+  // أخرى، والعجلةُ عندها لا تصل والحارسُ يتخطّى صامتًا بدل أن يُنذر.
+  await cdp.cmd("Input.dispatchMouseEvent", { type: "mouseWheel", x: before.at.x, y: before.at.y, deltaX: -120, deltaY: 0, modifiers: 0 });
+  await sleep(1200);
+  const placed = await cdp.evaluate(M);
+  // أغلقِ التبويبَ (تُحفَظ حالتُه).
+  await key(cdp, 87, "KeyW", MOD.CTRL);
+  await sleep(1800);
+  // **وغيِّرْ عرضَ الصندوق قبل إعادة الفتح — وإلّا فالحارسُ لا يختبر علّةَ وجود الحقل أصلًا.**
+  // ‏`scrollLeftFromRightEdge` وُجِد لأنّ الحافّةَ تتحرّك بين الجلستين؛ وفي هندسةٍ ثابتةٍ تعطي
+  // استعادةُ `scrollLeft` الخام النتيجةَ نفسَها بالضبط، فيمرّ انحدارٌ كاملٌ بلا إنذار. وطيُّ
+  // الشريط الجانبيّ أرخصُ من التكبير ويحرّك الحافّةَ بالقدر نفسِه.
+  const sidebarWasOpen = await cdp.evaluate(`(() => {
+    const p = document.querySelector('.part.sidebar');
+    return !!p && !p.classList.contains('hidden') && p.getBoundingClientRect().width > 40;
+  })()`);
+  await key(cdp, 66, "KeyB", MOD.CTRL);
+  await sleep(900);
+  await key(cdp, 84, "KeyT", MOD.CTRL | MOD.SHIFT);
+  await sleep(5000);
+  // ‏`activateTab` **تُعيد `false` ولا ترمي**، فـ`try/catch` هنا معالجةٌ ميّتة: لو لم يعد
+  // التبويبُ لقِسنا محرّرًا آخرَ وأبلغنا فشلًا لا يخصّ المنتَج. نقرأ القيمةَ ونُبلِغ بها.
+  const tabIsBack = await activateSadTab(cdp);
+  await sleep(2500);
+  const after = tabIsBack ? await cdp.evaluate(M) : null;
+  // أعِدِ الشريطَ الجانبيَّ إلى ما كان عليه قبل المِجَسّ.
+  const sidebarIsOpen = await cdp.evaluate(`(() => {
+    const p = document.querySelector('.part.sidebar');
+    return !!p && !p.classList.contains('hidden') && p.getBoundingClientRect().width > 40;
+  })()`);
+  if (sidebarIsOpen !== sidebarWasOpen) { await key(cdp, 66, "KeyB", MOD.CTRL); await sleep(900); }
+  // **أعِدِ النافذةَ إلى بداية الأسطر.** الموضعُ الذي وضعناه صار مملوكًا **ومحفوظًا**، فمِجَسُّ
+  // المرساة بعده كان يقرأ ‎70px‎ إزاحةً ويُبلِّغ فشلًا صنعناه نحن (وقع فعلًا في تشغيلة).
+  // و`Ctrl+Home` أحسمُ من عجلةٍ معاكسة: كشفُ أوّلِ الملفّ يضع النافذةَ على الحافّة اليمنى
+  // قطعًا (بدايةُ السطر الأوّل)، بينما مقدارُ العجلة تخمينٌ قد يقصّر أو يتجاوز.
+  const pt = await cdp.evaluate(`(() => {
+    const box = document.querySelector('.monaco-editor .monaco-scrollable-element.editor-scrollable');
+    if (!box) return null;
+    const b = box.getBoundingClientRect();
+    return { x: Math.round(b.right - 40), y: Math.round(b.top + 40) };
+  })()`);
+  if (pt) { await click(cdp, pt.x, pt.y); await sleep(400); }
+  await key(cdp, 36, "Home", MOD.CTRL);
+  await sleep(1200);
+  return {
+    present: true, activated: true, rtl: true, overflow: true,
+    reopened: tabIsBack,
+    placedGap: placed ? placed.gap : null,
+    restoredGap: after ? after.gap : null,
+    placedMax: placed ? placed.max : null,
+    restoredMax: after ? after.max : null,
+    // شاهدُ أنّ الحافّةَ تحرّكت فعلًا بين الحفظ والاستعادة: بدونه الحكمُ أضعفُ ممّا يبدو.
+    geometryMoved: !!placed && !!after && Math.abs(placed.max - after.max) > 20,
+    moved: !!placed && placed.gap > 2,
+    kept: !!placed && !!after && Math.abs(placed.gap - after.gap) <= 3,
+  };
+}
+
+/**
+ * اتّجاهُ حقل الإدخال يتبع محتواه، **وافتراضُه اتّجاهُ التطبيق لا اليسار**.
+ *
+ * محرابٌ عربيٌّ أصلًا واللاتينيّةُ فيه لاحقة، فحقلٌ فارغٌ — أو فيه أرقامٌ ورموزٌ لا محرفَ قويَّ
+ * فيها — يقف يمينًا. و`dir="auto"` المنصوصُ عليه في HTML يرتدّ إلى **اليسار** في هذه الحال،
+ * ولذلك لا يكفي وحدَه (رقعةُ النواة ‎035‎ تحسب الأوّلَ القويَّ وترتدّ إلى اتّجاه المستند).
+ *
+ * **يُقاس على السطحين، وتُقرأ سِمةُ `dir` نفسُها لا الاتّجاهُ المحسوبُ وحدَه.** حقلُ جزء البحث
+ * يرث `rtl` من `.monaco-workbench[dir="rtl"]` سواءٌ طُبِّقت الرقعةُ أم لا، فأحكامُ «فارغ» و«أرقام»
+ * و«عربيّ» عليه تنجح بالوراثة لا بالرقعة — واللاتينيُّ وحدَه له أنياب. أمّا ودجةُ بحث المحرّر
+ * فداخل `.monaco-editor` وجذرُه `ltr` بنيةً، وهناك وحدَه يظهر الارتدادُ إلى اتّجاه المستند.
+ * والسِّمةُ شاهدٌ مباشرٌ على فعل الرقعة: لا يكتبها غيرُها.
+ */
+export async function inputDirectionFollowsContent(cdp) {
+  await bringToFront(cdp);
+  await escape(cdp);
+  const read = (host) => `(() => {
+    const fi = document.querySelector('${host}');
+    if (!fi) return null;
+    const field = fi.querySelector('textarea.input, input.input');
+    if (!field) return null;
+    return { dir: getComputedStyle(field).direction, attr: field.getAttribute('dir'), value: field.value };
+  })()`;
+  const clear = async () => { await key(cdp, 65, "KeyA", MOD.CTRL); await sleep(200); await cdp.cmd("Input.dispatchKeyEvent", { type: "rawKeyDown", windowsVirtualKeyCode: 8, code: "Backspace" }); await cdp.cmd("Input.dispatchKeyEvent", { type: "keyUp", windowsVirtualKeyCode: 8, code: "Backspace" }); await sleep(500); };
+  const type = async (text) => { await key(cdp, 65, "KeyA", MOD.CTRL); await sleep(200); await cdp.cmd("Input.insertText", { text }); await sleep(700); };
+  const sweep = async (host) => {
+    const READ = read(host);
+    await clear();
+    const empty = await cdp.evaluate(READ);
+    if (!empty) { return null; }
+    await type("123 --> [7]");
+    const neutral = await cdp.evaluate(READ);
+    await type("بحث عن نصّ عربيّ");
+    const arabic = await cdp.evaluate(READ);
+    await type("latin query");
+    const latin = await cdp.evaluate(READ);
+    await clear();
+    return {
+      // **شاهدُ وصولِ الإدخال**: بلا نصٍّ وصل لا معنى لأحكام المحتوى، فالحكمُ تخطٍّ لا نجاح.
+      typed: !!arabic && arabic.value.length > 0 && !!latin && latin.value.length > 0,
+      empty: empty.dir, neutral: neutral && neutral.dir, arabic: arabic && arabic.dir, latin: latin && latin.dir,
+      attrs: [empty.attr, neutral && neutral.attr, arabic && arabic.attr, latin && latin.attr],
+    };
+  };
+
+  await key(cdp, 70, "KeyF", MOD.CTRL | MOD.SHIFT);
+  await sleep(1400);
+  const searchView = await sweep('.search-view .monaco-findInput');
+
+  // ودجةُ بحث المحرّر: تنكمش مع الشريط الجانبيّ مفتوحًا حتّى يصير حقلُها بعرضِ صفر، فيُطوى
+  // الشريطُ للقياس ثمّ يُعاد كما كان — الإيماءةُ نفسُها التي يستعملها `findInputControls`.
+  await escape(cdp);
+  const sidebarWasOpen = await cdp.evaluate(`(() => {
+    const p = document.querySelector('.part.sidebar');
+    return !!p && !p.classList.contains('hidden') && p.getBoundingClientRect().width > 40;
+  })()`);
+  if (sidebarWasOpen) { await key(cdp, 66, "KeyB", MOD.CTRL); await sleep(900); }
+  let findWidget = null;
+  try {
+    await focusEditor(cdp);
+    await key(cdp, ...KEY.F, MOD.CTRL);
+    await sleep(1000);
+    findWidget = await sweep('.monaco-editor .find-widget .monaco-findInput');
+  } catch { /* لا محرّر — يُقاس السطحُ المتاحُ وحدَه */ }
+  await escape(cdp);
+  if (sidebarWasOpen) { await key(cdp, 66, "KeyB", MOD.CTRL); await sleep(900); }
+  await key(cdp, 69, "KeyE", MOD.CTRL | MOD.SHIFT);
+  await sleep(500);
+  if (!searchView && !findWidget) { return { present: false }; }
+  return { present: true, searchView, findWidget };
+}
+
+export async function revealLineEndRtl(cdp) {
+  await bringToFront(cdp);
+  await escape(cdp);
+  const CURSOR = `(() => {
+    const c = document.querySelector('.monaco-editor .cursors-layer .cursor');
+    if (!c) return null;
+    const r = c.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top)];
+  })()`;
+  // انقر على صفّ **أعرضِ** سطرٍ مصيَّر — نهايتُه وحدَها تقع عند الصفر — **داخل صندوق المحتوى
+  // لا عند حافّة السطر**: في RTL يجاور طرفُ السطر الأيمنُ المزرابَ وأرقامَ الأسطر، والنقرُ
+  // هناك لا يحرّك المؤشّر (أوقعناه حيًّا: بقي «Ln 1, Col 1» بعد النقر، ومرّ الحارسُ على العمى).
+  const pt = await cdp.evaluate(`(() => {
+    let ed = null, area = -1;
+    for (const e of document.querySelectorAll('.monaco-editor')) {
+      const r = e.getBoundingClientRect(), a = r.width * r.height;
+      if (a > area) { area = a; ed = e; }
+    }
+    if (!ed) return null;
+    const box = ed.querySelector('.monaco-scrollable-element.editor-scrollable');
+    if (!box) return null;
+    const bb = box.getBoundingClientRect();
+    let row = null, w = -1;
+    for (const l of ed.querySelectorAll('.view-line')) {
+      const s = l.firstElementChild;
+      if (!s) continue;
+      const b = s.getBoundingClientRect();
+      if (b.width > w) { w = b.width; row = l.getBoundingClientRect(); }
+    }
+    if (!row || w < 200) return null;
+    return { x: Math.round(bb.right - 30), y: Math.round(row.top + row.height / 2) };
+  })()`);
+  if (!pt) return { present: false };
+  await click(cdp, pt.x, pt.y);
+  await sleep(400);
+  const beforeCursor = await cdp.evaluate(CURSOR);
+  await key(cdp, ...KEY.END);
+  await sleep(900);
+  const measured = await cdp.evaluate(`(() => {
+    let ed = null, area = -1;
+    for (const e of document.querySelectorAll('.monaco-editor')) {
+      const r = e.getBoundingClientRect(), a = r.width * r.height;
+      if (a > area) { area = a; ed = e; }
+    }
+    if (!ed) return { present: false };
+    const box = ed.querySelector('.monaco-scrollable-element.editor-scrollable');
+    const cur = ed.querySelector('.cursors-layer .cursor');
+    const lc = ed.querySelector('.lines-content');
+    if (!box || !cur || !lc) return { present: false };
+    const bb = box.getBoundingClientRect(), cb = cur.getBoundingClientRect();
+    const before = ${JSON.stringify(beforeCursor)};
+    return {
+      present: true,
+      rtl: ed.className.includes('text-direction-rtl'),
+      cursor: [Math.round(cb.left), Math.round(cb.right)],
+      viewport: [Math.round(bb.left), Math.round(bb.right)],
+      scrollLeft: Math.round(-(parseFloat(lc.style.left) || 0)),
+      // **شاهدُ وصولِ الإدخال**: بلا حركةِ مؤشّرٍ لم يقع كشفٌ أصلًا، فالحكمُ تخطٍّ لا نجاح.
+      moved: !before || Math.abs(before[0] - Math.round(cb.left)) > 1 || Math.abs(before[1] - Math.round(cb.top)) > 1,
+      inside: cb.left >= bb.left - 2 && cb.right <= bb.right + 2,
+    };
+  })()`);
+  // **أعِد المؤشّرَ إلى بداية السطر.** `End` يترك النافذةَ عند الطرف الفارغ وقد ملكها الكشف،
+  // فمِجَسُّ المرساة بعده كان سيقرأ موضعًا مملوكًا ويُبلِّغ فشلًا لا يخصّه. `Home` يكشف بدايةَ
+  // السطر ⇒ تعود النافذةُ إلى الحافّة اليمنى، فلا يرث ما بعده حالةً صنعناها نحن.
+  await key(cdp, 36, "Home");
+  await sleep(700);
+  return measured;
+}
+
 export async function findWidget(cdp, clickX = 700, clickY = 60) {
   await bringToFront(cdp);
   await escape(cdp);

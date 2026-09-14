@@ -538,6 +538,13 @@ fi
 # القيدَ، وبندَ القائمة الأوّلَ نسي المنبعُ شرطَه الذي تحمله إخوتُه الأربعة. تعديلٌ
 # منبعيٌّ بحتٌ يسقط يومَ يُدمَج. فشلٌ قاتلٌ كسابقاته.
 [[ -f "$ROOT/patches/core/034-terminal-unavailable-in-web.patch" ]] && cp -f "$ROOT/patches/core/034-terminal-unavailable-in-web.patch" "$UP/.mihrab-terminal-unavailable-in-web.patch"
+# اتّجاهُ حقول الإدخال يتبع محتواها [SC-03]: `unicode-bidi: plaintext` يضبط تصييرَ النصّ
+# ولا يمسّ `direction` العنصر — وذاك ما يقرّر جهةَ الفيض. وفيضُ اليسار في صندوقٍ يساريٍّ
+# لا يُمرَّر، فاستعلامٌ عربيٌّ طويل يخرج من حقل البحث ولا يلاحقه المؤشّر (مقيس:
+# `scrollWidth = clientWidth`). والحقلُ يتبع أوّلَ محرفٍ قويٍّ في قيمته، وحين لا يجد
+# محرفًا قويًّا يرتدّ إلى **اتّجاه المستند** — يمينًا في محراب — لا إلى اليسار كما يرتدّ
+# `dir="auto"` المنصوصُ عليه في HTML. فشلٌ قاتلٌ كسابقاته.
+[[ -f "$ROOT/patches/core/035-inputbox-content-direction.patch" ]] && cp -f "$ROOT/patches/core/035-inputbox-content-direction.patch" "$UP/.mihrab-inputbox-content-direction.patch"
 [[ -f "$ROOT/build/patch_welcome_rtl.py" ]] && cp -f "$ROOT/build/patch_welcome_rtl.py" "$UP/.mihrab-patch-welcome-rtl.py"
 [[ -f "$ROOT/build/patch_walkthrough_dir.py" ]] && cp -f "$ROOT/build/patch_walkthrough_dir.py" "$UP/.mihrab-patch-walkthrough-dir.py"
 [[ -f "$ROOT/build/patch_walkthroughs_drop.py" ]] && cp -f "$ROOT/build/patch_walkthroughs_drop.py" "$UP/.mihrab-patch-walkthroughs-drop.py"

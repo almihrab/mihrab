@@ -228,6 +228,32 @@ index 9d520abdb3b..096c75cf69d 100644
  		if (data.maxColumn > this.maxGpuCols) {
  			reasons.push('maxColumn > maxGpuCols');
  		}
+diff --git a/src/vs/editor/browser/view.ts b/src/vs/editor/browser/view.ts
+index 481d89ba..83ac7ae8 100644
+--- a/src/vs/editor/browser/view.ts
++++ b/src/vs/editor/browser/view.ts
+@@ -46,7 +46,6 @@ import { EditorOption } from '../common/config/editorOptions.js';
+ import { Position } from '../common/core/position.js';
+ import { Range } from '../common/core/range.js';
+ import { Selection } from '../common/core/selection.js';
+-import { ScrollType } from '../common/editorCommon.js';
+ import { GlyphMarginLane, IGlyphMarginLanesModel } from '../common/model.js';
+ import { ViewEventHandler } from '../common/viewEventHandler.js';
+ import * as viewEvents from '../common/viewEvents.js';
+@@ -670,11 +669,8 @@ export class View extends ViewEventHandler {
+ 		this._scrollbar.delegateScrollFromMouseWheelEvent(browserEvent);
+ 	}
+ 
+-	public restoreState(scrollPosition: { scrollLeft: number; scrollTop: number }): void {
+-		this._context.viewModel.viewLayout.setScrollPosition({
+-			scrollTop: scrollPosition.scrollTop,
+-			scrollLeft: scrollPosition.scrollLeft
+-		}, ScrollType.Immediate);
++	public restoreState(scrollPosition: { scrollLeft: number; scrollLeftFromRightEdge?: number; scrollTop: number }): void {
++		this._context.viewModel.viewLayout.restoreScrollPosition(scrollPosition.scrollTop, scrollPosition.scrollLeft, scrollPosition.scrollLeftFromRightEdge);
+ 		this._context.viewModel.visibleLinesStabilized();
+ 	}
+ 
 diff --git a/src/vs/editor/browser/viewParts/blockDecorations/blockDecorations.ts b/src/vs/editor/browser/viewParts/blockDecorations/blockDecorations.ts
 index 7cd7ea0be4c..7e5ca4b395c 100644
 --- a/src/vs/editor/browser/viewParts/blockDecorations/blockDecorations.ts
@@ -706,6 +732,25 @@ index a703acd26c2..cc3d9191901 100644
  			this._width = layoutInfo.width;
  		} else {
  			this._width = layoutInfo.width - layoutInfo.verticalScrollbarWidth;
+diff --git a/src/vs/editor/browser/viewParts/viewLines/viewLines.ts b/src/vs/editor/browser/viewParts/viewLines/viewLines.ts
+index cb819821..c9e31eb2 100644
+--- a/src/vs/editor/browser/viewParts/viewLines/viewLines.ts
++++ b/src/vs/editor/browser/viewParts/viewLines/viewLines.ts
+@@ -282,9 +282,13 @@ export class ViewLines extends ViewPart implements IViewLines {
+ 		if (e.revealHorizontal) {
+ 			if (e.range && e.range.startLineNumber !== e.range.endLineNumber) {
+ 				// Two or more lines? => scroll to base (That's how you see most of the two lines)
++				// The base of a right-to-left layout is the right edge of the content box: every line is
++				// as wide as the widest one and right-to-left lines are aligned there, so `scrollLeft` 0
++				// would show the blank space past the end of the lines rather than where they start.
++				const isRtl = this._context.configuration.options.get(EditorOption.effectiveTextDirection) === 'rtl';
+ 				newScrollPosition = {
+ 					scrollTop: newScrollPosition.scrollTop,
+-					scrollLeft: 0
++					scrollLeft: isRtl ? Math.max(0, this._context.viewLayout.getScrollWidth() - this._context.viewLayout.getCurrentViewport().width) : 0
+ 				};
+ 			} else if (e.range) {
+ 				// We don't necessarily know the horizontal offset of this range since the line might not be in the view...
 diff --git a/src/vs/editor/browser/widget/codeEditor/editor.css b/src/vs/editor/browser/widget/codeEditor/editor.css
 index 638055a055d..e3022f34cdb 100644
 --- a/src/vs/editor/browser/widget/codeEditor/editor.css
@@ -949,6 +994,26 @@ index 6e6f3605c55..d7bca5f96fc 100644
  	editorClassName: register(new EditorClassName()),
  	defaultColorDecorators: register(new EditorStringEnumOption(
  		EditorOption.defaultColorDecorators, 'defaultColorDecorators', 'auto' as 'auto' | 'always' | 'never',
+diff --git a/src/vs/editor/common/editorCommon.ts b/src/vs/editor/common/editorCommon.ts
+index df56a1be..2c334460 100644
+--- a/src/vs/editor/common/editorCommon.ts
++++ b/src/vs/editor/common/editorCommon.ts
+@@ -189,6 +189,15 @@ export interface IViewState {
+ 	/** written by previous versions */
+ 	scrollTopWithoutViewZones?: number;
+ 	scrollLeft: number;
++	/**
++	 * How far the viewport sits from the *right* edge of the content box, written only by a
++	 * right-to-left editor. `scrollLeft` counts from the left edge, and a right-to-left layout anchors
++	 * its lines at the right one: the same `scrollLeft` lands somewhere else as soon as either edge
++	 * moves, which a changed zoom level, a resized window or an edit to the widest line all do between
++	 * one session and the next. This distance is what stays put for such an editor, so it is what a
++	 * right-to-left editor restores; a left-to-right editor neither writes nor reads it.
++	 */
++	scrollLeftFromRightEdge?: number;
+ 	firstPosition: IPosition;
+ 	firstPositionDeltaTop: number;
+ }
 diff --git a/src/vs/editor/common/standalone/standaloneEnums.ts b/src/vs/editor/common/standalone/standaloneEnums.ts
 index cb0db8b268d..301a44a3af6 100644
 --- a/src/vs/editor/common/standalone/standaloneEnums.ts
@@ -1030,85 +1095,338 @@ index cb0db8b268d..301a44a3af6 100644
  
  /**
 diff --git a/src/vs/editor/common/viewLayout/viewLayout.ts b/src/vs/editor/common/viewLayout/viewLayout.ts
-index e64482e192c..f497cbd0ee7 100644
+index e64482e1..abd5140d 100644
 --- a/src/vs/editor/common/viewLayout/viewLayout.ts
 +++ b/src/vs/editor/common/viewLayout/viewLayout.ts
-@@ -159,6 +159,11 @@ export class ViewLayout extends Disposable implements IViewLayout {
+@@ -159,6 +159,22 @@ export class ViewLayout extends Disposable implements IViewLayout {
  	private readonly _linesLayout: LinesLayout;
  	private _maxLineWidth: number;
  	private _overlayWidgetsMinWidth: number;
 +	/**
-+	 * Whether the horizontal scroll position has been set explicitly (by the user, by a reveal or by
-+	 * a restored view state). Until then, a right-to-left editor anchors it to the right by itself.
++	 * Whether the horizontal scroll position has been set explicitly (by the reader, by a reveal or
++	 * by a restored view state). Until then, a right-to-left editor anchors it to the right by itself.
 +	 */
 +	private _horizontalPositionIsOwned: boolean;
++	/**
++	 * Set while this class moves the viewport itself, so that the scroll events it causes are not
++	 * mistaken for the reader positioning the viewport.
++	 */
++	private _isMovingViewportItself: boolean;
++	/**
++	 * How far from the right edge of the content box a right-to-left editor parks the viewport while
++	 * nobody owns the horizontal position. 0 is where the lines start, which is where an editor opens;
++	 * a restored view state brings back the distance the reader had left it at.
++	 */
++	private _rtlDistanceFromRightEdge: number;
  
  	private readonly _scrollable: EditorScrollable;
  	public readonly onDidScroll: Event<ScrollEvent>;
-@@ -175,6 +180,7 @@ export class ViewLayout extends Disposable implements IViewLayout {
+@@ -175,11 +191,14 @@ export class ViewLayout extends Disposable implements IViewLayout {
  		this._linesLayout = new LinesLayout(lineCount, options.get(EditorOption.lineHeight), padding.top, padding.bottom, customLineHeightData);
  		this._maxLineWidth = 0;
  		this._overlayWidgetsMinWidth = 0;
 +		this._horizontalPositionIsOwned = false;
++		this._isMovingViewportItself = false;
++		this._rtlDistanceFromRightEdge = 0;
  
  		this._scrollable = this._register(new EditorScrollable(0, scheduleAtNextAnimationFrame));
  		this._configureSmoothScrollDuration();
-@@ -230,6 +236,14 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 
+-		this._scrollable.setScrollDimensions(new EditorScrollDimensions(
++		this._setScrollDimensions(new EditorScrollDimensions(
+ 			layoutInfo.contentWidth,
+ 			0,
+ 			layoutInfo.height,
+@@ -188,6 +207,15 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 		this.onDidScroll = this._scrollable.onDidScroll;
+ 		this.onDidContentSizeChange = this._scrollable.onDidContentSizeChange;
+ 
++		// The scrollbar and the mouse wheel move the viewport through the `Scrollable` directly, so
++		// this is the only place that hears about it. A reader who has positioned the viewport owns
++		// it from then on, and `_anchorHorizontalPositionForRtl` must not pull it back.
++		this._register(this.onDidScroll((e) => {
++			if (e.scrollLeftChanged && !this._isMovingViewportItself) {
++				this._claimHorizontalPosition();
++			}
++		}));
++
+ 		this._updateHeight();
+ 	}
+ 
+@@ -221,7 +249,7 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 			const height = layoutInfo.height;
+ 			const scrollDimensions = this._scrollable.getScrollDimensions();
+ 			const contentWidth = scrollDimensions.contentWidth;
+-			this._scrollable.setScrollDimensions(new EditorScrollDimensions(
++			this._setScrollDimensions(new EditorScrollDimensions(
+ 				width,
+ 				scrollDimensions.contentWidth,
+ 				height,
+@@ -230,6 +258,29 @@ export class ViewLayout extends Disposable implements IViewLayout {
  		} else {
  			this._updateHeight();
  		}
-+		if (e.hasChanged(EditorOption.effectiveTextDirection)
-+			&& options.get(EditorOption.effectiveTextDirection) !== 'rtl'
-+			&& !this._horizontalPositionIsOwned) {
-+			// `_updateContentWidth` parks the viewport at the right end while the layout is right-to-left.
-+			// Nothing else moves it back, so a layout that returns to left-to-right would open on the blank
-+			// space past the end of its lines.
-+			this._scrollable.setScrollPositionNow({ scrollLeft: 0 });
++		if (e.hasChanged(EditorOption.effectiveTextDirection)) {
++			// A horizontal position is a distance from one edge of the content box, and which edge the
++			// lines are anchored to is exactly what the direction decides — so a position taken while
++			// the layout ran the other way describes nothing here, and the editor takes the viewport
++			// back. This is not only the View menu: an editor is laid out left to right until the
++			// language of its model settles the setting, which happens after a restored view state has
++			// already claimed the position, and this is what lets a right-to-left file reopen where its
++			// lines start instead of on the blank end that the left-to-right default kept it at.
++			this._horizontalPositionIsOwned = false;
++			if (options.get(EditorOption.effectiveTextDirection) !== 'rtl') {
++				// The anchor parks the viewport at the right end while the layout is right-to-left, and
++				// nothing else moves it back: a layout that returns to left-to-right would be left on the
++				// blank space past the end of its lines.
++				this._moveViewportItself({ scrollLeft: 0 });
++			}
++		}
++		if (e.hasChanged(EditorOption.layoutInfo) || e.hasChanged(EditorOption.effectiveTextDirection)) {
++			// The right edge of the content box moved because the viewport itself changed width — a
++			// zoom level, a resized window, a toggled side bar. The anchor otherwise only runs when the
++			// *content* width changes, which none of those do, and the reader would be left on the
++			// blank end of the lines.
++			this._anchorHorizontalPositionForRtl();
 +		}
  		if (e.hasChanged(EditorOption.smoothScrolling)) {
  			this._configureSmoothScrollDuration();
  		}
-@@ -352,6 +366,16 @@ export class ViewLayout extends Disposable implements IViewLayout {
+@@ -278,7 +329,7 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 		const width = scrollDimensions.width;
+ 		const height = scrollDimensions.height;
+ 		const contentWidth = scrollDimensions.contentWidth;
+-		this._scrollable.setScrollDimensions(new EditorScrollDimensions(
++		this._setScrollDimensions(new EditorScrollDimensions(
+ 			width,
+ 			scrollDimensions.contentWidth,
+ 			height,
+@@ -333,6 +384,101 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 		}
+ 	}
+ 
++	/**
++	 * The `scrollLeft` a right-to-left layout opens on: every line is as wide as the widest line and
++	 * right-to-left lines are aligned with the right edge of that box, so the left end of the box is
++	 * blank space past the end of the short lines, and the right edge is where the lines start.
++	 */
++	private _rtlAnchorScrollLeft(): number {
++		const scrollDimensions = this._scrollable.getScrollDimensions();
++		return Math.max(0, scrollDimensions.contentWidth - scrollDimensions.width);
++	}
++
++	/**
++	 * Parks the viewport at the right edge of the content box while the layout is right-to-left and
++	 * nobody owns the horizontal position. Runs whenever either side of that box moves: the content
++	 * width (`_updateContentWidth`) or the viewport width (`onConfigurationChanged`).
++	 */
++	private _anchorHorizontalPositionForRtl(): void {
++		if (this._horizontalPositionIsOwned || this._configuration.options.get(EditorOption.effectiveTextDirection) !== 'rtl') {
++			return;
++		}
++		if (this._scrollable.hasPendingScrollAnimation()) {
++			// A smooth scroll is under way, and moving the viewport now would cut its animation short
++			// (`Scrollable.setScrollPositionNow` cancels it). The anchor runs again on the next change
++			// to either edge of the box, so it costs nothing to let the animation finish.
++			return;
++		}
++		const anchorScrollLeft = this._rtlAnchorScrollLeft();
++		if (anchorScrollLeft === 0) {
++			// The lines fit, so every position in the box is the same position.
++			return;
++		}
++		this._moveViewportItself({ scrollLeft: Math.max(0, anchorScrollLeft - this._rtlDistanceFromRightEdge) });
++	}
++
++	/**
++	 * Hands the horizontal position to whoever just set it. The distance a restored view state asked
++	 * for goes with it: it described where to open, and something has opened somewhere else since, so
++	 * re-applying it later — when a changed direction drops ownership again — would drag the reader
++	 * back to a position they had already left.
++	 */
++	private _claimHorizontalPosition(): void {
++		this._horizontalPositionIsOwned = true;
++		this._rtlDistanceFromRightEdge = 0;
++	}
++
++	/**
++	 * Moves the viewport on the editor's own behalf, so that the resulting scroll event does not read
++	 * as the reader taking ownership of the horizontal position.
++	 */
++	private _moveViewportItself(position: INewScrollPosition): void {
++		const wasMovingViewportItself = this._isMovingViewportItself;
++		this._isMovingViewportItself = true;
++		try {
++			this._scrollable.setScrollPositionNow(position);
++		} finally {
++			this._isMovingViewportItself = wasMovingViewportItself;
++		}
++	}
++
++	/**
++	 * Sets the scroll dimensions on the editor's own behalf: a narrower box clamps `scrollLeft`, and
++	 * that clamp is the editor moving the viewport, not the reader.
++	 *
++	 * A position the reader owns is kept where they put it, which in a right-to-left layout means
++	 * keeping its distance from the *right* edge: `scrollLeft` counts from the left, so leaving it
++	 * alone while the box changes width pins the reader to the end of the lines and slides their
++	 * start away — the mirror image of what a left-to-right editor does on the same zoom.
++	 */
++	private _setScrollDimensions(dimensions: EditorScrollDimensions): void {
++		const before = this._scrollable.getScrollDimensions();
++		const keepsDistanceFromTrailingEdge = (
++			this._horizontalPositionIsOwned
++			// A smooth scroll knows the position it is travelling to, and `Scrollable.setScrollDimensions`
++			// hands the new box to that animation instead of ending it. Re-pinning the distance here would
++			// end it — `setScrollPositionNow` disposes the animation — and freeze the viewport wherever the
++			// frame that widened the content happened to catch it.
++			&& !this._scrollable.hasPendingScrollAnimation()
++			&& before.contentWidth > before.width
++			&& this._configuration.options.get(EditorOption.effectiveTextDirection) === 'rtl'
++		);
++		const distanceFromTrailingEdge = before.contentWidth - before.width - this._scrollable.getFutureScrollPosition().scrollLeft;
++
++		const wasMovingViewportItself = this._isMovingViewportItself;
++		this._isMovingViewportItself = true;
++		try {
++			this._scrollable.setScrollDimensions(dimensions);
++			if (keepsDistanceFromTrailingEdge && dimensions.contentWidth > dimensions.width) {
++				this._scrollable.setScrollPositionNow({
++					scrollLeft: Math.max(0, dimensions.contentWidth - dimensions.width - distanceFromTrailingEdge)
++				});
++			}
++		} finally {
++			this._isMovingViewportItself = wasMovingViewportItself;
++		}
++	}
++
+ 	public setMaxLineWidth(maxLineWidth: number): void {
+ 		this._maxLineWidth = maxLineWidth;
+ 		this._updateContentWidth();
+@@ -345,28 +491,37 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 
+ 	private _updateContentWidth(): void {
+ 		const scrollDimensions = this._scrollable.getScrollDimensions();
+-		this._scrollable.setScrollDimensions(new EditorScrollDimensions(
++		this._setScrollDimensions(new EditorScrollDimensions(
+ 			scrollDimensions.width,
+ 			this._computeContentWidth(),
+ 			scrollDimensions.height,
  			scrollDimensions.contentHeight
  		));
  
-+		if (!this._horizontalPositionIsOwned && this._configuration.options.get(EditorOption.effectiveTextDirection) === 'rtl') {
-+			// Every line is as wide as the widest line and right-to-left lines are aligned with the right
-+			// edge of that box. As long as nobody has taken ownership of the horizontal position, the
-+			// viewport would show the left (empty) end of the short lines, so anchor it to the right.
-+			const dimensions = this._scrollable.getScrollDimensions();
-+			if (dimensions.contentWidth > dimensions.width) {
-+				this._scrollable.setScrollPositionNow({ scrollLeft: dimensions.contentWidth - dimensions.width });
-+			}
-+		}
++		this._anchorHorizontalPositionForRtl();
 +
  		// The height might depend on the fact that there is a horizontal scrollbar or not
  		this._updateHeight();
  	}
-@@ -469,6 +493,11 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 
+ 	// ---- view state
+ 
+-	public saveState(): { scrollTop: number; scrollTopWithoutViewZones: number; scrollLeft: number } {
++	public saveState(): { scrollTop: number; scrollTopWithoutViewZones: number; scrollLeft: number; scrollLeftFromRightEdge: number | undefined } {
+ 		const currentScrollPosition = this._scrollable.getFutureScrollPosition();
+ 		const scrollTop = currentScrollPosition.scrollTop;
+ 		const firstLineNumberInViewport = this._linesLayout.getLineNumberAtOrAfterVerticalOffset(scrollTop);
+ 		const whitespaceAboveFirstLine = this._linesLayout.getWhitespaceAccumulatedHeightBeforeLineNumber(firstLineNumberInViewport);
++		const scrollDimensions = this._scrollable.getScrollDimensions();
+ 		return {
+ 			scrollTop: scrollTop,
+ 			scrollTopWithoutViewZones: scrollTop - whitespaceAboveFirstLine,
+-			scrollLeft: currentScrollPosition.scrollLeft
++			scrollLeft: currentScrollPosition.scrollLeft,
++			// See `IViewState.scrollLeftFromRightEdge`: the distance a right-to-left editor restores.
++			scrollLeftFromRightEdge: (
++				this._configuration.options.get(EditorOption.effectiveTextDirection) === 'rtl'
++					? Math.max(0, scrollDimensions.contentWidth - scrollDimensions.width - currentScrollPosition.scrollLeft)
++					: undefined
++			)
+ 		};
  	}
  
+@@ -468,7 +623,58 @@ export class ViewLayout extends Disposable implements IViewLayout {
+ 		return this._scrollable.validateScrollPosition(scrollPosition);
+ 	}
+ 
++	/**
++	 * Restores a saved scroll position. A `scrollLeft` is a distance from the left edge of the content
++	 * box, and in a right-to-left layout the lines are anchored at its *right* edge: the same number
++	 * lands somewhere else as soon as either edge has moved, which a changed zoom level, a resized
++	 * window or an edit to the widest line all do between one session and the next. So a right-to-left
++	 * editor restores `scrollLeftFromRightEdge` instead — the distance from the edge its lines start
++	 * at — and holds the viewport there. It cannot be applied yet: the lines have not been measured,
++	 * so the box has no width to measure the distance against. It is remembered, and the anchor
++	 * applies it as soon as the box has a width, and again whenever either edge moves.
++	 *
++	 * A state saved before this field existed, or by a left-to-right editor, carries nothing: the
++	 * distance is 0 and the editor opens where its lines start.
++	 *
++	 * This is a distinct entry point rather than a `setScrollPosition` special case on purpose: only
++	 * the caller knows the position is a restored one. A `scrollLeft` computed here and now (a reveal,
++	 * the reader's own scrolling) means what it says even when it is 0.
++	 */
++	public restoreScrollPosition(scrollTop: number, scrollLeft: number, scrollLeftFromRightEdge?: number): void {
++		// Recorded whatever the direction is right now, because right now is too early to know it: an
++		// editor is laid out left to right until the language of its model settles the setting, and a
++		// restored state arrives before that. The distance was written by a right-to-left editor and
++		// means nothing to a left-to-right one, which is why only the anchor ever reads it.
++		const distanceFromRightEdge = Math.max(0, scrollLeftFromRightEdge ?? 0);
++		if (this._configuration.options.get(EditorOption.effectiveTextDirection) === 'rtl') {
++			this._rtlDistanceFromRightEdge = distanceFromRightEdge;
++			this._moveViewportItself({ scrollTop });
++			this._anchorHorizontalPositionForRtl();
++			return;
++		}
++		this.setScrollPosition({ scrollTop, scrollLeft }, ScrollType.Immediate);
++		// After the move, never before it: a `scrollLeft` set on a box that can already scroll claims the
++		// horizontal position, and claiming it clears the distance. Recording first would hand the claim a
++		// distance to erase, and the editor would open at the start of the lines instead of where it was
++		// left. Today the box is still 0 wide at this point and no claim happens, but that is a property of
++		// when the restore runs, not of what it means.
++		this._rtlDistanceFromRightEdge = distanceFromRightEdge;
++	}
++
  	public setScrollPosition(position: INewScrollPosition, type: ScrollType): void {
-+		if (typeof position.scrollLeft === 'number') {
-+			// Somebody (the user, a reveal, a restored view state) owns the horizontal position now,
-+			// so the editor must no longer anchor it by itself. See `_updateContentWidth`.
-+			this._horizontalPositionIsOwned = true;
++		if (typeof position.scrollLeft === 'number' && this._rtlAnchorScrollLeft() > 0) {
++			// Somebody (the reader, a reveal, a restored view state) owns the horizontal position now,
++			// so the editor must no longer anchor it by itself. `scrollLeft` 0 counts: in a right-to-left
++			// layout it is where the end of the widest line sits, and a reveal asks for it by name.
++			//
++			// Unless the content box cannot scroll yet, which is how every editor starts: the lines have
++			// not been measured, so `contentWidth` is 0 and every position in it is the same position.
++			// An opening editor asks for one anyway — a reveal of the restored selection, and a reveal
++			// computed against that empty box — and reading those as the reader's choice would silence
++			// the anchor for the life of the editor. Measured on a reopened file: a reveal asked for 0
++			// and then for 15 while the box was empty, and the viewport stayed at 15 of 5048.
++			this._claimHorizontalPosition();
 +		}
  		if (type === ScrollType.Immediate) {
  			this._scrollable.setScrollPositionNow(position);
  		} else {
-@@ -481,6 +510,9 @@ export class ViewLayout extends Disposable implements IViewLayout {
+@@ -481,6 +687,9 @@ export class ViewLayout extends Disposable implements IViewLayout {
  	}
  
  	public deltaScrollNow(deltaScrollLeft: number, deltaScrollTop: number): void {
 +		if (deltaScrollLeft !== 0) {
-+			this._horizontalPositionIsOwned = true;
++			this._claimHorizontalPosition();
 +		}
  		const currentScrollPosition = this._scrollable.getCurrentScrollPosition();
  		this._scrollable.setScrollPositionNow({
  			scrollLeft: currentScrollPosition.scrollLeft + deltaScrollLeft,
+diff --git a/src/vs/editor/common/viewModel.ts b/src/vs/editor/common/viewModel.ts
+index 94d4488e..50031457 100644
+--- a/src/vs/editor/common/viewModel.ts
++++ b/src/vs/editor/common/viewModel.ts
+@@ -129,6 +129,7 @@ export interface IViewLayout {
+ 	getFutureViewport(): Viewport;
+ 
+ 	setScrollPosition(position: INewScrollPosition, type: ScrollType): void;
++	restoreScrollPosition(scrollTop: number, scrollLeft: number, scrollLeftFromRightEdge?: number): void;
+ 	deltaScrollNow(deltaScrollLeft: number, deltaScrollTop: number): void;
+ 
+ 	validateScrollPosition(scrollPosition: INewScrollPosition): IScrollPosition;
 diff --git a/src/vs/editor/common/viewModel/viewModelImpl.ts b/src/vs/editor/common/viewModel/viewModelImpl.ts
-index abbd44aa396..6510856500e 100644
+index abbd44aa..149dc0e1 100644
 --- a/src/vs/editor/common/viewModel/viewModelImpl.ts
 +++ b/src/vs/editor/common/viewModel/viewModelImpl.ts
 @@ -291,6 +291,11 @@ export class ViewModel extends Disposable implements IViewModel {
@@ -1123,7 +1441,39 @@ index abbd44aa396..6510856500e 100644
  		if (e.hasChanged(EditorOption.readOnly)) {
  			// Must read again all decorations due to readOnly filtering
  			this._decorations.reset();
-@@ -855,6 +860,7 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -755,12 +760,13 @@ export class ViewModel extends Disposable implements IViewModel {
+ 
+ 		return {
+ 			scrollLeft: compatViewState.scrollLeft,
++			scrollLeftFromRightEdge: compatViewState.scrollLeftFromRightEdge,
+ 			firstPosition: firstPosition,
+ 			firstPositionDeltaTop: firstPositionDeltaTop
+ 		};
+ 	}
+ 
+-	public reduceRestoreState(state: IViewState): { scrollLeft: number; scrollTop: number } {
++	public reduceRestoreState(state: IViewState): { scrollLeft: number; scrollLeftFromRightEdge: number | undefined; scrollTop: number } {
+ 		if (typeof state.firstPosition === 'undefined') {
+ 			// This is a view state serialized by an older version
+ 			return this._reduceRestoreStateCompatibility(state);
+@@ -771,13 +777,15 @@ export class ViewModel extends Disposable implements IViewModel {
+ 		const scrollTop = this.viewLayout.getVerticalOffsetForLineNumber(viewPosition.lineNumber) - state.firstPositionDeltaTop;
+ 		return {
+ 			scrollLeft: state.scrollLeft,
++			scrollLeftFromRightEdge: state.scrollLeftFromRightEdge,
+ 			scrollTop: scrollTop
+ 		};
+ 	}
+ 
+-	private _reduceRestoreStateCompatibility(state: IViewState): { scrollLeft: number; scrollTop: number } {
++	private _reduceRestoreStateCompatibility(state: IViewState): { scrollLeft: number; scrollLeftFromRightEdge: number | undefined; scrollTop: number } {
+ 		return {
+ 			scrollLeft: state.scrollLeft,
++			scrollLeftFromRightEdge: state.scrollLeftFromRightEdge,
+ 			scrollTop: state.scrollTopWithoutViewZones!
+ 		};
+ 	}
+@@ -855,6 +863,7 @@ export class ViewModel extends Disposable implements IViewModel {
  
  	private _getTextDirection(lineNumber: number, decorations: ViewModelDecoration[]): TextDirection {
  		let rtlCount = 0;
@@ -1131,7 +1481,7 @@ index abbd44aa396..6510856500e 100644
  
  		for (const decoration of decorations) {
  			const range = decoration.range;
-@@ -864,12 +870,19 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -864,12 +873,19 @@ export class ViewModel extends Disposable implements IViewModel {
  			const textDirection = decoration.options.textDirection;
  			if (textDirection === TextDirection.RTL) {
  				rtlCount++;
@@ -1355,10 +1705,26 @@ index 0d516e35a14..23e082b093b 100644
 +	});
  });
 diff --git a/src/vs/monaco.d.ts b/src/vs/monaco.d.ts
-index 09915a982eb..2c1149f0a1b 100644
+index d93410d6..9f796e3d 100644
 --- a/src/vs/monaco.d.ts
 +++ b/src/vs/monaco.d.ts
-@@ -3239,6 +3239,25 @@ declare namespace monaco.editor {
+@@ -2633,6 +2633,15 @@ declare namespace monaco.editor {
+ 		/** written by previous versions */
+ 		scrollTopWithoutViewZones?: number;
+ 		scrollLeft: number;
++		/**
++		 * How far the viewport sits from the *right* edge of the content box, written only by a
++		 * right-to-left editor. `scrollLeft` counts from the left edge, and a right-to-left layout anchors
++		 * its lines at the right one: the same `scrollLeft` lands somewhere else as soon as either edge
++		 * moves, which a changed zoom level, a resized window or an edit to the widest line all do between
++		 * one session and the next. This distance is what stays put for such an editor, so it is what a
++		 * right-to-left editor restores; a left-to-right editor neither writes nor reads it.
++		 */
++		scrollLeftFromRightEdge?: number;
+ 		firstPosition: IPosition;
+ 		firstPositionDeltaTop: number;
+ 	}
+@@ -3239,6 +3248,25 @@ declare namespace monaco.editor {
  		 * The `tabindex` property of the editor's textarea
  		 */
  		tabIndex?: number;
@@ -1384,7 +1750,7 @@ index 09915a982eb..2c1149f0a1b 100644
  		/**
  		 * Render vertical lines at the specified columns.
  		 * Defaults to empty array.
-@@ -5225,39 +5244,42 @@ declare namespace monaco.editor {
+@@ -5225,39 +5253,42 @@ declare namespace monaco.editor {
  		suggestSelection = 138,
  		tabCompletion = 139,
  		tabIndex = 140,
@@ -1460,7 +1826,7 @@ index 09915a982eb..2c1149f0a1b 100644
  	}
  
  	export const EditorOptions: {
-@@ -5409,9 +5431,11 @@ declare namespace monaco.editor {
+@@ -5409,9 +5440,11 @@ declare namespace monaco.editor {
  		suggestSelection: IEditorOption<EditorOption.suggestSelection, 'first' | 'recentlyUsed' | 'recentlyUsedByPrefix'>;
  		tabCompletion: IEditorOption<EditorOption.tabCompletion, 'on' | 'off' | 'onlySnippets'>;
  		tabIndex: IEditorOption<EditorOption.tabIndex, number>;
@@ -1473,7 +1839,7 @@ index 09915a982eb..2c1149f0a1b 100644
  		useShadowDOM: IEditorOption<EditorOption.useShadowDOM, boolean>;
  		useTabStops: IEditorOption<EditorOption.useTabStops, boolean>;
  		wordBreak: IEditorOption<EditorOption.wordBreak, 'normal' | 'keepAll'>;
-@@ -5421,10 +5445,11 @@ declare namespace monaco.editor {
+@@ -5421,10 +5454,11 @@ declare namespace monaco.editor {
  		wordWrapBreakAfterCharacters: IEditorOption<EditorOption.wordWrapBreakAfterCharacters, string>;
  		wordWrapBreakBeforeCharacters: IEditorOption<EditorOption.wordWrapBreakBeforeCharacters, string>;
  		wordWrapColumn: IEditorOption<EditorOption.wordWrapColumn, number>;

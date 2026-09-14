@@ -1,0 +1,83 @@
+diff --git a/src/vs/base/browser/ui/inputbox/inputBox.ts b/src/vs/base/browser/ui/inputbox/inputBox.ts
+index d8c041c9..caa2d27b 100644
+--- a/src/vs/base/browser/ui/inputbox/inputBox.ts
++++ b/src/vs/base/browser/ui/inputbox/inputBox.ts
+@@ -15,6 +15,7 @@ import { getBaseLayerHoverDelegate } from '../hover/hoverDelegate2.js';
+ import { ScrollableElement } from '../scrollbar/scrollableElement.js';
+ import { Widget } from '../widget.js';
+ import { IAction } from '../../../common/actions.js';
++import * as strings from '../../../common/strings.js';
+ import { Emitter, Event } from '../../../common/event.js';
+ import { HistoryNavigator, IHistory } from '../../../common/history.js';
+ import { equals } from '../../../common/objects.js';
+@@ -98,6 +99,35 @@ export const unthemedInboxStyles: IInputBoxStyles = {
+ 	inputValidationWarningForeground: undefined
+ };
+ 
++/**
++ * The direction the first strong character of `value` is written in, or `undefined` when it holds no
++ * strong character at all — digits, punctuation and whitespace say nothing about direction, and
++ * neither does an empty field. Mirrors what the bidi algorithm does to pick a paragraph direction.
++ */
++function firstStrongCharacterDirection(value: string): 'rtl' | 'ltr' | undefined {
++	for (const character of value) {
++		if (strings.containsRTL(character)) {
++			return 'rtl';
++		}
++		if (STRONG_LTR_CHARACTER.test(character)) {
++			return 'ltr';
++		}
++	}
++	return undefined;
++}
++
++/**
++ * A letter, in any script and on any plane, plus the left-to-right mark. Every letter is strongly
++ * directional, and the right-to-left ones have already been claimed by `containsRTL` by the time this
++ * is reached, so what is left is written left to right. Digits and punctuation are deliberately not
++ * here: they take their direction from their surroundings rather than giving it.
++ *
++ * The `u` flag matters — without it the pattern matches half of a surrogate pair, and text in the
++ * supplementary planes (Mathematical Alphanumerics, Deseret, Osage) would read as having no strong
++ * character at all.
++ */
++const STRONG_LTR_CHARACTER = /[\p{L}\p{Nl}‎]/u;
++
+ export class InputBox extends Widget {
+ 	private contextViewProvider?: IContextViewProvider;
+ 	element: HTMLElement;
+@@ -148,6 +178,7 @@ export class InputBox extends Widget {
+ 		this.input.setAttribute('autocorrect', 'off');
+ 		this.input.setAttribute('autocapitalize', 'off');
+ 		this.input.setAttribute('spellcheck', 'false');
++		this._updateContentDirection();
+ 
+ 		this.onfocus(this.input, () => this.element.classList.add('synthetic-focus'));
+ 		this.onblur(this.input, () => this.element.classList.remove('synthetic-focus'));
+@@ -564,8 +595,26 @@ export class InputBox extends Widget {
+ 		}
+ 	}
+ 
++	/**
++	 * Points the field the way its own content is written. `unicode-bidi: plaintext` already lays the
++	 * text out that way, but it leaves the element's `direction` alone — and that is what decides which
++	 * way the field can scroll. A right-to-left query in a left-to-right field starts at the field's
++	 * right edge and runs off its left one, where `scrollWidth` does not reach and `scrollLeft` cannot
++	 * follow: the caret leaves the box and the writer stops seeing what they type.
++	 *
++	 * `dir="auto"` is the same idea in one attribute, but its fallback is wrong for a right-to-left
++	 * application: a field holding nothing, or holding only digits and punctuation, has no strong
++	 * character, and HTML resolves that to `ltr` no matter what the surrounding application is. So the
++	 * fallback here is the document's own direction, and an empty field faces the way the rest of the
++	 * application does.
++	 */
++	private _updateContentDirection(): void {
++		this.input.setAttribute('dir', firstStrongCharacterDirection(this.input.value) ?? (this.input.ownerDocument.documentElement.dir || 'ltr'));
++	}
++
+ 	private onValueChange(): void {
+ 		this._onDidChange.fire(this.value);
++		this._updateContentDirection();
+ 
+ 		this.validate();
+ 		this.updateMirror();

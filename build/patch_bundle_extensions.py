@@ -270,6 +270,12 @@ _INJECT_TEMPLATE = """
     git apply --3way ../.mihrab-terminal-unavailable-in-web.patch || { echo "محراب: فشل تطبيق رُقعة الطرفيّة في المتصفّح" >&2; exit 1; }
     echo "محراب: طُبِّقت الطرفيّةُ حيث لا طرفيّة (أربعةُ مداخلَ تُقيَّد بـprocessSupported)"
   fi
+  # اتّجاهُ حقل الإدخال يتبع محتواه: `dir="auto"` على حقل `InputBox`. بلا هذه الرقعة يعود
+  # الاستعلامُ العربيُّ الطويل يخرج من الحقل بلا تمرير — الكاتبُ لا يرى ما يكتب. فشلٌ قاتل.
+  if [ -f ../.mihrab-inputbox-content-direction.patch ]; then
+    git apply --3way ../.mihrab-inputbox-content-direction.patch || { echo "محراب: فشل تطبيق رُقعة اتّجاه حقول الإدخال" >&2; exit 1; }
+    echo "محراب: طُبِّق اتّجاهُ حقول الإدخال (يتبع المحتوى، وافتراضُه اتّجاهُ المستند)"
+  fi
   # رُقعة صفحة الترحيب: شعار القوس + الجملة الاستعاريّة في ترويسة Get Started (شكل الشعار في mihrab-identity.css — ورقةُ الهويّة [VA-05]).
   if [ -f ../.mihrab-patch-welcome-rtl.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-welcome-rtl.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts || { echo "محراب: فشلت رُقعة صفحة الترحيب" >&2; exit 1; }

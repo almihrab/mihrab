@@ -3,7 +3,7 @@ import { editorGeometry, suggestGap, findWidget, welcomeHeader, explorerSadIcon,
          bidiPanels, glyphOrder, breadcrumbsBar, key, MOD, escape, sleep, insertText, focusEditor,
 openDiffFromScm, confirmDialog, walkthroughAlign, waitFor, resetWorkbench, editorHover,
 openExtensionDetails, dialogButtons, statusbarOrder, discardUntitled, pinActiveTab, recoverWelcomeTab,
-bidiSweep, documentLangDir, editorInkMetrics, focusOrder } from "./harness.mjs";
+bidiSweep, documentLangDir, editorInkMetrics, focusOrder, horizontalAnchorRtl, findInputControls, revealLineEndRtl, restoredHorizontalPositionRtl, inputDirectionFollowsContent } from "./harness.mjs";
 
 // جزء من الجملة الاستعاريّة (يطابق نصّ العنوان الفرعيّ الفعليّ في الترويسة).
 // ⚠️ مقترن بـWELCOME_TAGLINE في build/patch_welcome_rtl.py: إعادة صياغة تُسقِط هذا الجزء تكسر المِجَسّ.
@@ -214,6 +214,25 @@ export async function interactionAssertions(cdp) {
     }
   } catch (e) { out.push(skip("البحث أعلى-اليسار", "تعذّر: " + e.message)); }
 
+  // مقابضُ حقل البحث لا تركب النصّ (بلاغُ مستخدمٍ حيّ ‎2026-09-10‎ عن جزء البحث).
+  //
+  // في RTL تُنقَل المقابضُ إلى الحافّة اليسرى، والمساحةُ المحجوزة لها في المنبع **تضييقُ
+  // الحقل** لا حشوٌ — فإن بقي التضييقُ في الجهة الأخرى وقعت المقابضُ فوق بداية النصّ.
+  // القياسُ تقاطعُ مستطيلين، ويجري على كلّ حقلِ بحثٍ ظاهرٍ في اللحظة.
+  try {
+    const inputs = await findInputControls(cdp);
+    if (!inputs || !inputs.length) out.push(skip("مقابض حقل البحث لا تركب النصّ", "لا حقل بحثٍ ظاهر", true));
+    else {
+      // سماحيةُ التجاور: حافّتان متلاصقتان تُقرآن أحيانًا بتقاطع بكسلٍ واحد بعد التقريب.
+      // والعطبُ المقيس كان ‎66px‎ (عرضَ المقابض كاملًا) لا بكسلًا.
+      const bad = inputs.filter(i => i.overlap > TOL);
+      if (bad.length) out.push(fail("مقابض حقل البحث لا تركب النصّ",
+        bad.map(i => `${i.host}: المقابض [${i.controls}] تتقاطع مع الحقل [${i.field}] بـ${i.overlap}px`).join(" · ")));
+      else out.push(pass("مقابض حقل البحث لا تركب النصّ",
+        inputs.map(i => `${i.host}: مقابض [${i.controls}] ${i.controlsOnLeadingSide ? "يسارَ" : "بجانب"} الحقل [${i.field}]`).join(" · ")));
+    }
+  } catch (e) { out.push(skip("مقابض حقل البحث لا تركب النصّ", "تعذّر: " + e.message, true)); }
+
   // أيقونة ملفّ ص في المستكشف تحمل القوس (best-effort — يحتاج مجلّدًا فيه ملفّ .ص مفتوحًا).
   try {
     const e = await explorerSadIcon(cdp);
@@ -258,6 +277,80 @@ export async function interactionAssertions(cdp) {
     }
   } catch (e) { out.push(skip("bidi: النصّ العربيّ يمينًا", "تعذّر: " + e.message, true)); }
 
+  // التمرير الأفقيّ: المحرّر يفتح عند **بداية** الأسطر لا عند طرفها الفارغ.
+  //
+  // الصندوقُ بعرض أعرض سطر والأسطرُ اليمينيّة مُحاذاةٌ يمينَه، فـ`scrollLeft = 0` يعرض الفراغ
+  // بعد نهايات الأسطر القصيرة — وهو ما يبدأ به المحرّر وما تحمله حالةُ عرضٍ حُفِظت قبل أن
+  // يفيض السطر. القياسُ حتميّ: `scrollLeft` عند أقصاه ⇒ النافذة عند الحافّة اليمنى.
+  // بلا فيضٍ أفقيّ لا مشهودَ عليه (النافذة أوسع من أطول سطر) فيُتخطّى صراحةً.
+  try {
+    const h = await horizontalAnchorRtl(cdp);
+    if (!h || !h.present) out.push(skip("التمرير الأفقيّ: يفتح عند بداية الأسطر", "لا محرّر", true));
+    else if (!h.rtl) out.push(skip("التمرير الأفقيّ: يفتح عند بداية الأسطر", "المحرّر ليس RTL (ملفّ لاتينيّ نشط)", true));
+    else if (h.maxScrollLeft <= TOL) out.push(skip("التمرير الأفقيّ: يفتح عند بداية الأسطر",
+      `لا فيض أفقيّ (عرض التمرير ${h.scrollW} ≤ الإطار ${h.viewportW}) — لا مشهودَ عليه`));
+    else if (Math.abs(h.scrollLeft - h.maxScrollLeft) <= TOL) out.push(pass("التمرير الأفقيّ: يفتح عند بداية الأسطر",
+      `scrollLeft=${h.scrollLeft} = أقصاه ${h.maxScrollLeft} (تمرير ${h.scrollW} · إطار ${h.viewportW}) ⇒ النافذة على الحافّة اليمنى`));
+    else out.push(fail("التمرير الأفقيّ: يفتح عند بداية الأسطر",
+      `scrollLeft=${h.scrollLeft} ≠ أقصاه ${h.maxScrollLeft} (تمرير ${h.scrollW} · إطار ${h.viewportW}) — النافذة على الطرف الفارغ، وبدايةُ السطر تحتاج جرَّ المسطرة`));
+  } catch (e) { out.push(skip("التمرير الأفقيّ: يفتح عند بداية الأسطر", "تعذّر: " + e.message, true)); }
+
+  // كشفُ نهايةِ السطر: النافذةُ تتبع المؤشّرَ إلى الطرف الفارغ حين يطلبه القارئُ صراحةً.
+  //
+  // المرساةُ تُبقي النافذةَ عند بداية الأسطر، لكنّ **نهاية** أعرضِ سطرٍ تقع عند الحافّة
+  // اليسرى — أي عند `scrollLeft = 0` بالضبط، وهو الرقمُ الذي تحمله أيضًا الحالاتُ التي لا
+  // تعني موضعًا (حالةُ عرضٍ مستعادة، كشفُ مدًى يمتدّ سطورًا). فمن يخلط بينهما يبتلع الكشفَ
+  // ويترك المؤشّرَ خارج الشاشة. مقيس: `End` على أعرض سطرٍ ⇒ المؤشّرُ داخل إطار المحتوى.
+  try {
+    const r = await revealLineEndRtl(cdp);
+    if (!r || !r.present) out.push(skip("كشف نهاية السطر يتبع المؤشّر", "لا سطر عربيّ مصيَّر", true));
+    else if (!r.rtl) out.push(skip("كشف نهاية السطر يتبع المؤشّر", "المحرّر ليس RTL (ملفّ لاتينيّ نشط)", true));
+    else if (!r.moved) out.push(skip("كشف نهاية السطر يتبع المؤشّر", "لم يتحرّك المؤشّر — لم يصل النقرُ/المفتاح إلى المحرّر", true));
+    else if (r.inside) out.push(pass("كشف نهاية السطر يتبع المؤشّر",
+      `المؤشّر [${r.cursor}] داخل الإطار [${r.viewport}] · scrollLeft=${r.scrollLeft}`));
+    else out.push(fail("كشف نهاية السطر يتبع المؤشّر",
+      `المؤشّر [${r.cursor}] خارج الإطار [${r.viewport}] (scrollLeft=${r.scrollLeft}) — الكشفُ ابتُلع والكتابةُ تجري حيث لا يُرى`));
+  } catch (e) { out.push(skip("كشف نهاية السطر يتبع المؤشّر", "تعذّر: " + e.message, true)); }
+
+  // اتّجاهُ حقل الإدخال يتبع محتواه، وافتراضُه اتّجاهُ التطبيق (رقعة النواة 035).
+  //
+  // محرابٌ عربيٌّ أصلًا واللاتينيّةُ فيه لاحقة: الحقلُ الفارغ — وما لا محرفَ قويَّ فيه —
+  // يقف يمينًا. وهذا ما لا يعطيه `dir="auto"` وحدَه: ارتدادُه المنصوصُ عليه هو اليسار.
+  try {
+    const d = await inputDirectionFollowsContent(cdp);
+    const NAME = "اتّجاه حقل الإدخال يتبع محتواه";
+    if (!d || !d.present) out.push(skip(NAME, "لا حقلَ بحثٍ في أيٍّ من السطحين", true));
+    else {
+      // **ودجةُ بحث المحرّر هي السطحُ ذو الأنياب**: جذرُ `.monaco-editor` يساريٌّ بنيةً، فالفارغُ
+      // والمحايدُ فيه يقفان يسارًا بلا الرقعة. وجزءُ البحث يرث اليمينيَّ من القشرة فيُقاس
+      // عليه اللاتينيُّ وحدَه حكمًا، وتُقرأ سِمةُ `dir` شاهدًا على أنّ الرقعةَ كتبت شيئًا أصلًا.
+      const wrong = [], seen = [];
+      const judge = (label, one, full) => {
+        if (!one) { seen.push(`${label}: غائب`); return; }
+        if (!one.typed) { seen.push(`${label}: لم يصل النصّ`); return; }
+        if (full) {
+          if (one.empty !== "rtl") { wrong.push(`${label}/فارغ=${one.empty}`); }
+          if (one.neutral !== "rtl") { wrong.push(`${label}/أرقامٌ ورموز=${one.neutral}`); }
+          if (one.arabic !== "rtl") { wrong.push(`${label}/عربيّ=${one.arabic}`); }
+        }
+        if (one.latin !== "ltr") { wrong.push(`${label}/لاتينيّ=${one.latin}`); }
+        // السِّمةُ لا يكتبها إلّا رقعةُ ‎035‎؛ غيابُها يعني أنّ الحقلَ لم يُلمَس.
+        const attrs = one.attrs || [];
+        if (attrs.some(a => a !== "rtl" && a !== "ltr")) { wrong.push(`${label}/سِمةُ dir غائبة (${attrs.join(",")})`); }
+        seen.push(`${label}: ${full ? `فارغ=${one.empty} · أرقامٌ ورموز=${one.neutral} · عربيّ=${one.arabic} · ` : ""}لاتينيّ=${one.latin}`);
+      };
+      judge("ودجة المحرّر", d.findWidget, true);
+      judge("جزء البحث", d.searchView, false);
+      if (!d.findWidget || !d.findWidget.typed) {
+        out.push(skip(NAME, `لم يُقَس السطحُ الحاسم (ودجةُ بحث المحرّر) — ${seen.join(" · ") || "لا قياس"}`, true));
+      } else if (wrong.length) {
+        out.push(fail(NAME, `${wrong.join(" · ")} (المتوقَّع: الافتراضُ يمينًا، واللاتينيُّ وحدَه يسارًا)`));
+      } else {
+        out.push(pass(NAME, seen.join(" · ")));
+      }
+    }
+  } catch (e) { out.push(skip("اتّجاه حقل الإدخال يتبع محتواه", "تعذّر: " + e.message, true)); }
+
   // إفلات التبويبات (#18، رقعة mihrab-rtl-tabdrop): حارس اتّجاه الحاوية + انعكاسها الفيزيائيّ.
   try {
     const t = await tabsDropRtl(cdp);
@@ -268,6 +361,30 @@ export async function interactionAssertions(cdp) {
     else out.push(pass("إفلات التبويبات: حاوية RTL",
       `${t.tabCount} تبويب، direction=rtl، تبويب DOM الأوّل أقصى اليمين (first.left=${t.firstLeft} > last.left=${t.lastLeft})`));
   } catch (e) { out.push(skip("إفلات التبويبات: حاوية RTL", "تعذّر: " + e.message, true)); }
+
+  // **يجري بعد مِجَسّات حالةِ الفتح عمدًا:** هذا المِجَسّ يضع موضعًا **ويحفظه**، فلو سبق
+  // مِجَسَّ المرساة لقرأ ذاك إزاحةً وأبلغ فشلًا صنعناه نحن (وقع فعلًا في تشغيلة).
+  // موضعُ القارئ الأفقيّ يُستعاد كما تركه.
+  //
+  // المرساةُ تفتح عند بداية الأسطر، والقارئُ إن حرّك الموضعَ فهو له — وحفظُه بين الجلسات
+  // يحتاج **مسافةً من بداية الأسطر** لا `scrollLeft` مقيسًا من الطرف الآخر، وإلّا وقع في
+  // مكانٍ آخر عند أوّل تكبيرٍ أو تغييرِ حجم. مقيس: التبويبُ يُغلَق ويُعاد فتحُه فتعود المسافة.
+  try {
+    const r = await restoredHorizontalPositionRtl(cdp);
+    if (!r || !r.present) out.push(skip("موضع القارئ الأفقيّ يُستعاد", "لا محرّر", true));
+    else if (!r.activated) out.push(skip("موضع القارئ الأفقيّ يُستعاد", "تبويبُ العيّنة ليس نشطًا — لكنّا أغلقنا تبويبًا آخر", true));
+    else if (!r.rtl) out.push(skip("موضع القارئ الأفقيّ يُستعاد", "المحرّر ليس RTL (ملفّ لاتينيّ نشط)", true));
+    else if (!r.overflow) out.push(skip("موضع القارئ الأفقيّ يُستعاد", `لا فيض أفقيّ (أقصاه ${r.max}) — لا مشهودَ عليه`));
+    else if (!r.moved) out.push(skip("موضع القارئ الأفقيّ يُستعاد", "لم تُحرّك العجلةُ الموضعَ — لم يصل الإدخال", true));
+    else if (!r.reopened) out.push(skip("موضع القارئ الأفقيّ يُستعاد", "لم يعد تبويبُ العيّنة بعد إغلاقه — لا مقارنةَ صحيحة", true));
+    else if (!r.geometryMoved) out.push(skip("موضع القارئ الأفقيّ يُستعاد",
+      `لم تتحرّك الحافّةُ بين الحفظ والاستعادة (${r.placedMax}→${r.restoredMax}) — لم يُختبَر الحقلُ في الحالة التي وُجِد لأجلها`, true));
+    else if (r.kept) out.push(pass("موضع القارئ الأفقيّ يُستعاد",
+      `وُضِع على ${r.placedGap}px من بداية الأسطر، وعاد على ${r.restoredGap}px بعد إغلاق التبويب وتغيُّرِ عرضِ الصندوق (${r.placedMax}→${r.restoredMax}) وإعادةِ فتحه`));
+    else out.push(fail("موضع القارئ الأفقيّ يُستعاد",
+      `وُضِع على ${r.placedGap}px من بداية الأسطر وعاد على ${r.restoredGap}px (أقصاه ${r.placedMax}→${r.restoredMax}) — الموضعُ ضاع أو انزاح مع الحافّة`));
+  } catch (e) { out.push(skip("موضع القارئ الأفقيّ يُستعاد", "تعذّر: " + e.message, true)); }
+
 
   return out;
 }
