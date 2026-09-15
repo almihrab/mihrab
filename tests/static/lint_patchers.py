@@ -5584,9 +5584,9 @@ def _repo_references_are_current():
 
 
 
-@check("ملاحظاتُ الإصدار: العقدُ الرباعيّ [RN-01]")
+@check("ملاحظاتُ الإصدار: العقدُ الخماسيّ [RN-01]")
 def _release_notes_contract_holds():
-    """عنوانٌ واحدٌ مكتوبٌ في أربعة ملفّاتٍ لا يعرف بعضُها بعضًا — ومن غيّر واحدًا صمت الباقي.
+    """عنوانٌ واحدٌ مكتوبٌ في خمسة ملفّاتٍ لا يعرف بعضُها بعضًا — ومن غيّر واحدًا صمت الباقي.
 
     المسارُ كاملًا: رقعةُ النواة ‎036‎ تجعل المحرِّرَ يطلب
     ‏`<releaseNotesBaseUrl>/v<كبير>_<صغير>.md`؛ والقاعدةُ في `product-overrides/product.json`؛
@@ -5621,12 +5621,38 @@ def _release_notes_contract_holds():
         "مسارٍ لا يخدمه الخادم، فيجلب المحرِّرُ ‎404‎ ويرتدّ إلى المتصفّح" % (path, host))
     # النوعُ صراحةً: `nosniff` في الإعداد نفسِه يمنع تخمينَ المتصفّح، وخرائطُ الأنواع
     # لا تعرف `.md` — فتصير الملاحظاتُ تنزيلًا لا صفحةً في نسخة المتصفّح.
+    # **والترويسةُ التي بلا كتلةِ خدمةٍ لا تُرى**: الطلبُ عابرُ أصلٍ (عارضُ التطبيق أصلُه
+    # `vscode-file://vscode-app`)، فبلا `Access-Control-Allow-Origin` يسقط في التطبيق
+    # **بينما يردّ الخادمُ ‎200‎ لـcurl** — نجاحٌ كاذبٌ عند الناشر وميزةٌ ميّتةٌ عند القارئ.
+    # قِيس حيًّا: المنبعُ يُجيب العارضَ، و`mihrab.dev` بلا الترويسة يسقط.
+    notes_block = conf[conf.index("location %s/ {" % path):]
+    notes_block = notes_block[:notes_block.index(chr(10) + "    }")]
+    assert "Access-Control-Allow-Origin" in notes_block, (
+        "كتلةُ الملاحظات بلا `Access-Control-Allow-Origin` — الجلبُ عابرُ أصلٍ فيسقط في "
+        "التطبيق رغم أنّ الخادمَ يردّ ‎200‎ لـcurl")
     assert "default_type text/markdown;" in conf, (
         "كتلةُ الملاحظات بلا `default_type text/markdown;` — مع `nosniff` يصير النصُّ تنزيلًا. "
         "و`charset_types` وحدَه لا يكفي: هو يضبط الترميزَ لا النوع")
 
+    # **والرقعةُ داخل القياس لا خارجَه.** هي الضلعُ الوحيدُ الذي يقرأ المفتاح، فلو أُعيدت
+    # تسميتُه فيها وحدَها لمرّ كلُّ شيء: الحارسُ أخضر، والرقعةُ تُطبَّق نظيفةً، والبناءُ
+    # ينجح — ويقرأ المستخدِمُ ملاحظاتِ إصدارِ Visual Studio Code كما كان.
+    patch = _read(os.path.join(ROOT, "patches", "core", "036-release-notes-source.patch"))
+    assert patch.count("releaseNotesBaseUrl") >= 2, (
+        "رقعةُ ‎036‎ لا تذكر `releaseNotesBaseUrl` في موضعَيه (حقلُ الهويّة وقراءتُه في المحرِّر) — "
+        "المفتاحُ مكتوبٌ في الهويّة ولا أحدَ يقرؤه")
+    assert "mainWindow" in patch or "ownerDocument" in patch, (
+        "رقعةُ ‎036‎ لا تقرأ اتّجاهَ القشرة — مستندُ الـwebview مستقلٌّ ولا يرث `dir`، "
+        "فالوثيقةُ العربيّةُ تُصيَّر يساريّة")
+
     pub = os.path.join(ROOT, "build", "publish_release_notes.sh")
     assert os.path.isfile(pub), "لا سكربتَ نشرٍ للملاحظات — لا طريقَ يضع الملفَّ على الخادم"
+    # ووجهةُ النشر هي التي يخدمها `alias`: النشرُ حيث لا يقرأ الخادمُ ‎404‎ صامتٌ عند القارئ.
+    alias = _re.search(r"alias\s+(\S+?)/?;", conf)
+    assert alias, "كتلةُ الملاحظات بلا `alias` — لا مجلّدَ تُقرأ منه"
+    assert alias.group(1) in _read(pub), (
+        "مجلّدُ `alias` في nginx (%s) لا يذكره سكربتُ النشر — النشرُ يكتب حيث لا يقرأ الخادم"
+        % alias.group(1))
 
     # والمصدرُ نفسُه: اسمُ الملفّ هو ما يطلبه المحرِّر حرفًا بحرف، ومقدّمتُه هي ما
     # يتحقّق منه قبل العرض (`Invalid release notes` وإلّا).
@@ -5640,14 +5666,18 @@ def _release_notes_contract_holds():
         assert _re.match(r"^v\d+_\d+\.md$", name), (
             f"اسمُ ملفّ ملاحظاتٍ لا يطابق ما يطلبه المحرِّر: {name} (المتوقَّع v<كبير>_<صغير>.md)")
         text = _read(os.path.join(src, name))
-        assert text.startswith("# "), (
+        assert _re.match(r"^#\s", text), (
             f"{name} لا يبدأ بـ«# » — يرفضه المحرِّرُ بـInvalid release notes ويرتدّ بالقارئ "
             "إلى المتصفّح")
 
     # وإصدارُ المنبع المثبَّت لا بدّ أن يجد ملاحظاتِه: بلا هذا يُرقّى المنبعُ فيصمت
     # النظامُ كلُّه — الطلبُ يقصد نسخةً لم تُكتَب ملاحظاتُها بعد.
     pinned = _json.loads(_read(os.path.join(ROOT, "upstream.json")))["vscode"]["version"]
-    expected = "v%s.md" % pinned.replace(".", "_")
+    # **بدلالة المحرِّر لا بدلالةٍ أخرى**: هو يشتقّ بـ`/^(\d+\.\d+)\./` فيأخذ الكبيرَ
+    # والصغيرَ وحدَهما. ولو نُسِخ التثبيتُ «1.127.0» — وهي صيغةٌ مشروعةٌ في `upstream.json` —
+    # لطلب اشتقاقٌ ساذجٌ ملفًّا اسمُه `v1_127_0.md` **ترفضه صيغةُ الاسم أعلاه**، فيحمرّ
+    # الحارسُ بتشخيصٍ يقود إلى ملفٍّ يستحيل قبولُه.
+    expected = "v%s.md" % "_".join(pinned.split(".")[:2])
     assert expected in notes, (
         f"لا ملاحظاتٍ للإصدار المثبَّت {pinned}: ينقص release-notes/{expected} — "
         f"الموجود: {', '.join(notes)}")

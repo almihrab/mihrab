@@ -25,6 +25,20 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$HERE/release-notes"
 SSH=(ssh -p "$PORT" -o BatchMode=yes)
 
+# مفسّرُ بايثون يُحلّ ولا يُفترَض: `python` المجرَّد غائبٌ عن أوبونتو 24.04.
+. "$HERE/build/lib/pybin.sh"
+resolve_py_bin || exit 1
+
+# **القاعدةُ تُقرأ من الهويّة ولا تُكتب هنا ثانيةً.** هي العنوانُ الذي يطلبه التطبيقُ فعلًا،
+# ونسخةٌ ثانيةٌ منه في سكربتٍ تنحرف بصمتٍ يومَ يتغيّر النطاق — فيتحقّق الناشرُ من عنوانٍ لم
+# يعد أحدٌ يطلبه، ويُعلِن نجاحًا لا يصف شيئًا.
+BASE=$("$PY_BIN" - "$HERE/product-overrides/product.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8")).get("releaseNotesBaseUrl", ""))
+PY
+)
+[[ -n "$BASE" ]] || { echo "❌ لا releaseNotesBaseUrl في product-overrides/product.json — لا عنوانَ يُتحقَّق منه" >&2; exit 1; }
+
 (( $# >= 1 )) || { echo "الاستعمال: $0 <الإصدار> [<الإصدار> …]   (مثال: 1.126)" >&2; exit 2; }
 
 # التحقّقُ من الجميع **قبل** رفعِ أيٍّ منهم: نشرٌ نصفيٌّ يترك إصدارًا منشورًا وآخرَ لا،
@@ -37,29 +51,57 @@ for v in "$@"; do
   [[ -f "$path" ]] || { echo "❌ لا ملفَّ ملاحظاتٍ: release-notes/$name" >&2; exit 1; }
   # المحرِّرُ يرفض النصَّ الذي لا يبدأ بـ`#` ثمّ فراغ (`Invalid release notes`) ويرتدّ
   # إلى المتصفّح. فيُرفَض هنا لا هناك: خطأُ نشرٍ أوضحُ من صفحةٍ لا تفتح عند القارئ.
-  head -c 2 "$path" | grep -q '^# ' || { echo "❌ $name لا يبدأ بـ«# » — سيرفضه المحرِّرُ بـInvalid release notes" >&2; exit 1; }
+  head -c 2 "$path" | grep -q '^#[[:space:]]' || { echo "❌ $name لا يبدأ بـ«#» ثمّ فراغ — سيرفضه المحرِّرُ بـInvalid release notes" >&2; exit 1; }
   FILES+=("$name:$path")
 done
 
 "${SSH[@]}" "$HOST" "mkdir -p '$DEST'"
 
+# **يُرفَع الجميعُ أوّلًا ثمّ يُسمَّى الجميعُ معًا.** الرفعُ الذرّيُّ لملفٍّ واحدٍ لا يجعل
+# النشرةَ ذرّيّة: انقطاعُ شبكةٍ بعد الأوّلِ من ثلاثةٍ يخرج بـ`set -e` تاركًا بالضبط الحالةَ
+# التي تتجنّبها البوّابةُ أعلاه — إصدارٌ منشورٌ وآخرُ لا. وscp لا rsync: أجهزةُ البناء هنا
+# ويندوز، وrsync ليس في Git Bash. والاسمُ المؤقّتُ يحمي القارئَ من نصٍّ نصفِ مكتمل.
+RENAMES=""
 for entry in "${FILES[@]}"; do
   name="${entry%%:*}"; path="${entry#*:}"
   echo "▶ رفع $name …"
-  # الرفعُ إلى اسمٍ مؤقّت ثمّ تسميةٌ ذرّيّة: رفعٌ ينقطع في المنتصف يجب ألّا يترك نصًّا
-  # نصفَ مكتملٍ يحمل الاسمَ النهائيّ ويُقدَّم للقرّاء. وscp لا rsync: أجهزةُ البناء هنا
-  # ويندوز، وrsync ليس في Git Bash.
   scp -P "$PORT" -o BatchMode=yes "$path" "$HOST:$DEST/.$name.part"
-  "${SSH[@]}" "$HOST" "chmod 644 '$DEST/.$name.part' && mv '$DEST/.$name.part' '$DEST/$name'"
+  RENAMES="$RENAMES chmod 644 '$DEST/.$name.part' && mv '$DEST/.$name.part' '$DEST/$name' &&"
+done
+"${SSH[@]}" "$HOST" "${RENAMES% &&}"
+
+for entry in "${FILES[@]}"; do
+  name="${entry%%:*}"
   size=$("${SSH[@]}" "$HOST" "stat -c%s '$DEST/$name'")
   sha=$("${SSH[@]}" "$HOST" "sha256sum '$DEST/$name' | cut -d' ' -f1")
-  echo "   $size بايت · $sha"
+  echo "   $name · $size بايت · $sha"
 done
 
-echo "✅ منشورةٌ في $DEST"
-echo
-echo "   تحقَّقْ كما يطلبها التطبيقُ نفسُه (لا كما تبدو في المتصفّح):"
+# **ويُتحقَّق كما يطلبها التطبيقُ لا كما تبدو في المتصفّح — تحقّقًا يفشل، لا سطرًا يُطبَع.**
+# وجودُ الملفّ على القرص لا يعني أنّه يُخدَم: كتلةُ `location /notes/` قد تكون غيرَ منشورةٍ
+# فيلتقط الطلبَ موضعٌ آخرُ ويردّ ‎404‎ — قِيس حيًّا على mihrab.dev يومَ كُتب هذا. والنوعُ يهمّ
+# بقدر الرمز: مع `nosniff` يصير النصُّ تنزيلًا لا صفحةً تُقرأ في نسخة المتصفّح.
+# **ويُطلَب بأصلِ التطبيق لا بـcurl عارٍ.** الجلبُ يجري في عارضِ محراب وأصلُه
+# `vscode-file://vscode-app`، أي طلبٌ عابرُ أصلٍ تحكمه CORS. و`curl` بلا أصلٍ لا يخضع لها
+# فيخضرّ على خادمٍ يسقط عنده التطبيق — قِيس حيًّا: `mihrab.dev` ردّ ‎200‎ لـcurl وسقط داخل
+# محراب بـ`Failed to fetch`. فيُطلَب هنا كما يُطلَب هناك، وتُشترَط الترويسةُ في الردّ.
+ORIGIN_HDR='vscode-file://vscode-app'
+echo "▶ التحقّق من $BASE (بأصل $ORIGIN_HDR) …"
+bad=0
 for entry in "${FILES[@]}"; do
-  echo "   curl -sS -D- -o/dev/null https://mihrab.dev/notes/${entry%%:*}"
+  name="${entry%%:*}"
+  hdrs=$(curl -sS -D- -o /dev/null --max-time 20 -H "Origin: $ORIGIN_HDR" "$BASE/$name" 2>/dev/null | tr -d "\r" || true)
+  code=$(printf '%s' "$hdrs" | awk 'NR==1{print $2}')
+  ctype=$(printf '%s' "$hdrs" | awk -F': ' 'tolower($1)=="content-type"{print tolower($2)}' | tail -1)
+  acao=$(printf '%s' "$hdrs" | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}' | tail -1)
+  if [[ "$code" == 200 && "$ctype" == text/markdown* && ( "$acao" == '*' || "$acao" == "$ORIGIN_HDR" ) ]]; then
+    echo "   ✅ $name — $code · $ctype · ACAO=$acao"
+  else
+    echo "   ❌ $name — ${code:-بلا ردّ} · ${ctype:-بلا نوع} · ACAO=${acao:-غائبة}" >&2
+    bad=1
+  fi
 done
-echo "   المتوقَّع: 200 و‏Content-Type: text/markdown; charset=utf-8"
+
+(( bad == 0 )) || { echo "❌ مرفوعٌ ولا يُخدَم: انشرْ كتلةَ location /notes/ من deploy/nginx (ثمّ nginx -t وإعادةُ التحميل)" >&2; exit 1; }
+
+echo "✅ منشورةٌ ومخدومةٌ من $BASE"

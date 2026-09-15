@@ -1046,6 +1046,7 @@
  "Show Remote Connections Output": "إظهار خرج الاتّصالات البعيدة",
  "Show Remote Start Entry for web": "إظهار مُدخَل البدء البعيد للويب",
  "Show Update Info": "إظهار معلومات التحديث",
+ "Show Release Notes after an update. The Release Notes are fetched from this product's online service.": "عرض ملاحظات الإصدار بعد التحديث. تُجلَب الملاحظات من خدمة هذا المنتَج عبر الإنترنت.",
  "Show a post-install update tooltip in the title bar instead of opening the release notes editor.": "إظهار تلميح تحديث بعد التثبيت في شريط العنوان بدلًا من فتح محرّر ملاحظات الإصدار.",
  "Show a single \"Customizations\" entry instead of one item per category. Clicking it opens the Customizations welcome page.": "إظهار مُدخَل \"تخصيصات\" واحد بدلًا من عنصر لكلّ فئة. النقر عليه يفتح صفحة ترحيب التخصيصات.",
  "Show all changes made in this session": "إظهار كلّ التغييرات في هذه الجلسة",

@@ -16,20 +16,49 @@ index 85064c8c..8c38dba9 100644
  	readonly keyboardShortcutsUrlMac?: string;
  	readonly keyboardShortcutsUrlLinux?: string;
  	readonly keyboardShortcutsUrlWin?: string;
+diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/vs/platform/update/common/update.config.contribution.ts
+index 9ba557c6..096b674c 100644
+--- a/src/vs/platform/update/common/update.config.contribution.ts
++++ b/src/vs/platform/update/common/update.config.contribution.ts
+@@ -81,7 +81,11 @@ configurationRegistry.registerConfiguration({
+ 			type: 'boolean',
+ 			default: true,
+ 			scope: ConfigurationScope.APPLICATION,
+-			description: localize('showReleaseNotes', "Show Release Notes after an update. The Release Notes are fetched from a Microsoft online service."),
++			// Names the service by what it is rather than by who runs it: the address is product
++			// configuration (`releaseNotesBaseUrl`), so a fork fetches from its own server, and a
++			// reader deciding whether to leave this on needs the sentence to be true for the copy
++			// in front of them.
++			description: localize('showReleaseNotes', "Show Release Notes after an update. The Release Notes are fetched from this product's online service."),
+ 			tags: ['usesOnlineServices'],
+ 			agentsWindow: { default: false, readOnly: true },
+ 		},
 diff --git a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
-index 835f4980..c87f2eec 100644
+index 835f4980..ce079fd0 100644
 --- a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
 +++ b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
-@@ -36,6 +36,8 @@ import { Schemas } from '../../../../base/common/network.js';
+@@ -36,6 +36,7 @@ import { Schemas } from '../../../../base/common/network.js';
  import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
  import { dirname } from '../../../../base/common/resources.js';
  import { asWebviewUri } from '../../webview/common/webview.js';
 +import { mainWindow } from '../../../../base/browser/window.js';
-+import { language } from '../../../../base/common/platform.js';
  
  export class ReleaseNotesManager extends Disposable {
  	private readonly _simpleSettingRenderer: SimpleSettingRenderer;
-@@ -154,7 +156,10 @@ export class ReleaseNotesManager extends Disposable {
+@@ -87,7 +88,11 @@ export class ReleaseNotesManager extends Disposable {
+ 				return dirname(currentFileUri);
+ 			}
+ 		}
+-		return URI.parse('https://code.visualstudio.com/raw');
++		// The same host the notes came from. A relative path inside them — an image, a link —
++		// resolves against this, so leaving it on the upstream host would fetch a fork's own
++		// document's resources from a server the fork does not control, handing that server
++		// every reader's address.
++		return URI.parse(this._productService.releaseNotesBaseUrl ?? 'https://code.visualstudio.com/raw');
+ 	}
+ 
+ 	public async show(version: string, useCurrentFile: boolean): Promise<boolean> {
+@@ -154,7 +159,10 @@ export class ReleaseNotesManager extends Disposable {
  		}
  
  		const versionLabel = match[1].replace(/\./g, '_');
@@ -41,7 +70,7 @@ index 835f4980..c87f2eec 100644
  		const url = `${baseUrl}/v${versionLabel}.md`;
  		const unassigned = nls.localize('unassigned', "unassigned");
  
-@@ -272,8 +277,14 @@ export class ReleaseNotesManager extends Disposable {
+@@ -272,8 +280,23 @@ export class ReleaseNotesManager extends Disposable {
  		const css = colorMap ? generateTokensCSSForColorMap(colorMap) : '';
  		const showReleaseNotes = Boolean(this._configurationService.getValue<boolean>('update.showReleaseNotes'));
  
@@ -49,11 +78,125 @@ index 835f4980..c87f2eec 100644
 +		// out right to left: headings, lists, tables and the scrollbar all take their side
 +		// from here. The webview is its own document and inherits nothing, so the shell's
 +		// own direction is carried across explicitly rather than assumed either way.
-+		const direction = mainWindow.document.documentElement.dir || 'ltr';
++		const shell = this._currentReleaseNotes?.webview.container.ownerDocument.documentElement
++			?? mainWindow.document.documentElement;
++		const direction = shell.dir === 'rtl' ? 'rtl' : 'ltr';
++		// The same element answers both questions, so the document cannot end up declaring one
++		// language while the window it lives in declares another: a screen reader picks its voice
++		// from `lang`, and a document that says `en` over Arabic prose is read aloud in the wrong
++		// one. Taking it from `platform.language` instead looks equivalent and is not — a build
++		// whose messages are baked in resolves no language pack, so that value stays 'en' while
++		// the shell has already been told otherwise.
++		const documentLanguage = shell.lang || 'en';
 +
  		return `<!DOCTYPE html>
 -		<html>
-+		<html dir="${direction}" lang="${escape(language)}">
++		<html dir="${direction}" lang="${escape(documentLanguage)}">
  			<head>
  				<base href="${asWebviewUri(fileContent.base).toString(true)}/" >
  				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+@@ -282,6 +305,7 @@ export class ReleaseNotesManager extends Disposable {
+ 					${DEFAULT_MARKDOWN_STYLES}
+ 					${css}
+ 
++
+ 					/* codesetting */
+ 
+ 					code:has(.codesetting) {
+@@ -532,6 +556,56 @@ export class ReleaseNotesManager extends Disposable {
+ 						}
+ 					}
+ 
++					/* Everything above is written for a document that runs left to right, and a
++					   webview loads no stylesheet of the workbench's, so this is the only place it
++					   can be restated. It comes last on purpose: the rules it corrects are above it.
++
++					   Three corrections, each one measured on an Arabic document:
++
++					   1. Physical sides. A table heading reads text-align: left and a blockquote
++					      wears its rule on border-left with the matching margin and padding — and
++					      a physical side does not follow dir. Measured before: the quote bar sat
++					      4.8px to the left of a paragraph whose text starts at the right.
++
++					   2. Bidirectional isolation. Inline code and links inherit the paragraph's
++					      direction, so a neutral character at either end is pulled to the far side:
++					      /code-review rendered as code-review/, and @user as user@ — thirteen
++					      of them in one section. A reader copying either gets something that does not
++					      work. plaintext is what fixes it: isolate alone did not, nor did forcing
++					      ltr, and plaintext is the only one of the three that still reads an
++					      Arabic identifier correctly.
++
++					   3. Reading a long document. The measure ran to roughly 130 characters, three
++					      times what holds the eye across a line return: a page of Arabic prose is
++					      abandoned around the third paragraph. Measured after: 883px down to 553.
++					      ch rather than px, so the measure follows whatever font the reader set
++					      rather than being pinned to the size this was written at. */
++					th {
++						text-align: start;
++					}
++
++					blockquote {
++						margin: 0;
++						margin-inline: 5px 7px;
++						padding: 0;
++						padding-inline: 10px 16px;
++						border-left-width: 0;
++						border-inline-start-width: 5px;
++						border-inline-start-style: solid;
++					}
++
++					code,
++					a {
++						unicode-bidi: plaintext;
++					}
++
++					body {
++						font-family: var(--vscode-font-family), sans-serif;
++						font-size: 14px;
++						line-height: 1.9;
++						max-width: 68ch;
++					}
++
+ 				</style>
+ 			</head>
+ 			<body>
+diff --git a/src/vs/workbench/contrib/update/browser/update.contribution.ts b/src/vs/workbench/contrib/update/browser/update.contribution.ts
+index 777207da..3435f6de 100644
+--- a/src/vs/workbench/contrib/update/browser/update.contribution.ts
++++ b/src/vs/workbench/contrib/update/browser/update.contribution.ts
+@@ -26,6 +26,7 @@ import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys
+ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+ import { IProductService } from '../../../../platform/product/common/productService.js';
+ import { URI } from '../../../../base/common/uri.js';
++import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+ 
+ const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
+ 
+@@ -63,13 +64,26 @@ export class ShowReleaseNotesAction extends Action2 {
+ 		const instantiationService = accessor.get(IInstantiationService);
+ 		const productService = accessor.get(IProductService);
+ 		const openerService = accessor.get(IOpenerService);
++		const notificationService = accessor.get(INotificationService);
+ 		const targetVersion = version ?? productService.version;
+ 
+ 		try {
+ 			await showReleaseNotesInEditor(instantiationService, targetVersion, false);
+ 		} catch (err) {
+ 			if (productService.releaseNotesUrl) {
+-				await openerService.open(URI.parse(productService.releaseNotesUrl));
++				// Asked rather than done. The notes could not be fetched — the network is down, or
++				// the version's notes are not published — and the fallback is a different page, in
++				// a different application, not necessarily in the language the reader came for.
++				// Without this the command looks like it did nothing at all and then a browser
++				// opens by itself; the same failure on the automatic path already explains itself.
++				await notificationService.prompt(
++					Severity.Info,
++					localize('update.releaseNotesUnavailable', "Could not fetch the release notes for {0}. Open the releases page in your browser?", productService.nameLong),
++					[{
++						label: localize('update.openReleasesPage', "Open"),
++						run: () => openerService.open(URI.parse(productService.releaseNotesUrl!))
++					}]
++				);
+ 			} else {
+ 				throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes online", productService.nameLong));
+ 			}
