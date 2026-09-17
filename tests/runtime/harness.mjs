@@ -298,6 +298,8 @@ export async function recoverWelcomeTab(cdp, tries = 3) {
 
 /** تبويب عيّنة ص (‏`.ص` — لا `\b` بعده، انظر pickPage). */
 export const activateSadTab = cdp => activateTab(cdp, "\.\u0635");
+/** تبويب عيّنة تصيير ملاحظات الإصدار (‏release_notes_probe.md — يفتحها المُطلِق دائمًا). */
+export const activateNotesProbeTab = cdp => activateTab(cdp, "release_notes_probe");
 /** تبويب الترحيب («مرحبًا» بأيّ صيغة همزة/تنوين، أو Welcome في وضع التطوير غير المخبوز). */
 export const activateWelcomeTab = cdp => activateTab(cdp, "مرح|Welcome|Get Started");
 
@@ -936,6 +938,109 @@ export async function inputDirectionFollowsContent(cdp) {
   await sleep(500);
   if (!searchView && !findWidget) { return { present: false }; }
   return { present: true, searchView, findWidget };
+}
+
+/**
+ * **تصييرُ مستند ملاحظات الإصدار يمينيًّا — على بنًى لا يقلبها `dir` وحدَه.**
+ *
+ * مستندُ الملاحظات يعيش في webview، وهو مستندٌ مستقلٌّ **لا يحمّل `mihrab-rtl.css`**؛
+ * فكلُّ تصحيحٍ اتّجاهيٍّ له يعيش في `<style>` رقعة النواة ‎036‎ وحدَها. وثلاثُ بنًى تنجو
+ * من `dir` لأنّ أنماطَ المنبع تصفها بجهةٍ **فيزيائيّة** أو تتركها ترث اتّجاهَ الفقرة:
+ * عنوانُ الجدول (`text-align: left`)، وشريطُ الاقتباس (`border-left`)، والشيفرةُ
+ * السطريّةُ والروابطُ وكتلُ الشيفرة (محارفُها المحايدةُ في الطرف تقفز).
+ *
+ * **ولم يكن شيءٌ من هذا مقيسًا** حين كُتبت الرقعة: ملاحظاتُ ‎1.126‎ لا جدولَ فيها ولا
+ * كتلةَ شيفرةٍ ولا قائمةً مرقّمة، فمرّت القواعدُ مطبَّقةً بلا شاهد. ولذلك عيّنةٌ مخصوصة
+ * (`fixtures/release_notes_probe.md`) وأمرُ «افتح الملفَّ الحاليَّ كملاحظاتِ إصدار» —
+ * وهو يسلك مسارَ التصيير نفسَه (`renderBody`) **بلا جلبٍ من الشبكة**، فيعمل الحارسُ
+ * قبل نشر أيّ شيءٍ على الخادم.
+ *
+ * القياسُ حتميّ: مواضعُ العناصر ومحاذاتُها، وترتيبُ المحارف **بصريًّا** (من إحداثيّاتها
+ * لا من ترتيبها في DOM) — فانقلابُ طرفٍ يظهر رقمًا لا انطباعًا.
+ */
+export async function releaseNotesRendering(cdp, port = 9222) {
+  await bringToFront(cdp);
+  await escape(cdp);
+  // الإشعاراتُ تسرق التركيزَ فيذهب Enter إلى أزرارها لا إلى اللوحة (أُوقِع فعلًا).
+  await cdp.evaluate(`(() => { document.querySelectorAll('.notifications-toasts .codicon-notifications-clear').forEach(b => b.click()); return 1; })()`);
+  await sleep(500);
+  if (!await activateNotesProbeTab(cdp)) { return { present: false }; }
+  await sleep(800);
+  // الأمرُ **بمعرِّفه الإنجليزيّ في اللوحة**: عنوانُه يُترجَم، والبحثُ بالعربيّة يتبع
+  // حزمةَ اللغة فيسقط في وضع التطوير غير المخبوز.
+  await key(cdp, 80, "KeyP", MOD.CTRL | MOD.SHIFT);
+  await sleep(1100);
+  await cdp.cmd("Input.insertText", { text: ">Open Current File as Release Notes" });
+  await sleep(1300);
+  await key(cdp, 13, "Enter");
+  await sleep(6000);
+
+  // المستندُ داخل إطارٍ متداخلٍ في هدف `vscode-webview:` — هدفٌ آخرُ لا يبلغه عارضُ القشرة.
+  const wv = (await listTargets(port)).find(t => /vscode-webview:/.test(t.url || ""));
+  if (!wv) { await key(cdp, 87, "KeyW", MOD.CTRL); await sleep(1200); return { present: true, opened: false }; }
+  const inner = new CDP(wv.webSocketDebuggerUrl);
+  await new Promise((res, rej) => { inner.ws.onopen = res; inner.ws.onerror = () => rej(new Error("WS فشل (webview)")); });
+  inner.ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.id && inner._pend[m.id]) { inner._pend[m.id](m); delete inner._pend[m.id]; }
+  };
+  await inner.cmd("Runtime.enable");
+  let out;
+  try {
+    out = JSON.parse(await inner.evaluate(`(() => {
+      const f = document.querySelector('iframe');
+      const d = f && (f.contentDocument || (f.contentWindow && f.contentWindow.document));
+      if (!d || !d.querySelector('h1')) { return JSON.stringify({ rendered: false }); }
+      const w = d.defaultView, cs = e => w.getComputedStyle(e);
+      const R = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; };
+      // الترتيبُ **البصريّ**: تُقرأ المحارفُ بمواضعها لا بترتيبها في DOM.
+      const visual = (el) => {
+        const walk = (n, o) => { for (const x of n.childNodes) { x.nodeType === 3 ? o.push(x) : walk(x, o); } return o; };
+        const r = d.createRange(), ch = [];
+        for (const t of walk(el, [])) {
+          for (let i = 0; i < t.length; i++) {
+            r.setStart(t, i); r.setEnd(t, i + 1);
+            const b = r.getBoundingClientRect();
+            if (b.width || b.height) { ch.push([b.left, t.data[i]]); }
+          }
+        }
+        ch.sort((a, b) => a[0] - b[0]);
+        return { nass: ch.map(x => x[1]).join(''), mada: ch.length ? [Math.round(ch[0][0]), Math.round(ch[ch.length - 1][0])] : null };
+      };
+      const th = d.querySelector('th'), tbl = d.querySelector('table');
+      const ol = d.querySelector('ol'), bq = d.querySelector('blockquote'), pre = d.querySelector('pre');
+      const code = [...d.querySelectorAll('code')].filter(e => e.textContent.trim() === '/code-review')[0];
+      const link = [...d.querySelectorAll('a')].filter(e => e.textContent.charAt(0) === '@')[0];
+      const preText = pre ? visual(pre.querySelector('code') || pre) : null;
+      return JSON.stringify({
+        rendered: true,
+        dir: d.documentElement.getAttribute('dir'),
+        lang: d.documentElement.getAttribute('lang'),
+        // عنوانُ الجدول: المحاذاةُ منطقيّةٌ، والخانةُ الأولى في الطرف اليمينيّ من الجدول.
+        thAlign: th ? cs(th).textAlign : null,
+        thBox: th ? R(th) : null,
+        tableBox: tbl ? R(tbl) : null,
+        olDir: ol ? cs(ol).direction : null,
+        // شريطُ الاقتباس: صفرٌ على اليسار وعرضٌ على اليمين في مستندٍ يمينيّ.
+        bqStart: bq ? cs(bq).borderRightWidth : null,
+        bqEnd: bq ? cs(bq).borderLeftWidth : null,
+        // كتلةُ الشيفرة: سطرٌ لاتينيٌّ يبدأ من حافّة الكتلة لا يُلصَق بالطرف المقابل.
+        preBox: pre ? R(pre) : null,
+        preText: preText,
+        codeSrc: code ? code.textContent : null,
+        codeVisual: code ? visual(code).nass : null,
+        linkSrc: link ? link.textContent : null,
+        linkVisual: link ? visual(link).nass : null
+      });
+    })()`));
+  } finally { inner.close(); }
+
+  // أغلقْ محرّرَ الملاحظات وأعِدْ عيّنةَ ص نشطةً: ما بعده يرث ما يجد.
+  await key(cdp, 87, "KeyW", MOD.CTRL);
+  await sleep(1500);
+  await activateSadTab(cdp);
+  await sleep(600);
+  return { present: true, opened: true, ...out };
 }
 
 export async function revealLineEndRtl(cdp) {

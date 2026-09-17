@@ -24,6 +24,9 @@ async function main() {
   }
   let results;
   try {
+    // المنفذُ يصل المِجَسّاتِ التي تحتاج **هدفًا آخر** غير صفحة الـworkbench (مستندُ
+    // ملاحظات الإصدار يعيش في هدف `vscode-webview:`). `launch.mjs` يضبطه كذلك.
+    process.env.MIHRAB_CDP_PORT = String(PORT);
     results = await runAll(cdp);
   } finally {
     cdp.close();

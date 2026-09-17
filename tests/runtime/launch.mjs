@@ -38,6 +38,12 @@ const TOOLCHAIN = NODE_VERSION
   : "";
 const ARTIFACTS = join(HERE, "artifacts");
 const FIXTURE = join(HERE, "fixtures", "rtl_fixture.ص");
+// عيّنةُ تصيير ملاحظات الإصدار: تُفتَح **دائمًا** في تبويبٍ خلفيّ لأنّ مِجَسَّ
+// `releaseNotesRendering` يحتاجها نشطةً لحظةَ قياسه، وأمرُ «افتح الملفَّ الحاليَّ
+// كملاحظاتِ إصدار» يقرأ المحرّرَ النشط. وفتحُها هنا لا بـ`--tabs` كي يعمل المِجَسّ في
+// كلّ تشغيلة لا في التشغيلات التي تذكرها يدويًّا. وهي كذلك التبويبُ الثاني الذي يحتاجه
+// مِجَسّ إفلات التبويبات (كان يُتخطّى بلا `--tabs`).
+const NOTES_PROBE = join(HERE, "fixtures", "release_notes_probe.md");
 
 const argv = process.argv.slice(2);
 const has = f => argv.includes(f);
@@ -152,6 +158,7 @@ function launch() {
   if (!has("--welcome")) {
     const extra = val("--tabs", "");
     if (extra) for (const f of extra.split(",")) if (f.trim()) args.push(resolve(f.trim()));
+    args.push(NOTES_PROBE);
     args.push(FIXTURE);
   }
   // ‏--folder <مسار>: يفتح مجلّدًا معه. لازمٌ لأسطح **الشجرة** (المستكشف، الإعدادات، Git):

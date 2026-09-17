@@ -17,10 +17,10 @@ index 85064c8c..8c38dba9 100644
  	readonly keyboardShortcutsUrlLinux?: string;
  	readonly keyboardShortcutsUrlWin?: string;
 diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/vs/platform/update/common/update.config.contribution.ts
-index 9ba557c6..096b674c 100644
+index 9ba557c..d4d7349 100644
 --- a/src/vs/platform/update/common/update.config.contribution.ts
 +++ b/src/vs/platform/update/common/update.config.contribution.ts
-@@ -81,7 +81,11 @@ configurationRegistry.registerConfiguration({
+@@ -81,7 +81,16 @@ configurationRegistry.registerConfiguration({
  			type: 'boolean',
  			default: true,
  			scope: ConfigurationScope.APPLICATION,
@@ -29,12 +29,17 @@ index 9ba557c6..096b674c 100644
 +			// configuration (`releaseNotesBaseUrl`), so a fork fetches from its own server, and a
 +			// reader deciding whether to leave this on needs the sentence to be true for the copy
 +			// in front of them.
-+			description: localize('showReleaseNotes', "Show Release Notes after an update. The Release Notes are fetched from this product's online service."),
++			//
++			// And a new key, not the old one: translations are looked up by key, so keeping
++			// `showReleaseNotes` would hand this sentence the translation of the sentence it
++			// replaced — every language would go on naming a service this build no longer asks.
++			// A changed meaning does not inherit the old wording.
++			description: localize('showReleaseNotesProductSource', "Show Release Notes after an update. The Release Notes are fetched from this product's online service."),
  			tags: ['usesOnlineServices'],
  			agentsWindow: { default: false, readOnly: true },
  		},
 diff --git a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
-index 835f4980..ce079fd0 100644
+index 835f4980..8e17dd4b 100644
 --- a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
 +++ b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
 @@ -36,6 +36,7 @@ import { Schemas } from '../../../../base/common/network.js';
@@ -103,7 +108,7 @@ index 835f4980..ce079fd0 100644
  					/* codesetting */
  
  					code:has(.codesetting) {
-@@ -532,6 +556,56 @@ export class ReleaseNotesManager extends Disposable {
+@@ -532,6 +556,62 @@ export class ReleaseNotesManager extends Disposable {
  						}
  					}
  
@@ -122,9 +127,14 @@ index 835f4980..ce079fd0 100644
 +					      direction, so a neutral character at either end is pulled to the far side:
 +					      /code-review rendered as code-review/, and @user as user@ — thirteen
 +					      of them in one section. A reader copying either gets something that does not
-+					      work. plaintext is what fixes it: isolate alone did not, nor did forcing
-+					      ltr, and plaintext is the only one of the three that still reads an
-+					      Arabic identifier correctly.
++					      work. A code block has the matching problem one level up: its text reads
++					      correctly but the whole line is pushed against the trailing edge — measured
++					      at 181px of empty space before a shell command. plaintext fixes both:
++					      isolate alone did not, and forcing ltr fixes the shell command by breaking
++					      the block that holds Arabic code. Under plaintext each line takes the
++					      direction of its own first strong character and is aligned to match — the
++					      same rule the editor applies to the code it opens. Measured: the command
++					      moved from 401 to 236, the left edge of its block.
 +
 +					   3. Reading a long document. The measure ran to roughly 130 characters, three
 +					      times what holds the eye across a line return: a page of Arabic prose is
@@ -145,6 +155,7 @@ index 835f4980..ce079fd0 100644
 +						border-inline-start-style: solid;
 +					}
 +
++					pre,
 +					code,
 +					a {
 +						unicode-bidi: plaintext;
@@ -161,7 +172,7 @@ index 835f4980..ce079fd0 100644
  			</head>
  			<body>
 diff --git a/src/vs/workbench/contrib/update/browser/update.contribution.ts b/src/vs/workbench/contrib/update/browser/update.contribution.ts
-index 777207da..3435f6de 100644
+index 777207d..3435f6d 100644
 --- a/src/vs/workbench/contrib/update/browser/update.contribution.ts
 +++ b/src/vs/workbench/contrib/update/browser/update.contribution.ts
 @@ -26,6 +26,7 @@ import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys

@@ -5683,6 +5683,70 @@ def _release_notes_contract_holds():
         f"الموجود: {', '.join(notes)}")
 
 
+
+@check("نصُّ واجهةٍ تضيفه رقعةٌ يجد عربيّتَه [NLS-01]")
+def _patch_added_ui_strings_have_arabic():
+    """رقعةٌ تضيف `localize(...)` تضيف **نصًّا إنجليزيًّا يراه المستخدِم** — ولا شيءَ يذكّر بترجمته.
+
+    وقع فعلًا في رقعة ‎036‎: أُضيف إشعارٌ وزرٌّ ووصفُ إعدادٍ بالإنجليزيّة، وأبلغ عنها
+    المستخدِمُ قبل أن يمسكها حارس. فالترجمةُ في محرابٍ ليست تحسينًا بعديًّا: الواجهةُ
+    عربيّةٌ أصلًا، ونصٌّ إنجليزيٌّ فيها عطبُ منتَجٍ لا نقصُ تهذيب.
+
+    **والمفتاحُ يفوز على النصّ** (`bake_nls_arabic.py:147` يطابق `mod.get(key)` أوّلًا)،
+    فرقعةٌ تغيّر نصَّ سلسلةٍ وتُبقي مفتاحَها تُورِث المعنى الجديدَ ترجمةَ المعنى القديم —
+    وهو أسوأُ من الإنجليزيّة لأنّه يكذب بالعربيّة. ولذلك يُفحَص المفتاحُ كذلك: من غيّر
+    النصَّ وأبقى المفتاحَ يحمرّ هنا.
+
+    القياسُ على **السطور المضافة في رقعِ النواة** وحدَها — لا على المنبع كلِّه: ما نضيفه
+    نحن مسؤوليّتُنا، وما يرثه المنبعُ تغطّيه حزمةُ اللغة ونسبةُ التعريب المقيسة.
+    """
+    import json as _json
+    import re as _re
+
+    supplement = _json.loads(_read(os.path.join(ROOT, "build", "mihrab_ar_supplement.json")))
+    pack_path = os.path.join(ROOT, ".upstream", ".mihrab-extensions", "language-pack-ar",
+                             "translations", "main.i18n.json")
+    pack_keys, pack_texts = set(), set()
+    if os.path.isfile(pack_path):
+        def _walk(node, key=""):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    _walk(v, k)
+            elif isinstance(node, str) and node:
+                pack_keys.add(key)
+                pack_texts.add(node)
+        _walk(_json.loads(_read(pack_path)))
+
+    # ‏`localize('key', "text"` و`localize2(...)` على سطرٍ مضاف. الأقواسُ المتداخلةُ
+    # والوسائطُ اللاحقةُ لا تهمّ: يكفي المفتاحُ والنصُّ الحرفيّ.
+    CALL = _re.compile('localize2?\\(\\s*(?:\\{\\s*key:\\s*)?[\'"]([^\'"]+)[\'"][^,]*,\\s*"((?:[^"\\\\]|\\\\.)*)"\\s*[,\\)]')
+
+    missing = []
+    checked = 0
+    for name in sorted(os.listdir(os.path.join(ROOT, "patches", "core"))):
+        if not name.endswith(".patch"):
+            continue
+        for line in _read(os.path.join(ROOT, "patches", "core", name)).splitlines():
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            for key, text in CALL.findall(line[1:]):
+                checked += 1
+                english = text.replace(chr(92) + chr(34), chr(34)).replace(chr(92) * 2, chr(92))
+                if english in supplement:
+                    continue
+                # ترجمةٌ منبعيّةٌ **بالمفتاح نفسِه** لا تكفي إن كان النصُّ قد تغيّر: هي
+                # ترجمةُ الجملة القديمة. فتُقبَل وحدَها متى طابق النصُّ المنبعَ كذلك.
+                if key in pack_keys and english in pack_texts:
+                    continue
+                missing.append("%s: localize(%r, %r)" % (name, key, english[:60]))
+
+    assert checked, ("لم يُلتقَط أيُّ نداءِ `localize` في رقعِ النواة — إمّا أنّ الصيغةَ "
+                     "تغيّرت فيجب تحديثُ النمط، أو أنّ الحارسَ صار يقيس الهواء")
+    assert not missing, (
+        "نصٌّ إنجليزيٌّ تضيفه رقعةٌ بلا عربيّة (أضِفْه إلى build/mihrab_ar_supplement.json "
+        "بمفتاحٍ هو نصُّ الإنجليزيّة حرفًا):\n       " + "\n       ".join(missing))
+
+
 def _assert_lines():
     return {i + 1 for i, line in enumerate(_read(__file__).splitlines())
             if line.strip().startswith("assert ")}

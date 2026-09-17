@@ -3,7 +3,7 @@ import { editorGeometry, suggestGap, findWidget, welcomeHeader, explorerSadIcon,
          bidiPanels, glyphOrder, breadcrumbsBar, key, MOD, escape, sleep, insertText, focusEditor,
 openDiffFromScm, confirmDialog, walkthroughAlign, waitFor, resetWorkbench, editorHover,
 openExtensionDetails, dialogButtons, statusbarOrder, discardUntitled, pinActiveTab, recoverWelcomeTab,
-bidiSweep, documentLangDir, editorInkMetrics, focusOrder, horizontalAnchorRtl, findInputControls, revealLineEndRtl, restoredHorizontalPositionRtl, inputDirectionFollowsContent } from "./harness.mjs";
+bidiSweep, documentLangDir, editorInkMetrics, focusOrder, horizontalAnchorRtl, findInputControls, revealLineEndRtl, restoredHorizontalPositionRtl, inputDirectionFollowsContent, releaseNotesRendering } from "./harness.mjs";
 
 // جزء من الجملة الاستعاريّة (يطابق نصّ العنوان الفرعيّ الفعليّ في الترويسة).
 // ⚠️ مقترن بـWELCOME_TAGLINE في build/patch_welcome_rtl.py: إعادة صياغة تُسقِط هذا الجزء تكسر المِجَسّ.
@@ -384,6 +384,54 @@ export async function interactionAssertions(cdp) {
     else out.push(fail("موضع القارئ الأفقيّ يُستعاد",
       `وُضِع على ${r.placedGap}px من بداية الأسطر وعاد على ${r.restoredGap}px (أقصاه ${r.placedMax}→${r.restoredMax}) — الموضعُ ضاع أو انزاح مع الحافّة`));
   } catch (e) { out.push(skip("موضع القارئ الأفقيّ يُستعاد", "تعذّر: " + e.message, true)); }
+
+  // **يجري أخيرًا عمدًا:** يفتح محرّرَ ملاحظاتٍ ويغلقه ويبدّل التبويبَ النشط، فما بعده
+  // يرث حالةً لم يطلبها. ويقيس ما لا تبلغه طبقةُ CSS أصلًا: مستندُ الـwebview مستقلٌّ.
+  try {
+    const NAME = "تصيير ملاحظات الإصدار يمينيًّا";
+    const n = await releaseNotesRendering(cdp, Number(process.env.MIHRAB_CDP_PORT || 9222));
+    if (!n || !n.present) out.push(skip(NAME, "لا تبويبَ للعيّنة (release_notes_probe.md) — أُطلِقت النسخةُ بلا المُطلِق؟", true));
+    else if (!n.opened) out.push(skip(NAME, "لم يُفتَح محرّرُ الملاحظات — لم يصل الأمرُ من اللوحة", true));
+    else if (!n.rendered) out.push(skip(NAME, "الـwebview بلا مستندٍ مُصيَّر بعد", true));
+    else {
+      const wrong = [], seen = [];
+      if (n.dir !== "rtl") { wrong.push(`المستند dir=${n.dir}`); }
+      else { seen.push("المستند rtl"); }
+
+      // الجدول: المحاذاةُ منطقيّةٌ (`start` لا `left`)، **والخانةُ الأولى في الطرف اليمينيّ**
+      // من الجدول — والحكمان معًا لأنّ الأوّلَ وحدَه يمرّ على قاعدةٍ لا تصل إلى العنصر.
+      if (n.thAlign !== "start") { wrong.push(`عنوانُ الجدول text-align=${n.thAlign} (المتوقَّع start)`); }
+      else if (n.thBox && n.tableBox && n.thBox[1] < n.tableBox[1] - 4) {
+        wrong.push(`خانةُ الجدول الأولى ليست في الطرف اليمينيّ (${n.thBox[1]} < ${n.tableBox[1]})`);
+      } else { seen.push(`الجدول: start · الخانةُ الأولى تنتهي عند ${n.thBox && n.thBox[1]} = طرفُ الجدول`); }
+
+      if (n.olDir !== "rtl") { wrong.push(`القائمةُ المرقّمة direction=${n.olDir}`); }
+      else { seen.push("القائمةُ المرقّمة rtl"); }
+
+      // الاقتباس: الشريطُ على جهة **البداية** (اليمين هنا) وصفرٌ على المقابلة.
+      const start = parseFloat(n.bqStart || "0"), end = parseFloat(n.bqEnd || "0");
+      if (!(start > 0 && end === 0)) { wrong.push(`شريطُ الاقتباس يمين=${n.bqStart} يسار=${n.bqEnd} (المتوقَّع عرضٌ يمينًا وصفرٌ يسارًا)`); }
+      else { seen.push(`شريطُ الاقتباس يمينًا ${n.bqStart}`); }
+
+      // كتلةُ الشيفرة: سطرٌ لاتينيٌّ يبدأ من حافّة كتلته. بلا العزل يُلصَق بالطرف المقابل
+      // (قِيس: ‎181px‎ فراغًا قبل أمرِ صَدَفة).
+      if (n.preText && n.preBox && n.preText.mada) {
+        const gap = n.preText.mada[0] - n.preBox[0];
+        if (gap > 40) { wrong.push(`كتلةُ الشيفرة مُلصَقةٌ بالطرف المقابل — فراغٌ ${gap}px قبل سطرٍ لاتينيّ`); }
+        else { seen.push(`كتلةُ الشيفرة تبدأ على ${gap}px من حافّتها`); }
+      }
+
+      // المحايداتُ في الأطراف: يُقارَن الترتيبُ البصريُّ بالمصدر حرفًا بحرف.
+      for (const [label, src, vis] of [["شيفرةٌ سطريّة", n.codeSrc, n.codeVisual], ["رابط", n.linkSrc, n.linkVisual]]) {
+        if (!src) { seen.push(`${label}: لا عيّنة`); }
+        else if (src.trim() !== (vis || "").trim()) { wrong.push(`${label} ينقلب: «${src.trim()}» يُقرأ «${(vis || "").trim()}»`); }
+        else { seen.push(`${label}: «${src.trim()}» كما هو`); }
+      }
+
+      if (wrong.length) { out.push(fail(NAME, wrong.join(" · "))); }
+      else { out.push(pass(NAME, seen.join(" · "))); }
+    }
+  } catch (e) { out.push(skip("تصيير ملاحظات الإصدار يمينيًّا", "تعذّر: " + e.message, true)); }
 
 
   return out;
