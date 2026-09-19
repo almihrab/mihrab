@@ -4,7 +4,7 @@
   "displayName": "لغة ص",
   "description": "دعم لغة ص المدمج في محراب: إبراز الصياغة وتهيئة اللغة ومقتطفات البُنى، وذكاء لغويّ (LSP) عبر خادم ص: تشخيص وإكمال وتحويم وتمرير للتعريف. النحو والمقتطفات مولَّدان من مصدر الحقيقة (language-truth).",
   "version": "0.1.0",
-  "publisher": "sadlang",
+  "publisher": "mihrab",
   "license": "MIT",
   "engines": { "vscode": "*" },
   "categories": ["Programming Languages", "Linters"],
@@ -64,6 +64,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sadlang/mihrab.git"
+    "url": "https://github.com/almihrab/mihrab.git"
   }
 }

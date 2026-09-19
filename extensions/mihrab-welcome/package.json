@@ -4,7 +4,7 @@
   "displayName": "ترحيب محراب",
   "description": "تجربة الإعداد الأوّل في محراب (الطبقة 1): جولة تفاعليّة عربيّة «ابدأ في ٩٠ ثانية»، وأمر «مشروع ص جديد» بقالب حيّ، وأمر تشغيل ملفّ ص. يردم «وادي الحيرة» بين الانطباع الأوّل وأوّل نجاح فعليّ.",
   "version": "0.1.0",
-  "publisher": "sadlang",
+  "publisher": "mihrab",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
@@ -350,6 +350,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sadlang/mihrab.git"
+    "url": "https://github.com/almihrab/mihrab.git"
   }
 }

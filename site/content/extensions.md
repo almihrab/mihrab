@@ -32,7 +32,7 @@ source_sha: "4ae160de0ac27f6a6f02214ceef0a06ec68189f6"
 ```json
 {
   "recommendations": [
-    "sadlang.sad-lang"
+    "mihrab.sad-lang"
   ]
 }
 ```

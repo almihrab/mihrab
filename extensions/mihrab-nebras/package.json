@@ -4,7 +4,7 @@
   "displayName": "نِبراس — ذكاء ص في محراب",
   "description": "تكامل نِبراس (طبقة الذكاء الرسميّة للغة ص) داخل محراب (م2ب): شرح تحديد، ووكيل متعدّد الخطوات، ودردشة، وإكمال سطريّ — عبر عقد nebras-protocol (JSON-RPC 2.0 على stdio) مع خادم نِبراس المقيم. عربيّ أوّلًا، تحت آلة الأذونات (ق5/ق12).",
   "version": "0.1.0",
-  "publisher": "sadlang",
+  "publisher": "mihrab",
   "license": "MIT",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other", "Machine Learning"],
@@ -139,6 +139,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sadlang/mihrab.git"
+    "url": "https://github.com/almihrab/mihrab.git"
   }
 }

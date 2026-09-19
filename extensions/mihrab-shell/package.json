@@ -4,7 +4,7 @@
   "displayName": "قشرة محراب",
   "description": "إعدادات قشرة محراب الافتراضيّة (اتّجاه RTL): الشريط الجانبي يمينًا، وتلوين أزواج الأقواس وأدلّتها لتوضيح البنية النحويّة في السياق العربيّ ثنائيّ الاتّجاه (BiDi)، وخطّ برمجيّ عربيّ افتراضيّ (Kawkab Mono المحزوم). الطبقة 1 (إضافة محزومة) — لا رُقعة نواة.",
   "version": "0.1.0",
-  "publisher": "sadlang",
+  "publisher": "mihrab",
   "license": "MIT",
   "engines": {
     "vscode": "*"
@@ -95,6 +95,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sadlang/mihrab.git"
+    "url": "https://github.com/almihrab/mihrab.git"
   }
 }

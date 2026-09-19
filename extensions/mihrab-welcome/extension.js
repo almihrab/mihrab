@@ -97,7 +97,7 @@ const MIN_SESSIONS_BEFORE_ASK = 2;
 const OPEN_FOLDER_CMD = "vscode.openFolder";
 const OPEN_CMD = "vscode.open";
 // معرّف الامتداد الاحتياطيّ إن غابت هوية التشغيل (publisher.name — يطابق package.json).
-const DEFAULT_EXTENSION_ID = "sadlang.mihrab-welcome";
+const DEFAULT_EXTENSION_ID = "mihrab.mihrab-welcome";
 // حدّ نتائج البحث عن ملفّات ص في مساحة العمل (أداء على مساحة كبيرة) + استبعاد التبعيّات.
 const SAD_SEARCH_MAX = 50;
 const NODE_MODULES_GLOB = "**/node_modules/**";

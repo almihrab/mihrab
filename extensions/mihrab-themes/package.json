@@ -4,7 +4,7 @@
   "displayName": "سمات محراب",
   "description": "أربع سمات لمحراب لكود ص (داكنة/فاتحة + نظيرتاهما عاليتا التباين): تُخرّط نطاقات نحو ص ورموز LSP الدلاليّة على لوحة الهوية (فيروزيّ + ذهب) بخمس عائلات لونيّة متمايزة.",
   "version": "0.1.0",
-  "publisher": "sadlang",
+  "publisher": "mihrab",
   "license": "MIT",
   "engines": {
     "vscode": "*"
@@ -45,6 +45,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sadlang/mihrab.git"
+    "url": "https://github.com/almihrab/mihrab.git"
   }
 }

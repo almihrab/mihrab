@@ -3,7 +3,7 @@
 | | العنوان | مَن ينشر |
 | --- | --- | --- |
 | **الأصل** | <https://sad-lang.org/mihrab/> | `build/deploy_site.sh` (rsync إلى خادمنا) |
-| المرآة | <https://sadlang.github.io/mihrab-ide/> | CI عند كلّ دفعٍ إلى `main` |
+| المرآة | <https://almihrab.github.io/mihrab/> | CI عند كلّ دفعٍ إلى `main` |
 
 الأصلُ على خادمنا لأنّ **الثنائيّات تسكن هناك**: مثبِّتُ محراب يقارب ٣٠٠ ميغابايت،
 وGitHub Pages ليس مخزنَ ملفّات. والنطاقُ `sad-lang.org` نطاقُ العائلة نفسِها، فمحرابٌ

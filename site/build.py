@@ -43,7 +43,7 @@ with open(os.path.join(DATA, "releases.json"), encoding="utf-8") as _f:
     RELEASES = json.load(_f)
 
 # ⚠️ كلُّ المسارات نسبيّة (`.` و`..`) عمدًا: المخرَجُ نفسُه يُخدَم من
-# `sad-lang.org/mihrab/` ومن `sadlang.github.io/mihrab-ide/` بلا إعادةِ بناء.
+# `sad-lang.org/mihrab/` ومن `almihrab.github.io/mihrab/` بلا إعادةِ بناء.
 # مسارٌ مطلقٌ واحد يربط المخرَج بمضيفٍ بعينه ويكسر المرآة صامتًا.
 
 # التنقّل: ثلاثةُ أقسامٍ عليا فقط. أكثرُ من ثلاثةٍ يُجبر المستخدمَ على قرارٍ قبل أن
@@ -1022,7 +1022,7 @@ a{color:var(--accent)}
   <p>ومفسّرُ ألف من <a href="{rt_src}">{rt_src_short}</a>، الإصدار {rt_ver}،
   مشحونٌ في <code>bin/</code> داخل الإضافة وبصمةُ حزمةِ كلِّ منصّةٍ مثبَّتةٌ كذلك.</p>
   <p>محراب — منصّةُ تطويرٍ عربيّةٌ مفتوحةُ المصدر (MIT) ·
-  <a href="https://github.com/sadlang/mihrab">المستودع</a></p>
+  <a href="https://github.com/almihrab/mihrab">المستودع</a></p>
 </footer>
 </div>""".format(
         src=html.escape(ext.get("source", "")),

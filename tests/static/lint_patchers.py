@@ -5525,7 +5525,7 @@ def _patcher_anchors_do_not_eat_cr():
 
 @check("مراجعُ المستودع كلُّها على المنظّمة الحاليّة [ORG-01]")
 def _repo_references_are_current():
-    """سبعةَ عشرَ مرجعًا نُقلت يدويًّا في ثلاثةَ عشرَ ملفًّا — ولا شيءَ يمنع بقاءَ واحد.
+    """أربعةٌ وثلاثون مرجعًا نُقلت آليًّا في سبعةَ عشرَ ملفًّا — ولا شيءَ يمنع بقاءَ واحد.
 
     والمراجعُ ليست روابطَ توثيقٍ فقط: أربعةٌ منها في `product-overrides/product.json`
     تصل المستخدمَ في «أبلغ عن مشكلة» و«الترخيص»، واثنان في بيانات ملفّات ويندوز
@@ -5538,8 +5538,8 @@ def _repo_references_are_current():
     import subprocess
     # **يُبنى من جزأين لا يُكتب حرفيًّا**: الفحصُ يمسح الشجرةَ المتعقَّبة ومنها هذا
     # الملفّ، فكتابةُ الاسم القديم حرفيًّا تجعله يبلّغ عن نفسِه. أُوقِع فعلًا.
-    OLD = "sadlang" + "/mihrab" + "-ide"
-    NEW = "sadlang" + "/mihrab"
+    OLD = "sadlang" + "/mihrab"
+    NEW = "almihrab" + "/mihrab"
     try:
         out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
                              capture_output=True, timeout=60)

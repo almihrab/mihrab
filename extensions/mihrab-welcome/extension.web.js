@@ -55,7 +55,7 @@ const OPEN_WALKTHROUGH_CMD = "workbench.action.openWalkthrough";
 /** جولةُ المتصفّح — نظيرةُ `mihrab.gettingStarted` حيث لا تشغيلَ ولا قرص. */
 const WEB_WALKTHROUGH_LOCAL_ID = "mihrab.web";
 const WALKTHROUGH_ID_SEP = "#";
-const DEFAULT_EXTENSION_ID = "sadlang.mihrab-welcome";
+const DEFAULT_EXTENSION_ID = "mihrab.mihrab-welcome";
 const WELCOME_SHOWN_KEY = "mihrab.web.welcome.shown";
 
 const DOWNLOAD_URL = "https://sad-lang.org/mihrab/download/";

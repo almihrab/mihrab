@@ -72,7 +72,7 @@ done
 
 TODAY=$(date +%F)
 JOINED=$(IFS=,; echo "${ENTRIES[*]}")
-MANIFEST="{\"version\":\"$VERSION\",\"date\":\"$TODAY\",\"origin\":\"$ORIGIN\",\"base\":\"$BASE\",\"notes_url\":\"https://github.com/sadlang/mihrab/releases\",\"assets\":[$JOINED]}"
+MANIFEST="{\"version\":\"$VERSION\",\"date\":\"$TODAY\",\"origin\":\"$ORIGIN\",\"base\":\"$BASE\",\"notes_url\":\"https://github.com/almihrab/mihrab/releases\",\"assets\":[$JOINED]}"
 
 echo "▶ كتابةُ المانيفست…"
 printf '%s' "$MANIFEST" | "${SSH[@]}" "$HOST" "cat > '$DL/.releases.json.new' && mv '$DL/.releases.json.new' '$DL/releases.json'"

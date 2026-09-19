@@ -305,7 +305,7 @@ export VSCODE_SKIP_NODE_VERSION_CHECK=yes
 # تفحص `product.json` والنصَّ المخبوز.
 #
 # والارتدادُ آمنٌ بحكم الرقعة: فشلُ الجلب (‏404 على مستودعنا) ⇒ `BUILTIN_ANNOUNCEMENTS`.
-export GH_REPO_PATH="sadlang/mihrab"
+export GH_REPO_PATH="almihrab/mihrab"
 
 log "vs2022_install=${vs2022_install:-<افتراضيّ>} · python=${npm_config_python:-<النظام>}"
 

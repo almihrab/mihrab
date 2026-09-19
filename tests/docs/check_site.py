@@ -98,7 +98,7 @@ def main():
                 bad("جزيرةُ بياناتٍ غيرُ صالحة (%s في %s): %s" % (isle, name, e))
 
     # ── ٤) لا مساراتٍ مطلقةً إلى مضيفٍ بعينه ──
-    # المخرَجُ نفسُه يُخدَم من sad-lang.org/mihrab/ ومن sadlang.github.io/mihrab-ide/.
+    # المخرَجُ نفسُه يُخدَم من sad-lang.org/mihrab/ ومن almihrab.github.io/mihrab/.
     # رابطُ تنقّلٍ مطلقٌ واحدٌ إلى أحدهما يربط المرآةَ بالأصل ويرسل زوّارَها بعيدًا.
     #
     # ‏`<link rel=canonical>` مستثنًى: هو **يجب** أن يكون مطلقًا ويشير إلى الأصل —
@@ -109,7 +109,7 @@ def main():
         page = read(rel)
         for m in NAV.finditer(page):
             url = m.group(1) or m.group(2)
-            for host in ("sadlang.github.io", "sad-lang.org/mihrab"):
+            for host in ("almihrab.github.io", "sad-lang.org/mihrab"):
                 if host in url:
                     bad("رابطٌ مطلقٌ إلى مضيفٍ بعينه في %s: %s" % (rel, url))
 

@@ -22,7 +22,7 @@ const JSON_FLAG = "--json";
 const DIAG_COLLECTION = "ص";
 // [تكامل SAD-01/02] معرّف امتداد عميل ص LSP ودالّة API التي يُصدّرها. حين يملك خادمُ LSP التشخيصَ
 // الحيّ يتنحّى هذا الجسر (فحص الحفظ) لتفادي تشخيص مكرّر لنفس الخطأ (تموّجان + سطران في لوحة المشاكل).
-const SAD_LANG_EXT_ID = "sadlang.sad-lang";
+const SAD_LANG_EXT_ID = "mihrab.sad-lang";
 const LSP_DIAGNOSTICS_API = "isDiagnosticsActive";
 // تهدئة الحفظ: نؤجّل الفحص كي لا نُشغّل الأداة على كلّ حفظ متتابع سريع.
 const DEBOUNCE_MS = 400;

@@ -78,9 +78,9 @@ MARK = "mihrab-win-metadata"
 
 # هويّةُ الناشر: **محرابٌ لا لغةُ ص.**
 #
-# كُتب أوّلًا `Sad Language` قياسًا على `win32AppUserModelId: SadLang.Mihrab`. وذاك خطأٌ
-# في القراءة: المعرِّفُ نطاقٌ (‏`المنظّمة.المنتَج`) لا يُعرَض لأحد، و`CompanyName` سطرٌ
-# **يقرؤه المطوّر** في خصائص الملفّ.
+# كُتب أوّلًا `Sad Language` قياسًا على ما كان يومَها `win32AppUserModelId: SadLang.Mihrab`.
+# وذاك خطأٌ في القراءة: المعرِّفُ نطاقٌ (‏`المنظّمة.المنتَج`) لا يُعرَض لأحد، و`CompanyName`
+# سطرٌ **يقرؤه المطوّر** في خصائص الملفّ.
 #
 # والفرقُ ليس ذوقًا. يقول README إنّ سلسلةَ ص تُشحَن «تطبيقًا مرجعيًّا للمنصّة لا لغةً
 # مفضّلة»، ومحرابٌ «منصّةُ تطويرٍ عربيّةٌ تستضيف اللغات». فناشرٌ اسمُه لغةٌ بعينها ينقض
@@ -90,10 +90,12 @@ MARK = "mihrab-win-metadata"
 # ولاتينيٌّ لا عربيّ: قواعدُ AppLocker وأدواتُ الجرد وقواعدُ سمعةِ الناشر تطابق هذا
 # الحقلَ نصًّا. والعربيّةُ حاضرةٌ حيث تُقرأ فعلًا — `ProductName` = محراب.
 #
-# **ولا يُمَسّ معرِّفان**: `win32AppUserModelId` و`darwinBundleIdentifier`. هما نطاقان
-# لا سلاسلُ عرض، وتغييرُ الأوّل يفكّ ارتباطَ الاختصارات المثبَّتة في شريط المهامّ،
-# والثاني يقطع استمراريّةَ هويّة التطبيق على macOS. وبادئتُهما تسمّي المنظّمةَ الناشرة
-# وهي لغةُ ص فعلًا — فالصوابُ إبقاؤهما.
+# **والمعرِّفان تغيّرا بعدها**: `win32AppUserModelId` صار `Mihrab.Mihrab` و
+# `darwinBundleIdentifier` صار `dev.mihrab.ide`، حين انفصل محرابٌ عن منظّمة لغة ص.
+# وذلك التغييرُ ليس من جنس هذا الحقل: هما نطاقان لا سلاسلُ عرض، وتغييرُ الأوّل يفكّ
+# ارتباطَ الاختصارات المثبَّتة في شريط المهامّ، والثاني يقطع استمراريّةَ هويّة التطبيق
+# على macOS — فلا يُغيَّران إلّا في لحظةٍ تُدفَع كلفتُها عمدًا، وقد دُفعت مرّةً وحدةً
+# بإصدارٍ واحدٍ منشور. **ولا يُغيَّران ثانيةً بعد اليوم.**
 COMPANY = "Mihrab"
 COPYRIGHT_TAIL = " Mihrab — MIT License"
 
@@ -151,10 +153,10 @@ FILES = [
              "AppPublisherURL=https://sad-lang.org/mihrab/", 1),
             (("AppSupportURL=https://vscodium.com/",
               "AppSupportURL=https://code.visualstudio.com/"),
-             "AppSupportURL=https://github.com/sadlang/mihrab/issues", 1),
+             "AppSupportURL=https://github.com/almihrab/mihrab/issues", 1),
             (("AppUpdatesURL=https://vscodium.com/",
               "AppUpdatesURL=https://code.visualstudio.com/"),
-             "AppUpdatesURL=https://github.com/sadlang/mihrab/releases", 1),
+             "AppUpdatesURL=https://github.com/almihrab/mihrab/releases", 1),
         ],
     ),
     # (٤) مواردُ Rust لـ`mihrab-tunnel.exe`. **الوحيدُ الذي يقول «مايكروسوفت» في المشحون**:

@@ -4,7 +4,7 @@
   "displayName": "أيقونات محراب",
   "description": "سمة أيقونات محراب: ملفّ ص يحمل القوس، مجلّدات فيروزيّة، وملفّ عامّ هادئ. تعمل على السمتين الداكنة والفاتحة.",
   "version": "0.1.0",
-  "publisher": "sadlang",
+  "publisher": "mihrab",
   "license": "MIT",
   "engines": { "vscode": "*" },
   "categories": ["Themes"],
@@ -22,6 +22,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sadlang/mihrab.git"
+    "url": "https://github.com/almihrab/mihrab.git"
   }
 }

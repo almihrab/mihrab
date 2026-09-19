@@ -48,7 +48,7 @@ const UNDO_CMD = "mihrab.undoVSCodeImport";
 const SNAPSHOT_KEY = "mihrab.import.lastSnapshot";
 
 /** مُعرِّفُ امتداد القشرة — مصدرُ `configurationDefaults` الوحيد. */
-const SHELL_EXT_ID = "sadlang.mihrab-shell";
+const SHELL_EXT_ID = "mihrab.mihrab-shell";
 
 const COPY = {
   title: "استيراد إعدادات VS Code",
