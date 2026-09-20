@@ -91,6 +91,16 @@
     #mihrab-boot .name { font-size: 2.4rem; }
     #mihrab-boot .hint { font-size: .95rem; opacity: .72; max-width: 30rem;
                          text-align: center; line-height: 1.9; padding: 0 1.5rem; }
+    /* الشرحُ أعلى من التلميح: هو ما يُقرأ أوّلًا، والتلميحُ حالةٌ متغيّرة. */
+    #mihrab-boot .lede { font-size: 1.05rem; opacity: .9; max-width: 34rem;
+                         text-align: center; line-height: 1.95; padding: 0 1.5rem;
+                         margin-top: -.35rem; }
+    #mihrab-boot .links { display: flex; flex-wrap: wrap; gap: .35rem 1.5rem;
+                          justify-content: center; font-size: .9rem; padding: 0 1.5rem; }
+    /* تسطيرٌ ظاهرٌ لا لونٌ وحدَه: اللونُ وحدَه يخالف WCAG 1.4.1، ومن لا يميّز
+       الألوانَ لا يرى أنّ هذه روابط. */
+    #mihrab-boot .links a { color: #2ec4a6; text-decoration: underline;
+                            text-underline-offset: .25em; }
     #mihrab-boot .bar {
       width: 12rem; height: 2px; background: #1d3b36; overflow: hidden; border-radius: 2px;
     }
@@ -124,10 +134,23 @@
     </div>
   </noscript>
 
+  <!-- ── سطرٌ وثلاثةُ روابطَ قبل الشريط: مدّةُ التحميل تصير وقتَ قراءة ──
+       الغريبُ الذي سمع الاسمَ يفتح الرابطَ فيرى شعارًا وشريطًا بلا جملةٍ واحدةٍ
+       تقول له ما هذا، ثمّ يُقذَف في محرِّرِ شيفرةٍ كامل. والانتظارُ واقعٌ لا محالة
+       (‏أربعةُ ميغاباياتٍ ونيّف في أوّل زيارة)، فليُملأ بما يُجيب سؤالَه بدل أن
+       يتركه معلّقًا. والروابطُ خارجيّةٌ فلا تكلّف بايتًا من الحزمة.
+       ⛔ ولا تُحذَف لأنّها «تُرى ثوانيَ»: هي الثواني الوحيدةُ التي يقرّر فيها
+          الزائرُ الجديدُ أيبقى أم يغادر. -->
   <div id="mihrab-boot">
     <div class="name">محراب</div>
+    <div class="lede">محرِّرُ أكوادٍ عربيُّ الواجهة والاتّجاه — يُحمَّل الآن في متصفّحك، بلا تثبيتٍ وبلا خادم.</div>
     <div class="bar" role="progressbar" aria-label="تقدّمُ التحميل"><i></i></div>
     <div class="hint" id="mihrab-hint" role="status" aria-live="polite">يُهيَّأ المحراب…</div>
+    <nav class="links" aria-label="عن محراب">
+      <a href="https://docs.mihrab.dev/">ما محراب؟</a>
+      <a href="https://dl.mihrab.dev/">نزِّل النسخة المكتبيّة</a>
+      <a href="https://github.com/almihrab/mihrab">المستودع</a>
+    </nav>
   </div>
 
   <!-- سكربتُ الإقلاع في ملفٍّ مجاورٍ لا كتلةً هنا [WEB-09]: كتلةٌ داخليّةٌ

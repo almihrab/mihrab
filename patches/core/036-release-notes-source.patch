@@ -203,7 +203,7 @@ index 777207d..3435f6d 100644
  
  const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
  
-@@ -63,13 +64,26 @@ export class ShowReleaseNotesAction extends Action2 {
+@@ -63,13 +64,44 @@ export class ShowReleaseNotesAction extends Action2 {
  		const instantiationService = accessor.get(IInstantiationService);
  		const productService = accessor.get(IProductService);
  		const openerService = accessor.get(IOpenerService);
@@ -215,16 +215,34 @@ index 777207d..3435f6d 100644
  		} catch (err) {
  			if (productService.releaseNotesUrl) {
 -				await openerService.open(URI.parse(productService.releaseNotesUrl));
-+				// Asked rather than done. The notes could not be fetched — the network is down, or
-+				// the version's notes are not published — and the fallback is a different page, in
-+				// a different application, not necessarily in the language the reader came for.
-+				// Without this the command looks like it did nothing at all and then a browser
-+				// opens by itself; the same failure on the automatic path already explains itself.
++				// Asked rather than done, and with the likely cause named. The notes could not be
++				// fetched — the network may be down, or this version's notes may not be published
++				// yet — and the fallback is a different page, in a different application, not
++				// necessarily in the language the reader came for. Without this the command looks
++				// like it did nothing and then a browser opens by itself.
++				//
++				// The version, not just the product name: the reader asked for the notes of one
++				// version and already knows what they are running.
++				//
++				// Two actions, not one. "Try again" covers the likeliest cause without taking the
++				// reader out of the editor, and it retries the fetch itself rather than reopening
++				// this notification, so a second failure lands on the browser instead of looping.
++				// And the other button is named by where it goes: a reader should know they are
++				// leaving before they leave.
 +				await notificationService.prompt(
 +					Severity.Info,
-+					localize('update.releaseNotesUnavailable', "Could not fetch the release notes for {0}. Open the releases page in your browser?", productService.nameLong),
++					localize('update.releaseNotesUnavailable', "Could not fetch the release notes for {0} {1}. The connection may be down, or the notes for this version may not be published yet.", productService.nameLong, targetVersion),
 +					[{
-+						label: localize('update.openReleasesPage', "Open"),
++						label: localize('update.retryReleaseNotes', "Try again"),
++						run: async () => {
++							try {
++								await showReleaseNotesInEditor(instantiationService, targetVersion, false);
++							} catch {
++								openerService.open(URI.parse(productService.releaseNotesUrl!));
++							}
++						}
++					}, {
++						label: localize('update.openReleasesPage', "Open the releases page in the browser"),
 +						run: () => openerService.open(URI.parse(productService.releaseNotesUrl!))
 +					}]
 +				);

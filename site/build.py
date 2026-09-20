@@ -563,12 +563,56 @@ def build_landing():
         with_search=False, extra_js=("site.js",))
 
 
+# ── شريطُ الانتقال: يُقال للزائر أين هو ولماذا ──
+# `docs.mihrab.dev` و`dl.mihrab.dev` يحوّلان إلى هنا. والزائرُ يكتب اسمَ محرابٍ ثمّ
+# يجد نفسَه على نطاقٍ اسمُه اسمُ **مشروعٍ آخر**، بلا سطرٍ يفسّر. وذلك ثلاثُ ضرباتٍ
+# في لحظة: القفزُ الصامتُ بين نطاقين شكلُ التصيّد المعروف فمن يعرفه يتردّد؛
+# ومحرابٌ يقول «انفصلتُ» ثمّ يرسل زائرَه إلى ما انفصل عنه فينقض فعلُه قولَه؛
+# ومن حفظ العنوانَ حفظ نطاقَ غيرِنا لا اسمَنا.
+#
+# **وثابتٌ لا مشروطٌ بـ`document.referrer`**: المُحيلُ يُحجَب في إعداداتٍ كثيرة
+# وينقطع عند ‎302‎ عبر النطاقات أحيانًا، فشرطٌ عليه يُخفي الشريطَ عن بعضِ من كُتب
+# لهم. وهو صادقٌ لمن وصل مباشرةً كذلك: الصفحةُ **فعلًا** تنتقل قريبًا.
+MOVE_NOTE = (
+    '<aside class="move-note">'
+    '<b>محرابٌ يستقلّ بنطاقه.</b> التوثيقُ والثنائيّاتُ ما زالت تُخدَم من هنا '
+    'مؤقّتًا، وتنتقل قريبًا إلى <a href="https://mihrab.dev">mihrab.dev</a>. '
+    'والعنوانُ الذي تحفظه اليومَ — <code>docs.mihrab.dev</code> و'
+    '<code>dl.mihrab.dev</code> — يبقى يعمل بعد الانتقال.'
+    '</aside>'
+)
+
+
+def _verify_snippet():
+    """مقتطفُ التحقّق بأسماء الملفّات **المنشورة**، لا باسمٍ مُتخيَّل.
+
+    كان مكتوبًا بيدٍ: `Mihrab-Setup.exe` و`mihrab.tar.gz` — وكلاهما اسمٌ لا يستطيع
+    القارئُ الحصولَ عليه بأيّ طريق، فمقتطفُ التحقّق نفسُه — وهو موضعُ الثقة — يفشل
+    عند أوّل لصقة. ويُشتقّان هنا من المانيفست فلا ينحرفان مع أوّل تغييرٍ في التسمية.
+    """
+    win = next((a["file"] for a in RELEASES.get("assets", [])
+                if a.get("id", "").startswith("win-")), None)
+    nix = next((a["file"] for a in RELEASES.get("assets", [])
+                if a.get("id", "").startswith(("linux-", "mac-"))), None)
+    lines = []
+    if win:
+        lines += ["# ويندوز (PowerShell)", "Get-FileHash -Algorithm SHA256 .\\" + win, ""]
+    if nix:
+        lines += ["# لينكس / macOS", "sha256sum " + nix]
+    if not lines:
+        # لا إصدارَ منشورًا بعد: الأمرُ يُعرَض بقالبٍ صريحٍ لا باسمٍ مُختلَق.
+        lines = ["# ويندوز (PowerShell)", "Get-FileHash -Algorithm SHA256 .\\<اسم الملفّ>",
+                 "", "# لينكس / macOS", "sha256sum <اسم الملفّ>"]
+    return html.escape("\n".join(lines))
+
+
 def build_download():
     reqs = "".join("<tr><td>%s</td><td>%s</td></tr>"
                    % (html.escape(a), html.escape(b)) for a, b in SITE["requirements"])
 
     body = (
         '<main class="page">'
+        + MOVE_NOTE +
         '<section class="dl-hero"><h1>نزِّل محراب</h1>'
         '<p data-dl-version>مجّانيٌّ ومفتوحُ المصدر · بلا حساب</p></section>'
 
@@ -591,12 +635,7 @@ def build_download():
         + '<section class="section dl-verify"><h2>تحقّق ممّا نزّلت</h2>'
           '<p class="sub">بصمةُ SHA-256 لكلّ ملفٍّ منشورةٌ في الجدول أعلاه. قارِنها '
           'بما نزّلتَه قبل التنصيب — تطابقُها يثبت أنّ الملفّ وصلك كما غادرَنا.</p>'
-          '<pre><code>'
-          '# ويندوز (PowerShell)\n'
-          'Get-FileHash -Algorithm SHA256 .\\Mihrab-Setup.exe\n\n'
-          '# لينكس / macOS\n'
-          'sha256sum mihrab.tar.gz'
-          '</code></pre></section>'
+          '<pre><code>%s</code></pre></section>' % _verify_snippet()
 
         + '<section class="section"><h2>المتطلّبات</h2>'
           '<div class="table-wrap"><table><tbody>%s</tbody></table></div></section>' % reqs
@@ -824,7 +863,7 @@ def main():
         ("terminal", "الطرفيّة المدمجة", "شغّل الأوامر دون مغادرة المحرّر."),
     ]
     docs_body = (
-        '<main class="home">' + (MARK_SVG % "mark-lg")
+        '<main class="home">' + MOVE_NOTE + (MARK_SVG % "mark-lg")
         + "<h1>توثيق محراب</h1>"
         + '<p class="tagline">للمِحرابِ اتّجاه، ولكودِك وِجهة.</p>'
         + '<p class="tagline-sub">مكانٌ صافٍ تكتب فيه بالعربيّة كما تُفكّر بها.</p>'

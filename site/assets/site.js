@@ -195,6 +195,19 @@
 			if (ordered.indexOf(a) === -1) { ordered.push(a); }
 		});
 
+		/* ── والمنصّاتُ التي لا أصلَ لها في هذا الإصدار تُعرَض ولا تُحذَف ──
+		   الجدولُ كان يرسم ما في المانيفست وحدَه، فيرى صاحبُ ويندوز — وهو الأغلب —
+		   صفًّا محمولًا واحدًا ولا يجد المثبِّت، وقد قرأ في «المتطلّبات» أنّ ويندوز
+		   مدعوم. فلا يستنتج «لم يُبنَ بعد»، بل «موجودٌ وأنا لا أُحسِن إيجادَه»: يبحث
+		   ثمّ يغادر. وصفٌّ رماديٌّ يقول الحقيقةَ أرحمُ من صفٍّ غائبٍ يكذب بالصمت. */
+		var missing = [];
+		PLATFORMS.forEach(function (p) {
+			for (var i = 0; i < ordered.length; i++) {
+				if (ordered[i].id === p.id) { return; }
+			}
+			missing.push(p);
+		});
+
 		ordered.forEach(function (a) {
 			var p = platformOf(a.id) || { label: a.id, kind: '', ext: '' };
 			var tr = document.createElement('tr');
@@ -219,6 +232,17 @@
 			td3.appendChild(link);
 			tr.appendChild(td3);
 
+			tbody.appendChild(tr);
+		});
+
+		missing.forEach(function (p) {
+			var tr = el('tr', 'absent');
+			var td1 = el('td', 'file');
+			td1.appendChild(el('b', null, p.label));
+			td1.appendChild(el('span', 'kind', p.kind + (p.ext ? ' · ' + p.ext : '')));
+			tr.appendChild(td1);
+			tr.appendChild(el('td', 'size', '—'));
+			tr.appendChild(el('td', 'get', 'لم يُبنَ بعد لهذا الإصدار'));
 			tbody.appendChild(tr);
 		});
 	}
