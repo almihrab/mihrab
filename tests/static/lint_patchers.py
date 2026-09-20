@@ -5525,7 +5525,12 @@ def _patcher_anchors_do_not_eat_cr():
 
 @check("مراجعُ المستودع كلُّها على المنظّمة الحاليّة [ORG-01]")
 def _repo_references_are_current():
-    """أربعةٌ وثلاثون مرجعًا نُقلت آليًّا في سبعةَ عشرَ ملفًّا — ولا شيءَ يمنع بقاءَ واحد.
+    """مراجعُ المستودع نُقلت آليًّا عبر الشجرة — ولا شيءَ يمنع بقاءَ واحد.
+
+    ‏**ولا عددَ مكتوبًا هنا عمدًا.** كُتب أوّلًا «أربعةٌ وثلاثون مرجعًا في سبعةَ عشرَ
+    ملفًّا»، فانحرف بعد ثلاثة إيداعاتٍ بلا أن يحمرّ شيء: رقمٌ في نثرٍ لا يحرسه
+    حارسٌ يكذب في صمت. والعددُ المقيسُ هو `seen_new` أدناه، وحدُّه الأدنى مرسًى
+    حقيقيّ.
 
     والمراجعُ ليست روابطَ توثيقٍ فقط: أربعةٌ منها في `product-overrides/product.json`
     تصل المستخدمَ في «أبلغ عن مشكلة» و«الترخيص»، واثنان في بيانات ملفّات ويندوز
@@ -5786,15 +5791,43 @@ def _published_hostnames_are_served():
         published.add(tok if tok.endswith("mihrab.dev") else tok + ".mihrab.dev")
     assert len(published) >= 4, f"أسماءٌ منشورةٌ أقلُّ من المتوقَّع: {sorted(published)}"
 
+    # ── **كتلُ ‎443‎ وحدَها تُحتسَب خدمةً** ──
+    # أوّلُ صياغةٍ جمعت كلَّ `server_name` في المجلّد بلا تمييزِ منفذ — فكانت كتلةُ
+    # ACME (‏`01-mihrab-acme.conf`، منفذُ ‎80‎) تُعلِن الأسماءَ الخمسةَ فتحتسبها
+    # «مخدومة». والحارسُ **أُبطِل بعد ثلاثة إيداعاتٍ من كتابته**: حين أُضيفت
+    # `app`/`docs`/`dl` إلى تلك الكتلة، صار يمرّ أخضرَ ولا كتلةَ ‎443‎ لها أصلًا.
+    # قِيس بالطفرة: حذفُ كتلة `app.mihrab.dev` من ‎443‎ ⇐ ‎91/91‎ نجحت.
+    #
+    # والسؤالُ الذي يُقاس هو سؤالُ ‎443‎ وحدَه: اسمٌ بلا كتلةِ TLS يُقدِّم شهادةَ
+    # الخادم الافتراضيّ — و`.dev` في قائمة HSTS المحمَّلة، فالنتيجةُ حجبٌ تامٌّ بلا
+    # زرِّ تجاوز. أمّا ‎80‎ فلا يُطرَق أصلًا من متصفّح.
     served = set()
     ngx = os.path.join(ROOT, "deploy", "nginx")
+    blocks_443 = 0
     for fn in sorted(os.listdir(ngx)):
         if not fn.endswith(".conf"):
             continue
-        for m in _re.finditer(r"^\s*server_name\s+([^;]+);",
-                              _read(os.path.join(ngx, fn)), _re.MULTILINE):
-            served.update(m.group(1).split())
-    assert served, "لا `server_name` في أيّ إعداد nginx — الحارسُ يقيس الهواء"
+        # تقطيعٌ بسيطٌ يكفي هذه الملفّات: كلُّ `server {` يفتح كتلةً، والقوسُ
+        # المغلقُ في العمود الأوّل يُنهيها. ولا `server` متداخلةٌ في nginx.
+        block, inside = [], False
+        for line in _read(os.path.join(ngx, fn)).splitlines() + ["}"]:
+            if not inside:
+                if _re.match(r"^\s*server\s*\{", line):
+                    inside, block = True, []
+                continue
+            if _re.match(r"^\}", line):
+                inside = False
+                text = "\n".join(block)
+                if _re.search(r"^\s*listen\s+[^;]*\b443\b", text, _re.MULTILINE):
+                    blocks_443 += 1
+                    for m in _re.finditer(r"^\s*server_name\s+([^;]+);", text, _re.MULTILINE):
+                        served.update(m.group(1).split())
+                continue
+            block.append(line)
+    assert blocks_443 >= 3, (
+        f"لم تُقرأ إلّا {blocks_443} كتلةَ ‎443‎ — إمّا أنّ التقطيعَ كُسِر أو أنّ الكتلَ "
+        "زالت. لا يُترَك الحارسُ يقيس الهواء.")
+    assert served, "لا `server_name` في كتلة ‎443‎ — الحارسُ يقيس الهواء"
 
     def covered(host):
         if host in served:
@@ -5809,6 +5842,80 @@ def _published_hostnames_are_served():
         "اسمٌ منشورٌ في الـDNS ولا كتلةَ تخدمه: " + " · ".join(orphan)
         + "\n       يسقط إلى الخادم الافتراضيّ — أيْ إلى موقعِ غيرِنا بشهادةٍ لا تطابقه."
         + "\n       أضِف كتلتَه في deploy/nginx/، أو احذف سجلَّ A.")
+
+
+@check("مُعرِّفُ امتدادٍ مكتوبٌ بيدٍ يطابق ناشرَه [EXT-01]")
+def _extension_ids_match_their_publisher():
+    """مُعرِّفُ الامتداد `publisher.name` مكتوبٌ في مكانين لا يعرف أحدُهما الآخر.
+
+    الأوّلُ `package.json` (الحقيقةُ التي يبني منها كلُّ شيء)، والثاني سلاسلُ نصٍّ
+    في الشيفرة تُنادي `extensions.getExtension(...)`. وحين انتقل محرابٌ إلى منظّمته
+    تغيّر الناشرُ من `sadlang` إلى `mihrab` في ستّة `package.json` وأربعِ سلاسلَ —
+    **ولا شيءَ كان يربط بينها.**
+
+    قِيس بالطفرة: إعادةُ `publisher` في `mihrab-shell` وحدَه إلى القديم، مع بقاء
+    `mihrab.mihrab-shell` في `import-settings.js` ⇒ ‎91/91‎ نجحت. و[ORG-01] لا يمسكه:
+    هو يطابق مسارَ المستودع القديم بشَرطةٍ مائلة، لا اسمَ الناشر بنقطةٍ بعده.
+
+    **والفشلُ عند المستخدم صامت**: `getExtension()` يردّ `undefined` فلا يتنحّى جسرُ
+    التشخيص أمام خادم ص (تموّجان وسطران مكرّران في لوحة المشاكل)، ولا يجد مستورِدُ
+    الإعدادات مصدرَه. لا استثناءَ يُرمى، ولا سطرَ في سجلّ.
+    """
+    import json as _json
+    import re as _re
+
+    ext_root = os.path.join(ROOT, "extensions")
+    if not os.path.isdir(ext_root):
+        return  # لا امتداداتٍ في هذا الفرع — تخطٍّ
+
+    # الحقيقةُ تُقرأ من `package.json` ولا تُكتَب هنا: اسمُ الامتداد ⇐ ناشرُه.
+    owner = {}
+    for d in sorted(os.listdir(ext_root)):
+        pkg = os.path.join(ext_root, d, "package.json")
+        if not os.path.isfile(pkg):
+            continue
+        try:
+            meta = _json.loads(_read(pkg))
+        except ValueError as e:
+            raise AssertionError(f"‏extensions/{d}/package.json غيرُ صالح: {e}")
+        name, pub = meta.get("name"), meta.get("publisher")
+        if name and pub:
+            owner[name] = pub
+    assert len(owner) >= 5, f"لم يُقرأ إلّا {len(owner)} امتدادًا — الحارسُ يقيس الهواء"
+
+    # ⛔ ولا يُشترَط ناشرٌ واحدٌ للجميع: `vscode-language-pack-ar` امتدادٌ **مورَّد**
+    #    ناشرُه `arabic-dev`، وهو صحيحٌ كما هو. والسؤالُ المقيسُ هنا ليس «كم ناشرًا»
+    #    بل «أيطابق كلُّ مُعرِّفٍ مكتوبٍ بيدٍ ناشرَ امتدادِه» — وهو ما يمسك الطفرةَ
+    #    الحقيقيّة: `package.json` يقول ناشرًا والشيفرةُ تنادي آخرَ.
+
+    NAMES = "|".join(_re.escape(n) for n in sorted(owner, key=len, reverse=True))
+    ID = _re.compile(r"([A-Za-z0-9][A-Za-z0-9_-]*)\.(" + NAMES + r")\b")
+
+    wrong, seen = [], 0
+    for base, dirs, files in os.walk(ext_root):
+        dirs[:] = [d for d in dirs if d not in ("node_modules", ".git", "__pycache__")]
+        for fn in sorted(files):
+            if not fn.endswith((".js", ".json", ".ts")):
+                continue
+            rel = os.path.relpath(os.path.join(base, fn), ROOT).replace(os.sep, "/")
+            try:
+                text = _read(os.path.join(base, fn))
+            except (UnicodeDecodeError, OSError):
+                continue
+            for i, line in enumerate(text.splitlines(), 1):
+                for m in ID.finditer(line):
+                    prefix, ext = m.group(1), m.group(2)
+                    seen += 1
+                    if prefix != owner[ext]:
+                        wrong.append(f"{rel}:{i} \u00ab{prefix}.{ext}\u00bb \u2190 الناشرُ {owner[ext]}")
+
+    assert seen >= 4, (
+        f"لم يُرَ إلّا {seen} مُعرِّفًا مكتوبًا بيد — إمّا أنّها زالت (فيُحدَّث الحارس) "
+        "أو أنّ النمطَ كُسِر. لا يُترَك أخضرَ فارغًا.")
+    assert not wrong, (
+        "مُعرِّفُ امتدادٍ لا يطابق ناشرَه في `package.json`:\n       "
+        + "\n       ".join(wrong[:20])
+        + "\n       الفشلُ صامت: getExtension() يردّ undefined بلا استثناءٍ ولا سجلّ.")
 
 
 def _assert_lines():
