@@ -5747,6 +5747,70 @@ def _patch_added_ui_strings_have_arabic():
         "بمفتاحٍ هو نصُّ الإنجليزيّة حرفًا):\n       " + "\n       ".join(missing))
 
 
+@check("كلُّ تسميةٍ في الـDNS يملكها بلوكٌ لنا [SUB-01]")
+def _published_hostnames_are_served():
+    """اسمٌ يُحَلّ ولا يُخدَم ليس «لا شيء» — هو تسليمُ اسمِك لموقعِ غيرِك.
+
+    قِيس حيًّا: `docs.mihrab.dev` و`dl.mihrab.dev` كان لهما سجلّا A منذ 2026-09-05
+    ولا كتلةَ `server` تطابقهما، فكانا يردّان 200 بـ«قدح | Kadah - سيرفر ماينكرافت»
+    وشهادةٍ موقّعةٍ ذاتيًّا لـ`CN=192.168.33.20`. والآليّةُ موثّقةٌ في رأس
+    `mihrab.dev.static.conf`: لا `default_server` على 443 على هذا الخادم، فالافتراضيُّ
+    أوّلُ كتلةٍ بترتيب التحليل — وهي موقعُ شخصٍ آخر.
+
+    **ولا طبقةَ أخرى تمسك هذا**: البناءُ ينجح، والرُقَعُ تُطبَّق، والاختبارُ الحيُّ لا
+    يقصد أسماءً لا يعرفها. والعطبُ لا يظهر لنا أصلًا — يظهر لزائرٍ كتب اسمَنا.
+
+    والمصدران يُقرآن ولا يُكتبان هنا: الأسماءُ المنشورةُ من الكتلة المقيسة في
+    `deploy/README.md`، والمخدومةُ من `server_name` في `deploy/nginx/*.conf`.
+    """
+    import re as _re
+
+    readme = os.path.join(ROOT, "deploy", "README.md")
+    assert os.path.isfile(readme), "deploy/README.md مفقود — لا مصدرَ للأسماء المنشورة"
+
+    # السطرُ المقيس، مثاله:
+    #     mihrab.dev · www · docs · dl · *.webview  →  176.106.227.73  ✅ منتشرة
+    line = None
+    for ln in _read(readme).splitlines():
+        if "mihrab.dev" in ln and "→" in ln and _re.search(r"\d+\.\d+\.\d+\.\d+", ln):
+            line = ln
+            break
+    assert line, ("لم تُعثَر الكتلةُ المقيسةُ للأسماء في deploy/README.md — إمّا أنّها "
+                  "حُذفت (فيُحدَّث الحارس) أو أنّ صيغتَها تغيّرت.")
+
+    published = set()
+    for tok in line.split("→")[0].split("·"):
+        tok = tok.strip().strip("`").strip()
+        if not tok:
+            continue
+        published.add(tok if tok.endswith("mihrab.dev") else tok + ".mihrab.dev")
+    assert len(published) >= 4, f"أسماءٌ منشورةٌ أقلُّ من المتوقَّع: {sorted(published)}"
+
+    served = set()
+    ngx = os.path.join(ROOT, "deploy", "nginx")
+    for fn in sorted(os.listdir(ngx)):
+        if not fn.endswith(".conf"):
+            continue
+        for m in _re.finditer(r"^\s*server_name\s+([^;]+);",
+                              _read(os.path.join(ngx, fn)), _re.MULTILINE):
+            served.update(m.group(1).split())
+    assert served, "لا `server_name` في أيّ إعداد nginx — الحارسُ يقيس الهواء"
+
+    def covered(host):
+        if host in served:
+            return True
+        # البدلُ يطابق **تسميةً واحدة**: `*.mihrab.dev` يغطّي `docs.mihrab.dev`
+        # ولا يغطّي `a.b.mihrab.dev`. وهذا بعينه ما يُسقِط من اكتفى ببدلٍ واحد.
+        head, _, tail = host.partition(".")
+        return bool(head) and ("*." + tail) in served
+
+    orphan = sorted(h for h in published if not covered(h))
+    assert not orphan, (
+        "اسمٌ منشورٌ في الـDNS ولا كتلةَ تخدمه: " + " · ".join(orphan)
+        + "\n       يسقط إلى الخادم الافتراضيّ — أيْ إلى موقعِ غيرِنا بشهادةٍ لا تطابقه."
+        + "\n       أضِف كتلتَه في deploy/nginx/، أو احذف سجلَّ A.")
+
+
 def _assert_lines():
     return {i + 1 for i, line in enumerate(_read(__file__).splitlines())
             if line.strip().startswith("assert ")}
