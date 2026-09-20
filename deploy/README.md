@@ -25,7 +25,7 @@
 ## الحالةُ المقيسة (2026-09-05) — من الخادم نفسِه
 
 ```
-mihrab.dev · www · docs · dl · *.webview  →  176.106.227.73  ✅ منتشرة
+mihrab.dev · www · app · docs · dl · *.webview  →  176.106.227.73  ✅ منتشرة
 CAA: 0 issue "letsencrypt.org" · 0 issuewild "letsencrypt.org"  ✅
 
 nginx 1.24.0 (Ubuntu) · ستّةُ مواقعَ قائمة:
