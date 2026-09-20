@@ -17,10 +17,30 @@ index 85064c8c..8c38dba9 100644
  	readonly keyboardShortcutsUrlLinux?: string;
  	readonly keyboardShortcutsUrlWin?: string;
 diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/vs/platform/update/common/update.config.contribution.ts
-index 9ba557c..d4d7349 100644
 --- a/src/vs/platform/update/common/update.config.contribution.ts
 +++ b/src/vs/platform/update/common/update.config.contribution.ts
-@@ -81,7 +81,16 @@ configurationRegistry.registerConfiguration({
+@@ -21,7 +21,19 @@ configurationRegistry.registerConfiguration({
+ 			enum: ['none', 'manual', 'start', 'default'],
+ 			default: 'default',
+ 			scope: ConfigurationScope.APPLICATION,
+-			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."),
++			// The sentence has to be true for the build in front of the reader. A fork that
++			// ships no update service at all (`updateUrl: null`) was telling every user, in
++			// their own language, that it fetches updates from a service it never asks - and
++			// that updates arrive on their own, which they do not.
++			//
++			// And a new key: translations resolve by key, so keeping `updateMode` would hand
++			// this sentence the translation of the one it replaced. A changed meaning does not
++			// inherit the old wording.
++			//
++			// Only this one occurrence: the other two are the deprecated `update.channel` and
++			// the enterprise policy entry. The first sits next to a downstream-only setting, so
++			// patching it would tie this hunk to a neighbour the pinned upstream does not have.
++			description: localize('updateModeProductSource', "Configure whether you receive automatic updates. Requires a restart after change. Updates are fetched from this product's online service, if it provides one; a build that ships none never checks."),
+ 			tags: ['usesOnlineServices'],
+ 			enumDescriptions: [
+ 				localize('none', "Disable updates."),
+@@ -81,7 +93,16 @@ configurationRegistry.registerConfiguration({
  			type: 'boolean',
  			default: true,
  			scope: ConfigurationScope.APPLICATION,

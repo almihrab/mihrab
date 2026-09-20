@@ -59,5 +59,46 @@ tar -C "$PUB" -czf - . | "${SSH[@]}" "$HOST" "tar -C '$STAGE' -xzf -"
 echo "▶ التبديلُ الذرّيّ…"
 "${SSH[@]}" "$HOST" "rm -rf '$ROOT/.$SUB.old' && mv '$DEST' '$ROOT/.$SUB.old' 2>/dev/null || true; mv '$STAGE' '$DEST' && rm -rf '$ROOT/.$SUB.old'"
 
+# ── ويُتحقَّق مما وصل، لا ممّا غادر ──
+# قِيس فعلًا: نُقلت هويّةُ محرابٍ في المستودع كلِّه إلى منظّمته الجديدة، وخضَّ حارسُ
+# ‏[ORG-01] الشجرةَ المتعقَّبةَ فمرّ بحقّ — لأنّ المصدرَ صحيحٌ فعلًا. وبقيت صفحةُ
+# التنزيل المنشورةُ أسبوعًا تحمل الاسمَ القديمَ في كلّ رابطٍ فيها، لأنّ أحدًا لم
+# يُعِد النشر. **وما يراه المستخدمُ ليس الشجرةَ المتعقَّبة بل ما يردّه الخادم.**
+#
+# فالبوّابةُ هنا لا في مُدقِّقٍ ثابت: القياسُ يحتاج شبكةً بحكم طبيعته، وموضعُه
+# اللحظةُ التي يقع فيها الفعلُ — كنظيرتها في `publish_release_notes.sh`.
+ORG=$("$PY_BIN" - "$HERE/site/data/site.json" <<'PY'
+import json, sys, re
+repo = json.load(open(sys.argv[1], encoding="utf-8")).get("repo", "")
+m = re.search(r"github\.com/([^/]+)/", repo)
+print(m.group(1) if m else "")
+PY
+)
+[[ -n "$ORG" ]] || { echo "❌ تعذّر اشتقاقُ المنظّمة من site/data/site.json" >&2; exit 1; }
+
+echo "▶ التحقّقُ من الصفحة المنشورة (المنظّمة: $ORG) …"
+_fails=0
+for _page in "" "download/" "docs/"; do
+  _url="https://sad-lang.org/$SUB/$_page"
+  _body=$(curl -fsS --max-time 20 "$_url" 2>/dev/null) || {
+    echo "   ❌ $_url — تعذّر الجلب" >&2; _fails=$((_fails + 1)); continue; }
+  # **أيُّ منظّمةٍ غيرِ منظّمتنا في رابط مستودعٍ لنا**: لا يُكتَب الاسمُ القديمُ هنا
+  # حرفيًّا، فهو يتقادم مع كلّ نقلة. يُسأل السؤالُ الصحيح: أكلُّ رابطٍ إلى مستودعٍ
+  # اسمُه `mihrab*` يحمل منظّمتَنا؟
+  _stale=$(printf '%s' "$_body" \
+    | grep -oE 'github\.com/[A-Za-z0-9_-]+/mihrab[A-Za-z0-9_-]*' \
+    | grep -v "github.com/$ORG/" | sort -u || true)
+  if [[ -n "$_stale" ]]; then
+    echo "   ❌ $_url يحمل مراجعَ لمنظّمةٍ أخرى:" >&2
+    printf '      %s\n' $_stale >&2
+    _fails=$((_fails + 1))
+  else
+    echo "   ✅ ${_page:-/}"
+  fi
+done
+[[ "$_fails" -eq 0 ]] || {
+  echo "❌ نُشرت الشجرةُ ولم تصل الهويّة. أعِد البناءَ والنشرَ بعد تصحيح site/data/site.json." >&2
+  exit 1; }
+
 echo "✅ نُشر: https://sad-lang.org/$SUB/"
 echo "   الثنائيّات:  $DEST/dl/   (لم تُمَسّ)"

@@ -5841,7 +5841,12 @@ def _published_hostnames_are_served():
     assert not orphan, (
         "اسمٌ منشورٌ في الـDNS ولا كتلةَ تخدمه: " + " · ".join(orphan)
         + "\n       يسقط إلى الخادم الافتراضيّ — أيْ إلى موقعِ غيرِنا بشهادةٍ لا تطابقه."
-        + "\n       أضِف كتلتَه في deploy/nginx/، أو احذف سجلَّ A.")
+        + "\n       أضِف كتلتَه في deploy/nginx/، أو احذف سجلَّ A."
+        # **والتحذيرُ في الرسالة لا في رأس ملفٍّ آخر.** من يقرأ فشلَ بناءٍ لن يفتح
+        # ألفَ كلمةٍ في `mihrab.dev.subdomains.conf` قبل أن يتّبع إرشادًا مكتوبًا له هنا.
+        + "\n       ⚠️ وقبل التركيب وسِّعِ الشهادةَ بهذا الاسم:"
+        + "\n          certbot certonly --webroot -w /var/www/certbot --cert-name mihrab.dev --expand -d …"
+        + "\n          كتلةٌ تشير إلى شهادةٍ غيرِ موجودة تمنع nginx من الإقلاع فتُسقِط المواقعَ الستّةَ معًا.")
 
 
 @check("مُعرِّفُ امتدادٍ مكتوبٌ بيدٍ يطابق ناشرَه [EXT-01]")
@@ -5869,7 +5874,7 @@ def _extension_ids_match_their_publisher():
         return  # لا امتداداتٍ في هذا الفرع — تخطٍّ
 
     # الحقيقةُ تُقرأ من `package.json` ولا تُكتَب هنا: اسمُ الامتداد ⇐ ناشرُه.
-    owner = {}
+    owner, where = {}, {}
     for d in sorted(os.listdir(ext_root)):
         pkg = os.path.join(ext_root, d, "package.json")
         if not os.path.isfile(pkg):
@@ -5881,6 +5886,7 @@ def _extension_ids_match_their_publisher():
         name, pub = meta.get("name"), meta.get("publisher")
         if name and pub:
             owner[name] = pub
+            where[name] = f"extensions/{d}/package.json"
     assert len(owner) >= 5, f"لم يُقرأ إلّا {len(owner)} امتدادًا — الحارسُ يقيس الهواء"
 
     # ⛔ ولا يُشترَط ناشرٌ واحدٌ للجميع: `vscode-language-pack-ar` امتدادٌ **مورَّد**
@@ -5907,15 +5913,24 @@ def _extension_ids_match_their_publisher():
                     prefix, ext = m.group(1), m.group(2)
                     seen += 1
                     if prefix != owner[ext]:
-                        wrong.append(f"{rel}:{i} \u00ab{prefix}.{ext}\u00bb \u2190 الناشرُ {owner[ext]}")
+                        # **الطرفان معًا.** أوّلُ صياغةٍ ذكرت موضعَ السلسلة وحدَه — وهو
+                        # غالبًا الطرفُ **السليم**. فالمطوّرُ المستعجلُ يفتح السطرَ
+                        # المذكورَ ويُوافِقه مع الناشر الخاطئ، فيخضرّ الحارسُ وقد رسّخ
+                        # العطبَ. رسالةٌ تجعل الإصلاحَ الخاطئَ أسهلَ من الصحيح عبءٌ لا حارس.
+                        wrong.append(
+                            f"{rel}:{i} يقول \u00ab{prefix}.{ext}\u00bb"
+                            f"\n           بينما {where[ext]} يقول publisher = \u00ab{owner[ext]}\u00bb")
 
     assert seen >= 4, (
         f"لم يُرَ إلّا {seen} مُعرِّفًا مكتوبًا بيد — إمّا أنّها زالت (فيُحدَّث الحارس) "
         "أو أنّ النمطَ كُسِر. لا يُترَك أخضرَ فارغًا.")
     assert not wrong, (
-        "مُعرِّفُ امتدادٍ لا يطابق ناشرَه في `package.json`:\n       "
+        "مُعرِّفُ امتدادٍ لا يطابق ناشرَه:\n       "
         + "\n       ".join(wrong[:20])
-        + "\n       الفشلُ صامت: getExtension() يردّ undefined بلا استثناءٍ ولا سجلّ.")
+        + "\n       ← أحدُهما خطأ، والحقيقةُ في `package.json`: إن كان الناشرُ صحيحًا"
+        + "\n         فصحّحِ السلسلة، وإلّا فصحّحِ `package.json` — ولا تُوافِقِ السلسلةَ"
+        + "\n         ناشرًا خاطئًا لتُسكِت الحارس."
+        + "\n       والفشلُ عند المستخدم صامت: getExtension() يردّ undefined بلا استثناءٍ ولا سجلّ.")
 
 
 def _assert_lines():

@@ -268,6 +268,7 @@
  "Configure and manage language models available for use.": "اضبط وأدِر النماذج اللغويّة المتاحة للاستعمال.",
  "Configure automated actions triggered by events like saving files or running tasks.": "اضبط إجراءات آليّة تُطلَق بأحداث كحفظ الملفّات أو تشغيل المهامّ.",
  "Configure in settings.": "اضبط في الإعدادات.",
+ "Configure whether you receive automatic updates. Requires a restart after change. Updates are fetched from this product's online service, if it provides one; a build that ships none never checks.": "يحدّد أتصلك التحديثاتُ تلقائيًّا أم لا. يلزمه إعادةُ تشغيلٍ بعد التغيير. وتُجلَب التحديثاتُ من خدمة هذا المنتَج إن كانت له خدمة؛ وبناءٌ لا يشحن واحدةً لا يبحث أصلًا.",
  "Connect a host to get started": "اربط مضيفًا للبدء",
  "Connect external tool servers that extend AI capabilities with custom tools and data sources.": "اربط خوادم أدوات خارجيّة توسّع قدرات الذكاء الاصطناعيّ بأدوات ومصادر بيانات مخصّصة.",
  "Connect to Remote Agent Host via Dev Tunnel": "الاتّصال بمضيف الوكيل البعيد عبر نفق التطوير",
