@@ -20,7 +20,13 @@ PORT="${MIHRAB_SITE_PORT:-22}"
 # قناةٌ فرعيّةٌ داخل dl/ لبناءٍ ليس إصدارًا (معاينةٌ للتجريب مثلًا): تُعزَل
 # ملفّاتُها ومانيفستُها عن الإصدار المنشور، فلا يلتقط جدولُ التنزيلِ الرئيس
 # بناءً تجريبيًّا، ولا يمسح رفعُ معاينةٍ مانيفستَ الإصدار.
-DL="${MIHRAB_SITE_ROOT:-/opt/sad-website}/${MIHRAB_SITE_SUBDIR:-mihrab}/dl${MIHRAB_DL_CHANNEL:+/$MIHRAB_DL_CHANNEL}"
+# ⚠️ **افتراضان يجب أن يطابقا `deploy_site.sh`** — هو يقرأ المتغيّرَين نفسَيهما.
+# وكانا يقصدان `/opt/sad-website/mihrab` بعد أن انتقل الموقعُ إلى `/opt/mihrab/site`،
+# فكان أوّلُ رفعِ إصدارٍ سيكتب الثنائيّاتِ في شجرةٍ لا تُخدَم: ملفٌّ جديدٌ يردّ ‎404‎ على
+# النطاق، و`mv` فوق `releases.json` **يقطع وصلتَه الصلبة** فيتجمّد المانيفستُ على
+# النطاق الجديد إلى الأبد — بينما يعرض القديمُ الجديدَ. و`site.js` يجلبه بنجاح
+# (‏200) فيعرض جدولًا صادقَ الشكل قديمَ المحتوى: لا خطأ، ولا ‎404‎، ولا شيءَ أحمر.
+DL="${MIHRAB_SITE_ROOT:-/opt/mihrab}/${MIHRAB_SITE_SUBDIR:-site}/dl${MIHRAB_DL_CHANNEL:+/$MIHRAB_DL_CHANNEL}"
 # قاعدةُ الروابط في المانيفست مربوطةٌ بالقناة، لا متغيّرٌ مستقلٌّ يُنسى: من رفع
 # بقناةٍ ونسي القاعدةَ كتب في مانيفست المعاينة `"base":"dl/"` — فتُعرَض الصفحةُ
 # كاملةً وكلُّ زرِّ تنزيلٍ فيها 404. وفشلٌ صريحٌ هنا أرخصُ من جدولٍ يبدو سليمًا.
@@ -29,13 +35,19 @@ if [[ -n "${MIHRAB_DL_CHANNEL:-}" ]]; then
 else
   BASE="${MIHRAB_DL_BASE:-dl/}"
 fi
-ORIGIN="${MIHRAB_SITE_ORIGIN:-https://sad-lang.org/mihrab/}"
-
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # مفسّرُ بايثون يُحلّ ولا يُفترَض: `python` المجرَّد غائبٌ عن أوبونتو 24.04.
 . "$HERE/build/lib/pybin.sh"
 resolve_py_bin || exit 1
+
+# والأصلُ يُشتقّ من `canonical` ولا يُكتَب: نسخةٌ ثانيةٌ منه تنحرف بصمتٍ يومَ ينتقل
+# الموقع، فيُطبَع في المانيفست عنوانٌ لم يعد أحدٌ يخدمه.
+ORIGIN="${MIHRAB_SITE_ORIGIN:-$("$PY_BIN" - "$HERE/site/data/site.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8")).get("canonical", ""))
+PY
+)}"
 SSH=(ssh -p "$PORT" -o BatchMode=yes)
 
 (( $# >= 2 )) || { echo "الاستعمال: $0 <الإصدار> <معرّف:مسار> [معرّف:مسار …]" >&2; exit 2; }

@@ -747,7 +747,7 @@ if [[ "${SKIP_SOURCE:-no}" == "yes" ]]; then BUILD_ARGS+=("-s"); fi
 # ‏${VAR-افتراضيّ} لا ${VAR:-…}: قيمةٌ فارغةٌ **صريحةٌ** تعني «أطفِئ»، وهو فرقٌ
 # حقيقيّ عن «لم أضبط شيئًا».
 MIHRAB_TUNNEL="${MIHRAB_TUNNEL-no}"
-MIHRAB_SERVER_BASE="${MIHRAB_SERVER_BASE-https://sad-lang.org/mihrab/dl/server}"
+MIHRAB_SERVER_BASE="${MIHRAB_SERVER_BASE-https://mihrab.dev/dl/server}"
 _CLI_ENDPOINT=""
 case "$OS_NAME" in
   windows) _CLI_OS="win32" ;;

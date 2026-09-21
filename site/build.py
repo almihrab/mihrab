@@ -43,7 +43,7 @@ with open(os.path.join(DATA, "releases.json"), encoding="utf-8") as _f:
     RELEASES = json.load(_f)
 
 # ⚠️ كلُّ المسارات نسبيّة (`.` و`..`) عمدًا: المخرَجُ نفسُه يُخدَم من
-# `sad-lang.org/mihrab/` ومن `almihrab.github.io/mihrab/` بلا إعادةِ بناء.
+# `mihrab.dev/` ومن `almihrab.github.io/mihrab/` بلا إعادةِ بناء.
 # مسارٌ مطلقٌ واحد يربط المخرَج بمضيفٍ بعينه ويكسر المرآة صامتًا.
 
 # التنقّل: ثلاثةُ أقسامٍ عليا فقط. أكثرُ من ثلاثةٍ يُجبر المستخدمَ على قرارٍ قبل أن
@@ -573,12 +573,15 @@ def build_landing():
 # **وثابتٌ لا مشروطٌ بـ`document.referrer`**: المُحيلُ يُحجَب في إعداداتٍ كثيرة
 # وينقطع عند ‎302‎ عبر النطاقات أحيانًا، فشرطٌ عليه يُخفي الشريطَ عن بعضِ من كُتب
 # لهم. وهو صادقٌ لمن وصل مباشرةً كذلك: الصفحةُ **فعلًا** تنتقل قريبًا.
+# وقد وقع الانتقالُ الذي كان الشريطُ يَعِد به، فانقلب معناه: صار يُقدَّم **من**
+# الوجهة نفسِها ويَعِد بالوصول إليها، ويرتبط بالصفحة التي عليها القارئ. فيقول الآنَ
+# ما صار صحيحًا: أنت في الدار، والمحرِّرُ جارُها.
 MOVE_NOTE = (
     '<aside class="move-note">'
-    '<b>محرابٌ يستقلّ بنطاقه.</b> التوثيقُ والثنائيّاتُ ما زالت تُخدَم من هنا '
-    'مؤقّتًا، وتنتقل قريبًا إلى <a href="https://mihrab.dev">mihrab.dev</a>. '
-    'والعنوانُ الذي تحفظه اليومَ — <code>docs.mihrab.dev</code> و'
-    '<code>dl.mihrab.dev</code> — يبقى يعمل بعد الانتقال.'
+    '<b>محرابٌ استقلّ بنطاقه.</b> التوثيقُ والثنائيّاتُ هنا على '
+    '<code>mihrab.dev</code>، ومحرابُ المتصفّح على '
+    '<a href="https://app.mihrab.dev">app.mihrab.dev</a>. '
+    'و<code>docs.mihrab.dev</code> و<code>dl.mihrab.dev</code> يبقيان يعملان.'
     '</aside>'
 )
 
@@ -890,6 +893,7 @@ def main():
     write(os.path.join(OUT, "index.html"), build_landing())
     write(os.path.join(OUT, "download", "index.html"), build_download())
     write(os.path.join(OUT, "preview", "alif", "index.html"), build_alif_preview())
+    write(os.path.join(OUT, "assets", "preview-alif.js"), _ALIF_JS)
 
     # مانيفستُ الإصدار بجوار الصفحة: نسخةٌ متماسكة للمرآة. وعلى الخادم الأصليّ
     # يُستبدَل بالحيّ عند رفع بناءٍ جديد — ولذلك يستثني سكربتُ النشر `dl/`.
@@ -915,6 +919,45 @@ def main():
 # ووضعُها في الملاحة يجعل بناءَ معاينةٍ يبدو إصدارًا ثانيًا لمحراب.
 # ولذلك أيضًا لا تشارك site.css: تغييرُ تنسيقٍ في الموقع بعد أشهرٍ يجب ألّا
 # يُفسِد صفحةً منسيّةً لا يفتحها أحدٌ منّا.
+# سكربتُ صفحة المعاينة، على مستوى الوحدة ليُكتَب ملفًّا مجاورًا:
+# سياسةُ `script-src 'self'` تحجب الداخليَّ، والصفحةُ تُصيَّر بلا جدولِ تنزيلٍ بصمت.
+_ALIF_JS = """(function(){
+  var baked=JSON.parse(document.getElementById("baked").textContent);
+  var labels=JSON.parse(document.getElementById("labels").textContent);
+  function render(m){
+    var host=document.getElementById("dl");
+    if(!m||!m.assets||!m.assets.length){
+      host.innerHTML='<p class="empty">\\u0644\\u0645 \\u064a\\u064f\\u0631\\u0641\\u064e\\u0639 '+
+        '\\u0628\\u0646\\u0627\\u0621\\u064f \\u0645\\u0639\\u0627\\u064a\\u0646\\u0629\\u064d '+
+        '\\u0628\\u0639\\u062f.</p>';
+      return;
+    }
+    var base=m.base||"../../dl/preview-alif/";
+    var rows=m.assets.map(function(a){
+      var mb=(a.size/1048576).toFixed(0);
+      return '<tr><td>'+(labels[a.id]||a.id)+'<br><span class="sha">'+
+        (a.sha256||"")+'</span></td><td class="num">'+mb+' \\u0645.\\u0628</td>'+
+        '<td><a class="btn" href="'+base+a.file+'">\\u0646\\u0632\\u0651\\u0650\\u0644</a></td></tr>';
+    }).join("");
+    host.innerHTML='<div class="table-wrap"><table><thead><tr>'+
+      '<th>\\u0627\\u0644\\u0645\\u0646\\u0635\\u0651\\u0629 \\u0648 SHA-256</th>'+
+      '<th>\\u0627\\u0644\\u062d\\u062c\\u0645</th><th></th></tr></thead><tbody>'+
+      rows+'</tbody></table></div>';
+    if(m.version){
+      document.getElementById("ver").textContent=
+        "\\u0628\\u0646\\u0627\\u0621\\u064f \\u0627\\u0644\\u0645\\u0639\\u0627\\u064a\\u0646\\u0629 "+
+        m.version+(m.date?" \\u00b7 "+m.date:"");
+    }
+  }
+  render(baked);
+  fetch("../../dl/preview-alif/releases.json",{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(m){ if(m) render(m); })
+    .catch(function(){});
+})();
+"""
+
+
 def build_alif_preview():
     with open(os.path.join(DATA, "releases-alif.json"), encoding="utf-8") as f:
         baked = json.load(f)
@@ -969,42 +1012,6 @@ a{color:var(--accent)}
 @media print{.btn{display:none}}
 """
 
-    js = """
-(function(){
-  var baked=JSON.parse(document.getElementById("baked").textContent);
-  var labels=JSON.parse(document.getElementById("labels").textContent);
-  function render(m){
-    var host=document.getElementById("dl");
-    if(!m||!m.assets||!m.assets.length){
-      host.innerHTML='<p class="empty">\\u0644\\u0645 \\u064a\\u064f\\u0631\\u0641\\u064e\\u0639 '+
-        '\\u0628\\u0646\\u0627\\u0621\\u064f \\u0645\\u0639\\u0627\\u064a\\u0646\\u0629\\u064d '+
-        '\\u0628\\u0639\\u062f.</p>';
-      return;
-    }
-    var base=m.base||"../../dl/preview-alif/";
-    var rows=m.assets.map(function(a){
-      var mb=(a.size/1048576).toFixed(0);
-      return '<tr><td>'+(labels[a.id]||a.id)+'<br><span class="sha">'+
-        (a.sha256||"")+'</span></td><td class="num">'+mb+' \\u0645.\\u0628</td>'+
-        '<td><a class="btn" href="'+base+a.file+'">\\u0646\\u0632\\u0651\\u0650\\u0644</a></td></tr>';
-    }).join("");
-    host.innerHTML='<div class="table-wrap"><table><thead><tr>'+
-      '<th>\\u0627\\u0644\\u0645\\u0646\\u0635\\u0651\\u0629 \\u0648 SHA-256</th>'+
-      '<th>\\u0627\\u0644\\u062d\\u062c\\u0645</th><th></th></tr></thead><tbody>'+
-      rows+'</tbody></table></div>';
-    if(m.version){
-      document.getElementById("ver").textContent=
-        "\\u0628\\u0646\\u0627\\u0621\\u064f \\u0627\\u0644\\u0645\\u0639\\u0627\\u064a\\u0646\\u0629 "+
-        m.version+(m.date?" \\u00b7 "+m.date:"");
-    }
-  }
-  render(baked);
-  fetch("../../dl/preview-alif/releases.json",{cache:"no-store"})
-    .then(function(r){return r.ok?r.json():null;})
-    .then(function(m){ if(m) render(m); })
-    .catch(function(){});
-})();
-"""
 
     ext = baked.get("alif_extension", {})
     rt = baked.get("alif_runtime", {})
@@ -1083,7 +1090,11 @@ a{color:var(--accent)}
         + body
         + data_island("baked", baked)
         + data_island("labels", labels)
-        + "<script>%s</script></body></html>" % js)
+        # ⛔ لا `<script>` داخليًّا: سياسةُ الجذر `script-src 'self'` بلا `'unsafe-inline'`
+        #    تحجبه، فتُصيَّر الصفحةُ ‎200‎ بعنوانٍ ونصٍّ **وبلا جدول تنزيلٍ البتّة** — بلا
+        #    رسالةِ خطأٍ ولا شيءٍ أحمر. قِيس على الصفحة المنشورة. والعلاجُ ما فُعل
+        #    بسكربت الإقلاع [WEB-09]: ملفٌّ مجاور.
+        + '<script src="../../assets/preview-alif.js"></script></body></html>')
 
 
 def write(path, text):

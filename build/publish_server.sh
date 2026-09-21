@@ -40,8 +40,9 @@ PORT="${MIHRAB_SITE_PORT:-22}"
 # ‏`${VAR-…}` لا `${VAR:-…}` — كما في (و-4ب): فراغٌ صريحٌ يعني «أطفِئ» لا «استعمل
 # الافتراضيّ». والصيغتان المختلفتان بين الطرفَين تجعلان `MIHRAB_SERVER_BASE=` تُطفئ
 # الخبزَ هناك وتنشر إلى الإنتاج هنا — أي طرفان يفهمان الأمرَ نفسَه على وجهَين.
-BASE_URL="${MIHRAB_SERVER_BASE-https://sad-lang.org/mihrab/dl/server}"
-SRV_DIR="${MIHRAB_SITE_ROOT:-/opt/sad-website}/${MIHRAB_SITE_SUBDIR:-mihrab}/dl/server"
+BASE_URL="${MIHRAB_SERVER_BASE-https://mihrab.dev/dl/server}"
+# الافتراضان يطابقان `deploy_site.sh` — انظر التعليل في `publish_release.sh`.
+SRV_DIR="${MIHRAB_SITE_ROOT:-/opt/mihrab}/${MIHRAB_SITE_SUBDIR:-site}/dl/server"
 
 SSH=(ssh -p "$PORT" -o BatchMode=yes)
 

@@ -2,7 +2,7 @@
 
 | | العنوان | مَن ينشر |
 | --- | --- | --- |
-| **الأصل** | <https://sad-lang.org/mihrab/> | `build/deploy_site.sh` (rsync إلى خادمنا) |
+| **الأصل** | <https://mihrab.dev/> | `build/deploy_site.sh` (‏tar عبر ssh إلى خادمنا) |
 | المرآة | <https://almihrab.github.io/mihrab/> | CI عند كلّ دفعٍ إلى `main` |
 
 الأصلُ على خادمنا لأنّ **الثنائيّات تسكن هناك**: مثبِّتُ محراب يقارب ٣٠٠ ميغابايت،
@@ -24,7 +24,7 @@
 ## النشر
 
 ```bash
-build/deploy_site.sh                       # الموقع → sad-lang.org/mihrab/
+build/deploy_site.sh                       # الموقع → mihrab.dev
 build/publish_release.sh 1.121.05071 \
     win-x64-setup:/c/out/MihrabSetup.exe \
     win-x64-zip:/c/out/Mihrab-win-x64.zip  # ثنائيّات → dl/ + مانيفستٌ حيّ

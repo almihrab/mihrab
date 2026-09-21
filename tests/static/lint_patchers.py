@@ -758,9 +758,26 @@ def _docs_urls_resolve_to_pages():
                             _read(os.path.join(ROOT, "site", "build.py"))))
     # ‏**ولا تُكتَب القائمةُ بيد**: تُشتقّ من كتل `location` في إعداد nginx، فما يُضاف
     # هناك يُعرَف هنا بلا تحديثٍ ثانٍ ينجرف.
+    # ⚠️ **والكتلةُ تُعفي إن خدمت محتوًى، لا إن وُجِدت.** أوّلُ صياغةٍ اكتفت بوجود
+    #    `location` — فمرّت طفرةُ رابطٍ ميّتٍ في `product.json` يُعفيه
+    #    `location /handbook/ { return 404; }`: أي أنّ كتلةً تردّ ‎404‎ صراحةً صارت
+    #    تُعفي رابطًا من فحصٍ اسمُه «لا 404». قِيس. فيُشترَط `alias` أو `root` أو
+    #    `try_files` — توجيهٌ يخدم ملفًّا من قرص.
     _ngx = _read(os.path.join(ROOT, "deploy", "nginx", "mihrab.dev.static.conf"))
-    SERVED_BY_NGINX = {m.strip("/") for m in
-                       re.findall(r"^\s*location\s+/([A-Za-z0-9_-]+)/\s*\{", _ngx, re.MULTILINE)}
+    SERVED_BY_NGINX = set()
+    for _m in re.finditer(r"^\s*location\s+/([A-Za-z0-9_-]+)/\s*\{", _ngx, re.MULTILINE):
+        _d, _k = 0, _ngx.index("{", _m.start())
+        _i = _k
+        while _i < len(_ngx):
+            if _ngx[_i] == "{":
+                _d += 1
+            elif _ngx[_i] == "}":
+                _d -= 1
+                if _d == 0:
+                    break
+            _i += 1
+        if re.search(r"^\s*(alias|root|try_files)\s", _ngx[_k:_i], re.MULTILINE):
+            SERVED_BY_NGINX.add(_m.group(1))
     seen = 0
     for k, v in prod.items():
         if not isinstance(v, str) or not v.startswith(site_root):
@@ -3339,7 +3356,7 @@ def _static_csp():
         "التقطيع. لا يُترَك الحارسُ يقيس الهواء [CSP-01]")
 
     RX = r'add_header\s+Content-Security-Policy\s+"([^"]+)"'
-    policies = []
+    by_name = {}
     for blk in servers:
         hits = _re.findall(RX, blk)
         name = (_re.search(r"server_name\s+([^;]+);", blk) or [None, "?"])[1].strip()
@@ -3347,7 +3364,8 @@ def _static_csp():
             "‏Content-Security-Policy مكرَّرةٌ في كتلة «" + name + "» — التكرارُ في "
             "الكتلة الواحدة يجعل المتصفّحَ يقرأ تقاطعَ السياستين فيكسر صامتًا [CSP-01]")
         if hits:
-            policies.append(hits[0])
+            by_name[name] = hits[0]
+    policies = list(by_name.values())
     # كتلةُ `www` تحويلٌ محضٌ بلا محتوى، فلا سياسةَ لها. والباقي يجب أن يحملها.
     assert len(policies) >= 2, (
         f"لم تُرسَل السياسةُ إلّا في {len(policies)} كتلةً — غيابُها عن كتلةٍ تخدم "
@@ -3383,6 +3401,13 @@ def _static_csp():
             assert has(policy, d, "'none'"), (
                 f"‏{d} ليست 'none' — السياسةُ تفتح ما لا حاجةَ إليه [CSP-01]")
 
+        # **ونجمةٌ في `script-src` تُلغي السياسةَ من أصلها** — والشرطُ كان يسري على
+        # سياسة الورشة وحدَها، فمرّت طفرةُ `script-src * data: blob: https:` على
+        # الجذر خضراء. قِيس.
+        assert not has(policy, "script-src", "*"), (
+            "نجمةٌ في `script-src` — تسمح بسكربتٍ من أيّ أصل، فالترويسةُ حاضرةٌ "
+            "وقد بطُلت [CSP-01]")
+
         # **والثقبُ الذي يُبقي الترويسةَ ويُبطِلها.**
         assert not has(policy, "script-src", "'unsafe-inline'"), (
             "‏`'unsafe-inline'` في `script-src` يسمح لأيّ حقنٍ ناجحٍ أن يُنفَّذ — "
@@ -3391,11 +3416,27 @@ def _static_csp():
     # ── وما بقي يخصّ **سياسةَ الورشة** وحدَها ──
     # `'unsafe-eval'` وقائمةُ المضيفات الخارجيّة شروطُ المحرِّر لا شروطُ موقعٍ ثابت.
     # وسياسةُ الجذر أضيقُ منها عمدًا، فقياسُها بمسطرة الورشة يطلب منها ما لا تحتاجه.
-    editors = [p for p in policies if "'unsafe-eval'" in p]
-    assert len(editors) == 1, (
-        f"سياساتٌ تحمل `'unsafe-eval'`: {len(editors)} — المتوقَّع واحدةٌ (الورشة). "
-        "زيادتُها تعني أنّ رخصةَ المنصّة تسرّبت إلى أصلٍ لا يحتاجها [CSP-01]")
-    policy = editors[0]
+    # **وتُسأل الكتلةُ باسمها لا بمحتواها.** كان الفرزُ «أيُّ سياسةٍ فيها
+    # `'unsafe-eval'`؟» — فمرّت طفرةُ **تبديل السياستين بين الأصلين** خضراء: الورشةُ
+    # تأخذ السياسةَ الضيّقة (لا `worker-src` ولا `blob:` ⇒ مضيفُ الامتدادات والعمّالُ
+    # يموتون)، والموقعُ التسويقيُّ يأخذ `eval` واتّصالًا خارجيًّا. أخطرُ تبديلٍ ممكنٍ
+    # في هذا الملفّ، وأعمى الحارسَ لأنّ السؤالَ كان عن الصفة لا عن الموضع. قِيس.
+    WORKSHOP, SITE = "app.mihrab.dev", "mihrab.dev"
+    for n in (WORKSHOP, SITE):
+        assert n in by_name, (
+            f"لا سياسةَ لكتلة «{n}» — إمّا زالت الكتلةُ أو زالت ترويستُها [CSP-01]")
+
+    assert "'unsafe-eval'" in by_name[WORKSHOP], (
+        f"كتلةُ «{WORKSHOP}» بلا `'unsafe-eval'` — الورشةُ تبني وحداتِ الامتدادات "
+        "بـ`new Function`، فمنعُه يقتل مضيفَ الامتدادات بلا صفحةٍ بيضاء [CSP-01]")
+    assert "'unsafe-eval'" not in by_name[SITE], (
+        f"كتلةُ «{SITE}» تحمل `'unsafe-eval'` — الموقعُ التعريفيُّ صفحاتٌ ثابتة، "
+        "ومنحُها رخصةَ المنصّة يُبطِل كلَّ معنى فصلِ الأصل [CSP-01]")
+    assert "connect-src 'self'" in by_name[SITE] and "open-vsx" not in by_name[SITE], (
+        f"كتلةُ «{SITE}» تتّصل بمضيفاتٍ خارجيّة — صفحاتُ الموقع تجلب من أصلها "
+        "وحدَه (‏`dl/releases.json` و`search-index.json`) [CSP-01]")
+
+    policy = by_name[WORKSHOP]
 
     assert not has(policy, "script-src", "*") and "script-src 'self' 'unsafe-eval'" in policy, (
         "‏script-src ليست `'self' 'unsafe-eval'` — والزيادةُ عليها تحتاج قياسًا "
@@ -5985,6 +6026,97 @@ def _extension_ids_match_their_publisher():
         + "\n         فصحّحِ السلسلة، وإلّا فصحّحِ `package.json` — ولا تُوافِقِ السلسلةَ"
         + "\n         ناشرًا خاطئًا لتُسكِت الحارس."
         + "\n       والفشلُ عند المستخدم صامت: getExtension() يردّ undefined بلا استثناءٍ ولا سجلّ.")
+
+
+@check("كلُّ عنوانٍ نعرضه للمستخدم في نطاقٍ موثوق [LNK-01]")
+def _shown_urls_are_trusted_domains():
+    """حوارُ حماية الروابط يستجوب المستخدمَ عن حدٍّ ليس ذنبَه.
+
+    ‏`linkProtectionTrustedDomains` هي ما يمنع ذلك. وصفحةُ التنزيل موضعُ **كلّ**
+    مخرجٍ نعرضه في نسخة المتصفّح: تسعةُ أوامرَ معطّلةٍ تنتهي بزرّ «افتح صفحةَ
+    التنزيل». وبلا النطاق يعترض الحوارُ كلَّ نقرةٍ منها بعنوانٍ لاتينيٍّ عارٍ —
+    ثلاثُ خطواتٍ ونافذتان.
+
+    **والعطبُ أُعيد إنتاجُه فعلًا**: نُقِلت خمسةُ مفاتيحَ إلى النطاق الجديد في إيداعٍ
+    واحد، وبقيت القائمةُ على القديم. والتعليقُ الذي يشرح خطورةَ ذلك كان في الملفّ
+    نفسِه على بُعد عشرين سطرًا. فيُقاس الاتّساقُ هنا: كلُّ مضيفٍ في عنوانٍ نعرضه
+    يجب أن يكون في القائمة.
+    """
+    import json as _json
+    from urllib.parse import urlparse as _urlparse
+
+    prod = _json.loads(_read(os.path.join(ROOT, "product-overrides", "product.json")))
+    trusted = prod.get("linkProtectionTrustedDomains") or []
+    assert trusted, "لا `linkProtectionTrustedDomains` في الهويّة [LNK-01]"
+    hosts = {(_urlparse(t).hostname or "").lower() for t in trusted}
+
+    # المفاتيحُ التي **نعرضها نحن** زرًّا أو عنصرَ قائمة. وروابطُ GitHub مستثناةٌ
+    # عمدًا: المستخدمُ يعلم أنّه يغادر إلى موقعٍ آخر، والحوارُ في محلّه هناك.
+    SHOWN = ("downloadUrl", "documentationUrl",
+             "keyboardShortcutsUrlWin", "keyboardShortcutsUrlLinux",
+             "keyboardShortcutsUrlMac", "releaseNotesBaseUrl")
+    missing, seen = [], 0
+    for k in SHOWN:
+        v = prod.get(k)
+        if not isinstance(v, str) or not v.startswith("http"):
+            continue
+        seen += 1
+        h = (_urlparse(v).hostname or "").lower()
+        if h and h not in hosts:
+            missing.append(f"{k} → {h}")
+    assert seen >= 4, (
+        f"لم يُرَ إلّا {seen} عنوانًا معروضًا — إمّا زالت المفاتيح (فيُحدَّث الحارس) "
+        "أو تغيّرت أسماؤها. لا يُترَك أخضرَ فارغًا [LNK-01]")
+    assert not missing, (
+        "عنوانٌ نعرضه للمستخدم ومضيفُه خارج `linkProtectionTrustedDomains`:\n       "
+        + "\n       ".join(missing)
+        + "\n       الأثر: حوارُ «أتريد فتحَ هذا الموقع الخارجيّ؟» على كلّ نقرةٍ، "
+        "بعنوانٍ لاتينيٍّ عارٍ.")
+
+
+@check("لا سكربتَ داخليًّا في مخرَج الموقع [WEB-10]")
+def _site_output_has_no_inline_script():
+    """سياسةُ جذر الموقع `script-src 'self'` بلا `'unsafe-inline'` ولا نونس.
+
+    فأيُّ `<script>` بلا `src` يُحجَب — **والصفحةُ تُصيَّر ‎200‎ وتبدو سليمة**. أُوقِع
+    فعلًا: صفحةُ `preview/alif/` كانت تبني جدولَ التنزيل كلَّه من سكربتٍ داخليّ،
+    فصارت بعد تضييق السياسة صفحةً بعنوانٍ ونصٍّ **وبلا رابطِ تنزيلٍ واحد**، بلا
+    رسالةِ خطأ ولا ‎404‎ ولا شيءٍ أحمر. والعلاجُ ما فُعل بسكربت الإقلاع [WEB-09].
+
+    و`<script type="application/json">` مستثنًى: لا يُنفَّذ فلا تُستشار له السياسة —
+    وهو آليّةُ «جُزُر البيانات» في المولِّد.
+    """
+    import re as _re
+
+    out = os.path.join(ROOT, "site", "public")
+    if not os.path.isdir(out):
+        return  # لم يُبنَ الموقعُ في هذا الفرع — تخطٍّ
+
+    OPEN = _re.compile(r"<script\b([^>]*)>", _re.IGNORECASE)
+    bad, seen = [], 0
+    for base, dirs, files in os.walk(out):
+        dirs[:] = [d for d in dirs if d not in (".git", "dl")]
+        for fn in sorted(files):
+            if not fn.endswith(".html"):
+                continue
+            rel = os.path.relpath(os.path.join(base, fn), out).replace(os.sep, "/")
+            text = _read(os.path.join(base, fn))
+            for m in OPEN.finditer(text):
+                attrs = m.group(1)
+                seen += 1
+                if "src=" in attrs:
+                    continue
+                if _re.search(r'type\s*=\s*["\']application/json', attrs, _re.IGNORECASE):
+                    continue
+                line = text[:m.start()].count("\n") + 1
+                bad.append(f"{rel}:{line}")
+    assert seen >= 5, (
+        f"لم يُرَ إلّا {seen} وسمَ `script` في المخرَج — إمّا لم يُبنَ الموقعُ أو كُسِر "
+        "النمط. لا يُترَك أخضرَ فارغًا [WEB-10]")
+    assert not bad, (
+        "سكربتٌ داخليٌّ في مخرَج الموقع — تحجبه سياسةُ الجذر فتُصيَّر الصفحةُ ‎200‎ "
+        "وقد بطُل ما يبنيه:\n       " + "\n       ".join(bad[:20])
+        + "\n       أخرِجه إلى `site/assets/<اسم>.js` وصِلْه بـ`src` [WEB-10 · WEB-09].")
 
 
 def _assert_lines():
