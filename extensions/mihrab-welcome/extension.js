@@ -87,7 +87,7 @@ const STRIP_ISO_CMD = clipboard.STRIP_ISO_CMD;
 const SHOW_PROBLEMS_CMD = "workbench.actions.view.problems";
 // [ON-04] مصدرُ مانيفست الإصدارات وصفحةُ التنزيل — من هويّة المنتج لا مكتوبَين حرفيًّا هنا.
 const RELEASES_URL = "https://sad-lang.org/mihrab/dl/releases.json";
-const DOWNLOAD_URL = "https://sad-lang.org/mihrab/download/";
+const DOWNLOAD_URL = "https://mihrab.dev/download/";
 // مهلةُ جلبِ المانيفست: خبرٌ تحسينيٌّ لا يُبطئ الإقلاعَ ولا ينتظر شبكةً متعثّرة.
 const RELEASES_TIMEOUT_MS = 8000;
 // عدّادُ الجلسات، وأقلُّ جلسةٍ يُطلَب فيها إذنُ فحص الإصدارات (لا في أوّل إقلاع).

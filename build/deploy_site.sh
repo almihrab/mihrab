@@ -24,8 +24,11 @@ set -euo pipefail
 #   MIHRAB_SITE_HOST=user@host bash build/deploy_site.sh
 HOST="${MIHRAB_SITE_HOST:?عيّن MIHRAB_SITE_HOST (مثال: user@host)}"
 PORT="${MIHRAB_SITE_PORT:-22}"
-ROOT="${MIHRAB_SITE_ROOT:-/opt/sad-website}"
-SUB="${MIHRAB_SITE_SUBDIR:-mihrab}"
+# ── الوجهةُ صارت نطاقَ محرابٍ نفسَه ──
+# كان الموقعُ يسكن `/opt/sad-website/mihrab` ويُخدَم من `sad-lang.org/mihrab/`، وكان
+# جذرُ `mihrab.dev` للمحرِّر. فانقلبا: الجذرُ للموقع، والمحرِّرُ إلى `app.mihrab.dev`.
+ROOT="${MIHRAB_SITE_ROOT:-/opt/mihrab}"
+SUB="${MIHRAB_SITE_SUBDIR:-site}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -76,10 +79,19 @@ PY
 )
 [[ -n "$ORG" ]] || { echo "❌ تعذّر اشتقاقُ المنظّمة من site/data/site.json" >&2; exit 1; }
 
-echo "▶ التحقّقُ من الصفحة المنشورة (المنظّمة: $ORG) …"
+# والأصلُ يُشتقّ من `canonical` لا يُكتَب هنا: نسخةٌ ثانيةٌ من العنوان تنحرف
+# بصمتٍ يومَ ينتقل الموقعُ ثانيةً، فيتحقّق الناشرُ من عنوانٍ لم يعد أحدٌ يطلبه.
+BASE=$("$PY_BIN" - "$HERE/site/data/site.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8")).get("canonical", "").rstrip("/"))
+PY
+)
+[[ -n "$BASE" ]] || { echo "❌ لا canonical في site/data/site.json" >&2; exit 1; }
+
+echo "▶ التحقّقُ من $BASE (المنظّمة: $ORG) …"
 _fails=0
 for _page in "" "download/" "docs/"; do
-  _url="https://sad-lang.org/$SUB/$_page"
+  _url="$BASE/$_page"
   _body=$(curl -fsS --max-time 20 "$_url" 2>/dev/null) || {
     echo "   ❌ $_url — تعذّر الجلب" >&2; _fails=$((_fails + 1)); continue; }
   # **أيُّ منظّمةٍ غيرِ منظّمتنا في رابط مستودعٍ لنا**: لا يُكتَب الاسمُ القديمُ هنا
@@ -96,9 +108,16 @@ for _page in "" "download/" "docs/"; do
     echo "   ✅ ${_page:-/}"
   fi
 done
+# **وسببان لا سبب**: صفحةٌ تحمل اسمًا قديمًا تعني مصدرًا لم يُصحَّح؛ وصفحةٌ لا تُجلَب
+# أصلًا تعني أنّ الخادمَ لا يخدم هذا الأصلَ بعدُ — وهي حالةٌ مختلفةٌ تمامًا، وقعت
+# فعلًا يومَ نُشر المحتوى قبل تبديل كتلة nginx. ورسالةٌ واحدةٌ لهما تُرسِل القارئَ
+# يصحّح ملفًّا سليمًا.
 [[ "$_fails" -eq 0 ]] || {
-  echo "❌ نُشرت الشجرةُ ولم تصل الهويّة. أعِد البناءَ والنشرَ بعد تصحيح site/data/site.json." >&2
+  echo "❌ نُشرت الشجرةُ ولم يُقَس وصولُها:" >&2
+  echo "   • إن كان الفشلُ «تعذّر الجلب» — فالمحتوى على القرص ولا كتلةَ nginx تخدمه" >&2
+  echo "     على هذا الأصل بعد. ركّبِ الكتلةَ ثمّ أعِد النشرَ للتحقّق." >&2
+  echo "   • وإن كان «يحمل مراجعَ لمنظّمةٍ أخرى» — فصحّحْ site/data/site.json وأعِد البناء." >&2
   exit 1; }
 
-echo "✅ نُشر: https://sad-lang.org/$SUB/"
+echo "✅ نُشر: $BASE/"
 echo "   الثنائيّات:  $DEST/dl/   (لم تُمَسّ)"

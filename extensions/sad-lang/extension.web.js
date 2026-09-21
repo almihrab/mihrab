@@ -22,7 +22,7 @@
 const vscode = require("vscode");
 
 const RESTART_CMD = "sad.lsp.restart";
-const DOWNLOAD_URL = "https://sad-lang.org/mihrab/download/";
+const DOWNLOAD_URL = "https://mihrab.dev/download/";
 
 const COPY = {
   noServer:

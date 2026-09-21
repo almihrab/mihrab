@@ -756,6 +756,11 @@ def _docs_urls_resolve_to_pages():
     # لا من قائمةٍ ثانيةٍ تنجرف.
     slugs |= set(re.findall(r'write\(os\.path\.join\(OUT,\s*"([^"]+)",\s*"index\.html"',
                             _read(os.path.join(ROOT, "site", "build.py"))))
+    # ‏**ولا تُكتَب القائمةُ بيد**: تُشتقّ من كتل `location` في إعداد nginx، فما يُضاف
+    # هناك يُعرَف هنا بلا تحديثٍ ثانٍ ينجرف.
+    _ngx = _read(os.path.join(ROOT, "deploy", "nginx", "mihrab.dev.static.conf"))
+    SERVED_BY_NGINX = {m.strip("/") for m in
+                       re.findall(r"^\s*location\s+/([A-Za-z0-9_-]+)/\s*\{", _ngx, re.MULTILINE)}
     seen = 0
     for k, v in prod.items():
         if not isinstance(v, str) or not v.startswith(site_root):
@@ -764,6 +769,11 @@ def _docs_urls_resolve_to_pages():
         rest = v[len(site_root):].strip("/")
         if not rest:
             continue  # الجذر: الصفحة الأولى، تُولَّد دائمًا
+        # ومساراتٌ يخدمها **إعدادُ nginx** لا مولِّدُ الموقع: `/notes/` كتلةُ `alias`
+        # إلى مجلّدٍ خارج جذر الحمولة عمدًا (عمرُ الملاحظات أطولُ من عمر النشرة).
+        # فطلبُ صفحةٍ مولَّدةٍ لها يطلب ما لا يجب أن يوجد — و[RN-01] يحرسها هناك.
+        if rest.split("/")[0] in SERVED_BY_NGINX:
+            continue
         assert rest in slugs, (
             f"{k} يشير إلى /{rest}/ ولا ملفَّ site/content/{rest}.md — رابطٌ ميّت في القائمة.")
     # شاهدُ تفعيلٍ موجَب: بلا رابطٍ واحدٍ مطابقٍ للأصل، الفحصُ أعلاه أخضرُ على العدم.
@@ -3304,12 +3314,44 @@ def _static_csp():
     import re as _re
     conf = _read(os.path.join(ROOT, "deploy", "nginx", "mihrab.dev.static.conf"))
 
-    # الترويسةُ موجودةٌ ومرّةً واحدة.
-    hits = _re.findall(r'add_header\s+Content-Security-Policy\s+"([^"]+)"', conf)
-    assert len(hits) == 1, (
-        "‏Content-Security-Policy وقعت " + str(len(hits)) + " مرّةً لا مرّةً واحدة — "
-        "غيابُها نقصٌ، وتكرارُها في كتلتين يجعل إحداهما تُلغي الأخرى صامتةً [CSP-01]")
-    policy = hits[0]
+    # ── الترويسةُ مرّةً واحدةً **في كلّ كتلة خادم**، لا مرّةً في الملفّ ──
+    # كان المقياسُ «مرّةً في الملفّ» وكان صحيحًا يومَ كان فيه خادمٌ واحد. ثمّ انتقل
+    # المحرِّرُ إلى `app.mihrab.dev` فصار في الملفّ كتلتان — الجذرُ لموقعٍ ثابتٍ بسياسةٍ
+    # ضيّقة، والمحرِّرُ بسياسة الورشة — فاحمرّ الحارسُ على بنيةٍ صحيحة.
+    #
+    # **والخطرُ المقيسُ يخصّ الكتلةَ لا الملفّ**: `add_header` مكرَّرةٌ **في المستوى
+    # نفسِه** تُرسَل مرّتين فيقرأ المتصفّحُ تقاطعَهما — وهو أضيقُ ممّا يُظَنّ ويكسر
+    # صامتًا. أمّا كتلتا خادمٍ مختلفتان فلا تريان بعضَهما أصلًا.
+    servers = []
+    for m in _re.finditer(r"^server\s*\{", conf, _re.MULTILINE):
+        depth, k = 0, m.start()
+        while k < len(conf):
+            if conf[k] == "{":
+                depth += 1
+            elif conf[k] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            k += 1
+        servers.append(conf[m.start():k])
+    assert len(servers) >= 2, (
+        f"لم تُقرأ إلّا {len(servers)} كتلةَ `server` — تغيّرت بنيةُ الإعداد أو كُسِر "
+        "التقطيع. لا يُترَك الحارسُ يقيس الهواء [CSP-01]")
+
+    RX = r'add_header\s+Content-Security-Policy\s+"([^"]+)"'
+    policies = []
+    for blk in servers:
+        hits = _re.findall(RX, blk)
+        name = (_re.search(r"server_name\s+([^;]+);", blk) or [None, "?"])[1].strip()
+        assert len(hits) <= 1, (
+            "‏Content-Security-Policy مكرَّرةٌ في كتلة «" + name + "» — التكرارُ في "
+            "الكتلة الواحدة يجعل المتصفّحَ يقرأ تقاطعَ السياستين فيكسر صامتًا [CSP-01]")
+        if hits:
+            policies.append(hits[0])
+    # كتلةُ `www` تحويلٌ محضٌ بلا محتوى، فلا سياسةَ لها. والباقي يجب أن يحملها.
+    assert len(policies) >= 2, (
+        f"لم تُرسَل السياسةُ إلّا في {len(policies)} كتلةً — غيابُها عن كتلةٍ تخدم "
+        "محتوًى نقصٌ صامت [CSP-01]")
 
     # **وفي كتلةِ الصفحة لا كتلةِ الأصول.** يُقتطَع نصُّ `location /out/` بموازنةِ
     # الأقواس لا بنافذةِ أسطرٍ تقديريّة — نافذةٌ ثابتةٌ تُخطئ عند أوّل تعليقٍ يُضاف.
@@ -3330,20 +3372,32 @@ def _static_csp():
         "سياستَيهما، والتقاطعُ معهما يمنع سكربتَهما الداخليَّ فيموت مضيفُ الامتدادات "
         "بلا صفحةٍ بيضاء [CSP-01]")
 
-    def has(directive, value):
+    def has(policy, directive, value):
         m = _re.search(re.escape(directive) + r"\s+([^;]+)", policy)
         return bool(m) and value in m.group(1).split()
 
-    # ما يجب أن يُغلَق.
-    for d in ("default-src", "base-uri", "form-action", "frame-ancestors"):
-        assert has(d, "'none'"), f"‏{d} ليست 'none' — السياسةُ تفتح ما لا حاجةَ إليه [CSP-01]"
+    # وكلُّ سياسةٍ تُقاس على حدة: الشرطُ شرطُ السياسة لا شرطُ الملفّ.
+    for policy in policies:
+        # ما يجب أن يُغلَق.
+        for d in ("default-src", "base-uri", "form-action", "frame-ancestors"):
+            assert has(policy, d, "'none'"), (
+                f"‏{d} ليست 'none' — السياسةُ تفتح ما لا حاجةَ إليه [CSP-01]")
 
-    # **والثقبُ الذي يُبقي الترويسةَ ويُبطِلها.**
-    assert not has("script-src", "'unsafe-inline'"), (
-        "‏`'unsafe-inline'` في `script-src` يسمح لأيّ حقنٍ ناجحٍ أن يُنفَّذ — "
-        "فالترويسةُ تبقى حاضرةً وقد بطُل أنفعُ ما فيها. وسكربتُ الإقلاع نُقل إلى "
-        "`boot-early.js` لأجل هذا بالذات [CSP-01 · WEB-09]")
-    assert not has("script-src", "*") and "script-src 'self' 'unsafe-eval'" in policy, (
+        # **والثقبُ الذي يُبقي الترويسةَ ويُبطِلها.**
+        assert not has(policy, "script-src", "'unsafe-inline'"), (
+            "‏`'unsafe-inline'` في `script-src` يسمح لأيّ حقنٍ ناجحٍ أن يُنفَّذ — "
+            "فالترويسةُ تبقى حاضرةً وقد بطُل أنفعُ ما فيها. وسكربتُ الإقلاع نُقل إلى "
+            "`boot-early.js` لأجل هذا بالذات [CSP-01 · WEB-09]")
+    # ── وما بقي يخصّ **سياسةَ الورشة** وحدَها ──
+    # `'unsafe-eval'` وقائمةُ المضيفات الخارجيّة شروطُ المحرِّر لا شروطُ موقعٍ ثابت.
+    # وسياسةُ الجذر أضيقُ منها عمدًا، فقياسُها بمسطرة الورشة يطلب منها ما لا تحتاجه.
+    editors = [p for p in policies if "'unsafe-eval'" in p]
+    assert len(editors) == 1, (
+        f"سياساتٌ تحمل `'unsafe-eval'`: {len(editors)} — المتوقَّع واحدةٌ (الورشة). "
+        "زيادتُها تعني أنّ رخصةَ المنصّة تسرّبت إلى أصلٍ لا يحتاجها [CSP-01]")
+    policy = editors[0]
+
+    assert not has(policy, "script-src", "*") and "script-src 'self' 'unsafe-eval'" in policy, (
         "‏script-src ليست `'self' 'unsafe-eval'` — والزيادةُ عليها تحتاج قياسًا "
         "يشرحها لا تخمينًا [CSP-01]")
 

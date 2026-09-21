@@ -58,7 +58,7 @@ const WALKTHROUGH_ID_SEP = "#";
 const DEFAULT_EXTENSION_ID = "mihrab.mihrab-welcome";
 const WELCOME_SHOWN_KEY = "mihrab.web.welcome.shown";
 
-const DOWNLOAD_URL = "https://sad-lang.org/mihrab/download/";
+const DOWNLOAD_URL = "https://mihrab.dev/download/";
 
 /**
  * نصُّ الحدّ — **موضعٌ واحد**. كان أوّلَ ما كُتِب مكرَّرًا في خمسة مُسجِّلات، ونسخةٌ
