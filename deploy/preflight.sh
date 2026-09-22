@@ -47,12 +47,16 @@ echo "── (4) هل الخريطةُ معرَّفةٌ سلفًا؟ (التعر
 _conf | grep -n 'connection_upgrade' | head -5 || echo '   غيرُ معرَّفة — انسخ 00-mihrab-shared.conf'
 
 echo
-echo "── (5) كيف يجدّد sad-lang.org شهادتَه ⇒ أيَّ طريقةٍ نستعمل لمحراب ──"
-if [ -r /etc/letsencrypt/renewal/sad-lang.org.conf ]; then
-  grep -E 'authenticator|webroot_path|installer' /etc/letsencrypt/renewal/sad-lang.org.conf
-else
-  echo "   لا ملفَّ تجديد — تحقّق يدويًّا: certbot certificates"
-fi
+echo "── (5) كيف تجدّد mihrab.dev شهادتَها (والقديمُ sad-lang.org للمقارنة) ──"
+# ⚠️ كان المجسُّ يسأل عن `sad-lang.org.conf` وحدَه — النطاقِ الذي انفصل عنه محراب —
+# بينما شهادةُ `mihrab.dev` تنتهي ‎2026-12-19‎ ولا أحدَ يسأل كيف تتجدّد (قياسُ المحلّل).
+for _dom in mihrab.dev sad-lang.org; do
+  if [ -r "/etc/letsencrypt/renewal/${_dom}.conf" ]; then
+    echo "   ${_dom}:"; grep -E 'authenticator|webroot_path|installer' "/etc/letsencrypt/renewal/${_dom}.conf"
+  else
+    echo "   ${_dom}: لا ملفَّ تجديد"
+  fi
+done
 
 echo
 echo "── (6) الشهاداتُ الموجودة (أسماءُ السلالات كما هي لا كما نفترض) ──"

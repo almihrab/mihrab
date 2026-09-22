@@ -181,13 +181,13 @@ ln -sfn "$AVAIL" "$LINK"
 # تُكتَب، فصار `tr` يمسح **الأسطر**: تنهار الترويساتُ إلى سطرٍ واحدٍ فلا يطابق
 # awk شيئًا، ويعود كلُّ نوعٍ فارغًا. فأُنذِر بعطبٍ لا وجودَ له، وتراجع النشرُ عن
 # شجرةٍ سليمة. وcurl يعرف النوعَ ولا يحتاج من يقرؤه له.
-_ct() { curl -sk -o /dev/null -w '%{content_type}' -H 'Host: mihrab.dev' "https://127.0.0.1$1"; }
+_ct() { curl -sk -o /dev/null -w '%{content_type}' -H 'Host: app.mihrab.dev' "https://127.0.0.1$1"; }
 
 # ‏`[:cntrl:]` لا `tr -d '\r'`: محرفُ الإرجاع في نصٍّ يُكتَب برمجيًّا انقلب مرّةً
 # سطرًا حقيقيًّا، فصار `tr` يمسح **الأسطر** وتراجع النشرُ عن شجرةٍ سليمة. والصنفُ
 # المسمَّى لا يحمل هذا الفخَّ أصلًا.
 _cc() {
-  curl -sk -o /dev/null -D - -H 'Host: mihrab.dev' "https://127.0.0.1$1" 2>/dev/null \
+  curl -sk -o /dev/null -D - -H 'Host: app.mihrab.dev' "https://127.0.0.1$1" 2>/dev/null \
     | grep -i '^cache-control:' | head -1 | cut -d: -f2- | tr -d '[:cntrl:]' | sed 's/^ *//'
 }
 
@@ -206,7 +206,7 @@ verify_serving() {
   for entry in "${paths[@]}"; do
     local path="${entry%%|*}" want="${entry##*|}"
     got="$(_ct "$path")"
-    code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' "https://127.0.0.1$path")"
+    code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: app.mihrab.dev' "https://127.0.0.1$path")"
     printf '   %-34s %s  %s' "$path" "$code" "${got:-—}"
     if [[ "$code" != "200" ]]; then printf '   ⚠️ المنتظَر 200'; rc=1
     elif [[ -z "$got" ]]; then printf '   ⚠️ لا نوع'; blank=$((blank + 1)); rc=1
@@ -221,7 +221,7 @@ verify_serving() {
   # النشرُ عن شجرةٍ سليمة. ومِجَسٌّ يُنذِر بما لم يقِسه أسوأُ من مِجَسٍّ غائب.
   if (( blank == ${#paths[@]} )); then
     echo "   ⛔ **كلُّ الأنواع فارغة مع رموزِ 200** — العطبُ في المِجَسّ لا في الموقع." >&2
-    echo "      افحص \`_ct\` قبل أن تلوم النشر:  curl -sk -o /dev/null -w '%{content_type}' -H 'Host: mihrab.dev' https://127.0.0.1/" >&2
+    echo "      افحص \`_ct\` قبل أن تلوم النشر:  curl -sk -o /dev/null -w '%{content_type}' -H 'Host: app.mihrab.dev' https://127.0.0.1/" >&2
   fi
   return $rc
 }
@@ -251,7 +251,7 @@ _freshness() {
 
 verify_cache() {
   local rc=0 code cc fresh
-  code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: mihrab.dev' \
+  code="$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: app.mihrab.dev' \
           "https://127.0.0.1/out/nls.messages.js")"
   cc="$(_cc /out/nls.messages.js)"
   fresh="$(_freshness "$cc")"
@@ -265,7 +265,7 @@ verify_cache() {
   if [[ -z "$cc" && "$code" == "200" ]]; then
     printf '   ⛔ لا ترويسةَ مع رمزِ 200 — العطبُ في المِجَسّ لا في الموقع'; echo
     echo "      افحص \`_cc\` قبل أن تلوم النشر:" >&2
-    echo "        curl -sk -D - -o /dev/null -H 'Host: mihrab.dev' https://127.0.0.1/out/nls.messages.js" >&2
+    echo "        curl -sk -D - -o /dev/null -H 'Host: app.mihrab.dev' https://127.0.0.1/out/nls.messages.js" >&2
     return 1
   fi
   if [[ "$code" != "200" ]]; then

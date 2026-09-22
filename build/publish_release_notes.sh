@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# نشرُ ملاحظات الإصدار على mihrab.dev — يقرؤها محرِّرُ الملاحظات داخل التطبيق.
+# نشرُ ملاحظات الإصدار على app.mihrab.dev — يقرؤها محرِّرُ الملاحظات داخل التطبيق.
 #
 #   build/publish_release_notes.sh 1.126          # ينشر release-notes/v1_126.md
 #   build/publish_release_notes.sh 1.126 1.125    # عدّةُ إصداراتٍ في نداءٍ واحد

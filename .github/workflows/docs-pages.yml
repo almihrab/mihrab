@@ -14,6 +14,13 @@ name: الموقع — بناء ونشرُ المرآة
 on:
   push:
     branches: [main]
+    # المساراتُ هي **ما يغيّر المرآةَ المنشورة** لا كلُّ ما يقرؤه `check_site.py`.
+    # فهو يقرأ أيضًا `deploy/nginx/**` و`build/deploy_site.sh` ([W404] و[CORS-01]
+    # و[CSP-01])، وهما عمدًا **ليسا هنا**: تغييرُهما لا يغيّر بايتًا في المخرَج،
+    # فنشرُ المرآة لأجله نشرٌ بلا فرق. وحراستُهما على كلّ دفعةٍ لا تسقط بذلك —
+    # `build-matrix.yml` يشغّل `check_site.py` في وظيفة `quick` **بلا مرشِّح
+    # مسارات**، فكلُّ دفعةٍ إلى main تقيسهما. وما هنا يحرس **البناء**: مصدرُه
+    # وبياناتُه وقالبُه وحارسُه وهويّةُ المنتج التي تُقرأ فيه.
     paths:
       - 'site/**'
       - 'tests/docs/**'
@@ -51,6 +58,14 @@ jobs:
       - name: فحص بنية الموقع
         run: python tests/docs/check_site.py
 
+      # شاهدُ البناء `.mihrab-site-build` أثرٌ داخليٌّ لـ`build.py` (يأذن للبناء التالي
+      # بمحو المخرَج) لا جزءٌ من الموقع. `deploy_site.sh` يستثنيه من `tar` ويَعِد
+      # «الشاهدُ نفسُه لا يُشحَن» — والمرآةُ كانت تشحنه، لأنّ `upload-pages-artifact`
+      # يرفع المجلّدَ كلَّه بلا استثناء. فيُزال هنا بعد الفحص لا قبله: الفحصُ يبني
+      # ويقيس المخرَجَ كما يُنتجه `build.py`، والرفعُ ينشر الموقعَ لا أثرَه.
+      - name: إزالةُ شاهد البناء قبل الرفع
+        run: rm -f site/public/.mihrab-site-build
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/public
@@ -80,3 +95,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python tests/docs/check_drift.py
+
+  live:
+    # مجسُّ الحيّ [LIVE-01]: يسأل الخادمَ لا الشجرة — الشهادة، والخطوطُ الحيّة، وصفحةُ
+    # ‎404‎ على الأصلين، وملفّاتُ المانيفست، وآخرُ مصفوفةِ بناء. يحتاج شبكةً فلا يدخل
+    # `quick`؛ ويجري مجدوَلًا يوميًّا فقط: احمرارُه يعني أنّ ما نُشر انحرف عمّا في
+    # الشجرة أو أنّ الشهادةَ تقترب من نهايتها — لا أنّ الدفعةَ معطوبة.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: مجسُّ الحيّ
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONIOENCODING: utf-8
+        run: python tests/live/probe_live.py

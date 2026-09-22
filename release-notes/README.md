@@ -9,10 +9,12 @@
 release-notes/v1_126.md
    │  build/publish_release_notes.sh 1.126
    ▼
-mihrab.dev:/opt/mihrab/notes/v1_126.md        ← location /notes/ في deploy/nginx/mihrab.dev.static.conf
+app.mihrab.dev:/opt/mihrab/notes/v1_126.md    ← location /notes/ في deploy/nginx/mihrab.dev.static.conf
+                                                 (كتلتان: app هي الأصل، وكتلةُ mihrab.dev
+                                                  تبقى للثنائيّات المشحونة قبل الانتقال)
    │  المحرِّر يطلب <releaseNotesBaseUrl>/v1_126.md
    ▼
-"releaseNotesBaseUrl": "https://mihrab.dev/notes"   ← product-overrides/product.json
+"releaseNotesBaseUrl": "https://app.mihrab.dev/notes"  ← product-overrides/product.json
    │  رقعةُ النواة patches/core/036-release-notes-source.patch
    ▼
 محرِّرُ الملاحظات — بالعربيّة، وباتّجاه القشرة

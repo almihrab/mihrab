@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# رفعُ بناءٍ إلى صفحة التنزيل — https://sad-lang.org/mihrab/download/
+# رفعُ بناءٍ إلى صفحة التنزيل — https://mihrab.dev/download/
 #
 #   build/publish_release.sh 1.121.05071 win-x64-zip:/c/out/Mihrab-1.121-win-x64.zip \
 #                                        win-x64-setup:/c/out/MihrabSetup-1.121.exe
