@@ -18,13 +18,90 @@
    ⚠️ ‏@font-face **ليس هنا** عمدًا: يُولَّد في `fonts.css` وحده حين تكون ملفّاتُ
    ‏woff2 موجودةً فعلًا في `assets/fonts/` (انظر build.py). ‏@font-face يشير إلى ملفٍّ
    غائب لا يفشل بصوت — بل يُطلق طلبَ 404 في كلّ فتحةِ صفحة ثمّ يسقط صامتًا إلى خطٍّ
-   آخر، فيبدو الموقعُ سليمًا وهو يعرض خطًّا لم نصمّم عليه. فالسقوطُ إلى Noto Sans
-   Arabic يبقى صريحًا في السلسلة أدناه إلى أن تُورَّد الخطوط. ── */
+   آخر، فيبدو الموقعُ سليمًا وهو يعرض خطًّا لم نصمّم عليه. والأوجهُ الأربعةُ
+   مورَّدةٌ اليوم (‏`assets/fonts/README.md`)، والسلسلةُ أدناه احتياطُ من لم تصله
+   `fonts.css`. و`IBM Plex Mono` **غيرُ مورَّد** — فالتجانسُ الموعودُ أعلاه قائمٌ
+   حيث يكون منصَّبًا لا أكثر، والعربيُّ في الشيفرة يُغلَق بـ`Mihrab Code Arabic`. ── */
 
 /* ════════ الرموز ════════ */
 :root {
-	--font-ar: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", system-ui, sans-serif;
-	--font-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+	/* ── سلسلةُ السقوط تنتهي بما هو **موجودٌ فعلًا** على كلّ نظام ──
+	   `Noto Sans Arabic` غيرُ منصَّبٍ على ويندوز، وأكثرُ جمهورِ محرابٍ على
+	   ويندوز — فكانت السلسلةُ تسقط إلى `Segoe UI`، وهو خطٌّ عربيٌّ مقبولٌ
+	   لكنّه ليس ما صُمِّم عليه الموقع. و`Tahoma` قبله احتياطٌ أعرضُ توفّرًا. */
+	/* ⚠️ وخطُّ الرموز **مُعلَنٌ في السلسلة لا متروكٌ للنظام.**
+	   ستّةُ محارفَ تظهر في الصفحات وليست في أيّ وجهٍ مورَّد:
+	   ‏`←` (‏18 مرّةً — فاصلُ مسار القوائم داخل جملةٍ عربيّة) و`⌘` `⌥` `⇧`
+	   (رموزُ مفاتيح ماك) و`↗` `✦` (من `content:`). وIBM Plex لا يحملها،
+	   ولا بديلَ لها فيه: `‹` و`›` موجودتان لكنّهما **تنعكسان في السياق
+	   اليمينيّ** فتشيران إلى الجهة الخطأ.
+	   فالسقوطُ واقعٌ لا محالة — والفرقُ أن يكون **إلى خطٍّ نسمّيه** لا إلى
+	   ما يختاره النظامُ عشوائيًّا، فيختلف الشكلُ بين جهازٍ وآخر. ويحرس
+	   القائمةَ البيضاءَ [FNT-01]: محرفٌ جديدٌ خارج المدَيَين يحمرّ.
+	   ⚠️ ⛔ **ولا علامةَ إغلاقِ تعليقٍ هنا** — كانت تُغلقه قبل الفقرة التالية، فصارت
+	   الفقرةُ نصًّا طليقًا داخل `:root` يبتلع إعلانَ `--font-ar` كلَّه حتّى
+	   فاصلته المنقوطة: فوقع الموقعُ كلُّه في خطّ المتصفّح الافتراضيّ (قِيس:
+	   `Times New Roman`) والوجوهُ الأربعةُ المورَّدةُ لم تُحمَّل البتّة.
+	   ⚠️ و`Noto Sans Symbols 2` **لا تغطّي كتلةَ الأسهم** (‏U+2190–21FF): تلك
+	   في `Noto Sans Symbols` الأولى. فكان `←` — وهو الأكثرُ ورودًا — أوّلَ
+	   الساقطين على لينكس، عائدًا إلى اختيار النظام العشوائيّ الذي نهرب منه.
+	   و`DejaVu Sans` آخرًا لأنّه مضمونُ الوجود على كلّ سطح مكتبٍ لينكسيٍّ
+	   تقريبًا ويحمل السّتّة — وهو لكتلة الرموز ما كان `Courier New` لأحاديّ
+	   المسافة. */
+	--font-ar: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI",
+	           "Segoe UI Symbol", "Apple Symbols",
+	           "Noto Sans Symbols", "Noto Sans Symbols 2", "DejaVu Sans",
+	           Tahoma, system-ui, sans-serif;
+
+	/* ⚠️ **وسلسلةُ أحاديّ المسافة تحمل احتياطًا عربيًّا.**
+	   كانت تنتهي بـ`Consolas, monospace` — و**Consolas بلا محارفَ عربيّة
+	   إطلاقًا**. فسطرُ `xattr -dr com.apple.quarantine /Applications/محراب.app`
+	   — وهو الأمرُ الوحيد في الموقع الذي نطلب من الزائر تنفيذَه — كان يُعرَض
+	   نصفُه بـConsolas ونصفُه باحتياطٍ عشوائيٍّ يختاره النظام، مختلفِ القياس
+	   ومختلفِ الارتفاع: سطرٌ واحدٌ بخطَّين متنافرَين في أدقّ موضعٍ يحتاج فيه
+	   المستخدمُ أن ينسخ بدقّة.
+	   و`Courier New` آخرًا لا `monospace` المجرَّدة: هو أحاديُّ المسافة
+	   **الوحيدُ** المضمونُ وجودُه على ويندوز وماك ولينكس ومعه عربيّة. */
+	/* ⚠️ **وخطوطُ الرموز هنا كذلك.** أشدُّ موضعٍ اختلطت فيه الخطوطُ في الموقع
+	   كلِّه هو كتلةُ `<pre>` في `folders/`:
+	       settings.json     ← إعدادات هذا المشروع وحده
+	   اللاتينيُّ بـConsolas، والعربيُّ بـCourier New، والسهمُ بما يختاره النظام:
+	   **ثلاثةُ خطوطٍ في سطرٍ واحد.** وإضافةُ `Courier New` أغلقت الضلعَ العربيَّ
+	   وتركت الضلعَ الرمزيَّ مفتوحًا. وخطوطُ الرموز لا تمسّ محاذاةَ الشيفرة:
+	   لا تلتقط إلّا ما لا يحمله أحدٌ من أحاديّاتِ المسافة أصلًا. */
+	/* ✅ **و`Mihrab Code Arabic` أوّلًا يُغلِق الضلعَ الأخير.** هو الملفّان
+	   العربيّان المورَّدان نفسُهما تحت اسمٍ ثانٍ (‏`_UR_AR_MONO` في `build.py`)،
+	   بمدًى لا يحمل إلّا كتلَ الخطّ العربيّ: فالعربيُّ في كتلة الشيفرة بخطّ
+	   الصفحة نفسِه، وكلُّ ما يُحاذى — لاتينيٌّ ورقمٌ ومسافةٌ وواصلة — يبقى في
+	   أحاديّ المسافة. و`Courier New` بقي آخرًا لمن لم تصله `fonts.css`. */
+	--font-mono: "Mihrab Code Arabic",
+	             "IBM Plex Mono", "Cascadia Mono", Consolas,
+	             "Segoe UI Symbol", "Apple Symbols",
+	             "Noto Sans Symbols", "DejaVu Sans Mono",
+	             "Courier New", monospace;
+
+	/* ── ارتفاعُ الترويسة اللاصقة ──
+	   ‏`.kbd-toolbar` يلتصق تحتها، والمراسي تحتاج هامشَ تمريرٍ بقدرها. والرقمُ
+	   هنا **احتياطٌ لا حقيقة**: الارتفاعُ الفعليُّ محسوبٌ من المحتوى (حشوٌ +
+	   أطولُ عنصرٍ + حدّ) ويتغيّر مع حجم الخطّ ومع ومضة `swap` — فيقيسه
+	   `docs.js` عند التحميل وكلَّما تغيّر ويكتبه هنا. ومن عطّل السكربت يأخذ
+	   هذا الرقم — **وهو مقيسٌ لا مقدَّر**: حشوٌ 24 + زرُّ «نزِّل» 39.75
+	   (‏سطرُه 15px×1.85 + حشوٌ 10 + حدٌّ 2، فلا يتأثّر بالخطّ) + حدٌّ 1 = 64.75
+	   ⇒ 65. وبلا سكربت يُخفى صندوقُ البحث (‏`<noscript>`) فيصحّ الرقمُ على كلّ
+	   عرض. (ومع السكربت والحقلِ ظاهرًا يعلو الحقلُ الزرَّ: سطرُه `normal` من
+	   مقاييس الخطّ، ‎40.00‎ بـPlex ⇒ ‎65.00‎ — والتقريبُ واحد.) وكان 62 فيلتصق
+	   `.kbd-toolbar` تحت الترويسة بثلاثة بكسلات.
+	   ⚠️ **وعلى اللمس ‎69‎ لا ‎65‎**: `.brand` تُرفَع إلى ‎44‎ تحت `pointer: coarse`
+	   (قِيس ‎69‎ على ‎360‎ و‎1280‎ باللمس). والسكربتُ يقيسها؛ ومن عطّله على هاتفٍ
+	   يأخذ ‎65‎ فتهبط المرساةُ ‎8‎ بكسلاتٍ تحت الترويسة بدل ‎12‎ — مرئيّةً لا محجوبة. */
+	--header-h: 65px;
+	/* ارتفاعُ اللاصق تحت الترويسة: يقيسه `docs.js` — الشريطُ كلُّه فوق ‎560px‎،
+	   وحقلُ الترشيح `.grow` وحدَه تحتها (الشريطُ `display: contents` هناك). والرقمُ
+	   هنا احتياطُ من عطّل السكربت، **ويصدق على كلّ عرضٍ بمؤشّرٍ دقيق**: الحقلُ ‎65‎
+	   (حشوٌ ‎24‎ + حقلٌ ‎40‎ + حدٌّ ‎1‎) والشريطُ ‎65‎ على سطح المكتب (قِيس في الجولة
+	   العاشرة على ‎1280‎ و‎360‎ و‎320‎). وعلى اللمس ‎69‎ (الحقلُ ‎44‎) — كالترويسة أعلاه،
+	   والخطأُ في اتّجاه الأمان: هامشٌ أوسعُ بأربعة لا مرساةٌ محجوبة. */
+	--toolbar-h: 65px;
 
 	/* الداكن هو الافتراضيّ: القارئ آتٍ من محرّرٍ داكن، ووميضُ شاشةٍ بيضاء
 	   عند فتح التوثيق خيانةٌ للسياق. */
@@ -37,7 +114,12 @@
 	--gold: #E3BE68;
 	--accent: #31A796;
 	--accent-hover: #4CC4B2;
-	--warn: #C0563B;
+	/* ‏`--warn` كان ‎3.83‎ على `--bg-alt` (قياسُ سالي). لا يظهر نصًّا في أيّ صفحةٍ
+	   مبنيّةٍ اليوم (‏`drift-banner` وحدَها تستعمله ولا مقالَ بانجرافٍ كبير) — لكنّه
+	   يفشل يومَ تظهر. الجديدان **مقيسان في الصفحة** (الجولة العاشرة): الداكنُ
+	   ‎6.61‎ / ‎6.26‎ / ‎5.64‎ والفاتحُ ‎6.62‎ / ‎6.17‎ / ‎5.88‎ على `--bg` /
+	   `--bg-alt` / `--surface`، والطباعةُ ‎7.67‎ على الأبيض. */
+	--warn: #E8865F;
 
 	--s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
 	--s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
@@ -47,25 +129,33 @@
 	color-scheme: dark;
 }
 
-/* الوضع الفاتح. الذهبُ يُخفَّض إلى #C79A3E — ‏#E3BE68 يسقط تحت 3:1 على خلفيّةٍ فاتحة. */
+/* الوضع الفاتح.
+   ⚠️ الذهبُ **برونزٌ** هنا لا ذهب: كان `#C79A3E` بدعوى أنّ `#E3BE68` «يسقط تحت
+   3:1» — و`#C79A3E` نفسُه قِيس ‎2.27:1‎ على `--bg` و‎2.12‎ على `--bg-alt` و‎2.02‎
+   على `--surface`: تحت 3:1 للعناوين الكبيرة، وأبعدُ من 4.5:1 لكلّ ما يُكتَب به
+   صغيرًا — عناوينُ الدرج (‏12px)، والصفحةُ الحاليّة فيه، و«جرّبه في المتصفّح»
+   (‏15px)، وروابطُ `.docs-lede`. فالسمةُ الفاتحةُ كلُّها كانت تُوقّع بلونٍ لا
+   يُقرأ. و`#7F5D10` يعطي ‎5.31‎ / ‎4.95‎ / ‎4.72‎ على الثلاث. والتركوازُ كذلك:
+   `#0F7C6E` داخل `<code>` على `--surface` ‎3.97:1‎ (رابطٌ في شيفرة، نصٌّ صغير)،
+   فأُخذ ظلُّ التحويم `#0B6055` لونًا (‏‎6.1‎ على `--surface`) وأُظلم التحويم. */
 @media (prefers-color-scheme: light) {
 	:root {
 		--bg: #F5F0E4; --bg-alt: #EFE8D8; --surface: #EAE3D1; --border: #DAD0BC;
-		--text: #2C3B40; --text-dim: #6E6553; --gold: #C79A3E;
-		--accent: #0F7C6E; --accent-hover: #0B6055; --warn: #BB552B;
+		--text: #2C3B40; --text-dim: #635B49; --gold: #7F5D10;
+		--accent: #0B6055; --accent-hover: #084A41; --warn: #8F3A1B;
 		color-scheme: light;
 	}
 }
 :root[data-theme="light"] {
 	--bg: #F5F0E4; --bg-alt: #EFE8D8; --surface: #EAE3D1; --border: #DAD0BC;
-	--text: #2C3B40; --text-dim: #6E6553; --gold: #C79A3E;
-	--accent: #0F7C6E; --accent-hover: #0B6055; --warn: #BB552B;
+	--text: #2C3B40; --text-dim: #635B49; --gold: #7F5D10;
+	--accent: #0B6055; --accent-hover: #084A41; --warn: #8F3A1B;
 	color-scheme: light;
 }
 :root[data-theme="dark"] {
 	--bg: #0F1C24; --bg-alt: #12212B; --surface: #182A34; --border: #263A42;
 	--text: #D4DEDF; --text-dim: #8CA0A6; --gold: #E3BE68;
-	--accent: #31A796; --accent-hover: #4CC4B2; --warn: #C0563B;
+	--accent: #31A796; --accent-hover: #4CC4B2; --warn: #E8865F;
 	color-scheme: dark;
 }
 
@@ -86,8 +176,16 @@ pre { overflow-x: auto; white-space: pre; }  /* لا التفاف: يكسر مع
 
 /* ════════ الأساس ════════ */
 * { box-sizing: border-box; }
-html { direction: rtl; scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+html { direction: rtl; }
+/* التمريرُ الناعم **للتفاعل داخل الصفحة وحدَه**: الدخولُ بـ`#قسم` من صفحةٍ أخرى
+   كان تمريرةً حيّةً بطول الصفحة كلِّها (قِيس: ‎7700px‎ في ‎2.5s‎، الصفحةُ تطير أمام
+   القارئ). وجُرِّب `html:focus-within` — **وقِيس فاشلًا** (الجولة العاشرة، Chromium
+   ‎149‎): الانتقالُ إلى المرساة يمسح البؤرةَ (خطواتُ التبئير في «scroll to the
+   fragment» تُعيدها إلى المنظار حين لا يقبل العنوانُ التبئير)، والتمريرُ المؤجَّلُ
+   يُحسَب بعد المسح: نقرةُ رابط الفهرس قفزت ‎0→4963‎ في إطارٍ واحد والبؤرةُ على
+   `body`. فالمعيارُ صنفٌ يكتبه `docs.js` بعد `load`: قبله (المرساةُ الأولى) خشن،
+   وبعده (كلُّ نقرةٍ) ناعم — ومن عطّل السكربتَ يبقى خشنًا، وهو الأسلم. */
+@media (prefers-reduced-motion: no-preference) { html.loaded { scroll-behavior: smooth; } }
 
 body {
 	margin: 0;
@@ -146,6 +244,18 @@ pre:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
 .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ════════ الترويسة ════════ */
+/* المرساةُ المقصودةُ تنزل **تحت** الترويسة اللاصقة لا خلفَها. */
+[id] { scroll-margin-top: calc(var(--header-h) + var(--s3)); }
+/* ⚠️ **ولا على ما في الترويسة نفسِها.** `focus()` يحترم `scroll-margin`، فكان
+   التبويبُ إلى زرّ السمة أو «القائمة»، والضغطُ على `/` لحقل البحث — وهي عناصرُ
+   لاصقةٌ ظاهرةٌ دائمًا — يمرّر الصفحةَ فجأةً ‎61–63‎ بكسلًا إلى أعلى (قِيس على
+   ‎1280‎: ‎1500→1437‎). والحقلُ في `.kbd-toolbar` مثلُها: لاصقٌ تحتها على كلّ عرض. */
+.site-header [id], .kbd-toolbar [id] { scroll-margin-top: 0; }
+/* ⚠️ **وما تحت شريط الاختصارات يحسب الشريطَ.** لاصقان فوق بعضهما — الترويسةُ ثمّ
+   `.kbd-toolbar` — وهامشُ الترويسة وحدَها كان يُهبط عناوينَ الأقسام **خلف الشريط
+   بـ‎53‎ بكسلًا** (قِيس على ‎1280‎: `h2.top 77` والشريطُ ينتهي عند ‎130‎)، في
+   الصفحة التي بُني الموقعُ لأجلها. و`--toolbar-h` يقيسها `docs.js`. */
+.kbd-toolbar ~ * [id] { scroll-margin-top: calc(var(--header-h) + var(--toolbar-h) + var(--s3)); }
 .site-header {
 	position: sticky; top: 0; z-index: 40;
 	display: flex; align-items: center; gap: var(--s4);
@@ -242,6 +352,20 @@ input[type="search"]:focus { border-color: var(--accent); outline: none; }
 }
 .drift-banner b { color: var(--warn); }
 
+/* لافتةُ القيد (‏`>` في المحتوى): «هذا لا يعمل في نسخة المتصفّح». نبرتُها أهدأ
+   من `drift-banner` — قيدٌ معلومٌ لا تحذيرُ انجراف — وحدُّها على جهة البداية
+   منطقيٌّ لا فيزيائيّ، فتنقلب مع الاتّجاه بلا قاعدةٍ ثانية. */
+.note {
+	border-inline-start: 3px solid var(--accent);
+	background: color-mix(in srgb, var(--accent) 7%, transparent);
+	padding: var(--s3) var(--s4);
+	margin: 0 0 var(--s5);
+	border-radius: 6px;
+	font-size: 15px;
+}
+.note p { margin: 0; }
+.note p + p { margin-top: var(--s2); }
+
 /* ════════ الصفحة الأولى ════════ */
 .home { max-width: 900px; margin: 0 auto; padding: var(--s8) var(--s5); text-align: center; }
 .home .mark-lg { width: 84px; height: 84px; margin-bottom: var(--s5); }
@@ -251,18 +375,24 @@ input[type="search"]:focus { border-color: var(--accent); outline: none; }
 .home .home-search { max-width: 520px; margin: 0 auto var(--s7); }
 .home-search input { font-size: 17px; padding: var(--s3) var(--s4); }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--s4); text-align: start; }
-.card {
-	display: block; padding: var(--s4) var(--s5);
-	background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px;
-	color: var(--text);
-}
-.card:hover { border-color: var(--gold); text-decoration: none; }
-.card b { display: block; color: var(--gold); font-size: 18px; margin-bottom: var(--s1); }
-.card span { font-size: 15px; color: var(--text-dim); line-height: 1.6; }
+/* ‏`.cards`/`.card` زالت مع شبكةِ بطاقات `/docs/` التي حلّ محلَّها الفهرس.
+   قواعدُ بلا ترميزٍ تُغري بإعادة بناء ما أُزيل عمدًا. */
 
 /* ════════ الجداول ════════ */
 .table-wrap { overflow-x: auto; margin: 0 0 var(--s5); }
+/* ⚠️ **كتلةُ شيفرةٍ داخل خليّةٍ تفرض عرضَها على الجدول كلِّه.** `white-space: pre`
+   يجعل أدنى مقاسِ الخليّة أطولَ سطرٍ فيها، والجدولُ لا ينكمش دونه: جدولُ «أوّلُ
+   تشغيل» في `download/` قِيس ‎554‎ في حاويةٍ ‎328‎ على ‎360‎ (و‎288‎ على ‎320‎) بسبب سطر
+   `xattr` وحدَه — **فصفُّ ويندوز الذي يذكر SmartScreen و`Mihrab.exe` يقف ‎45%‎ منه
+   خارج الشاشة** (‏`Mihrab.exe` عند ‎x=−136…−43‎) في حاويةٍ تُسحَب جانبًا بلا
+   مؤشّر. فعلى الضيّق يلتفّ السطرُ داخل الخليّة: أمرٌ من سطرٍ واحدٍ لا مسافاتٍ
+   بادئةً فيه، فالالتفافُ لا يكسر معناه، والنسخُ يأخذه كاملًا. بعده: الجدولُ ‎328‎
+   في ‎328‎ والأمرُ ثلاثةُ أسطرٍ مرئيّةٍ كلُّها.
+   و‎640‎ لا ‎560‎: الجدولُ ‎554‎ بلا التفاف، والحاويةُ لا تبلغها إلّا من ‎586‎ (قِيس عند
+   ‎561‎: ‎554‎ في ‎529‎ — فيضُ ‎25‎ يعود من الباب نفسِه). */
+@media (max-width: 640px) {
+	.table-wrap td pre { white-space: pre-wrap; overflow-wrap: break-word; }
+}
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
 th, td { text-align: right; padding: 9px var(--s3); border-bottom: 1px solid var(--border); }
 th { color: var(--text-dim); font-size: 13px; font-weight: 600; letter-spacing: .04em; }
@@ -271,12 +401,50 @@ th { color: var(--text-dim); font-size: 13px; font-weight: 600; letter-spacing: 
    صفحة الاختصارات — أهمُّ صفحةٍ عندنا: بديلُ المنبع لها PDF إنجليزيٌّ وLTR معًا.
    ════════════════════════════════════════════════════════════════════════ */
 .kbd-toolbar {
-	position: sticky; top: 62px; z-index: 20;
+	position: sticky; top: var(--header-h); z-index: 20;
 	display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center;
 	background: var(--bg); padding: var(--s3) 0;
 	border-bottom: 1px solid var(--border); margin-bottom: var(--s5);
 }
 .kbd-toolbar .grow { flex: 1; min-width: 200px; }
+/* ⚠️ **تاريخُ القرار على الجوّال** — قِيس على ‎360px‎: الشريطُ كلُّه لاصقًا كان يلتفّ
+   ثلاثةَ صفوفٍ (‏156px) فوق ترويسةٍ لاصقة (‏65) = ‎220‎ بكسلًا لاصقةً — ‎34%‎ من
+   ‎640‎ تُؤكَل في الصفحة التي بُني الموقعُ لأجلها. فجُعل ساكنًا في الجولة التاسعة
+   (اللاصقُ ‎65‎ و‎5‎ صفوفٍ مرئيّةٍ على ‎360‎)، وثمنُه أنّ من رشّح ثمّ مرّر يعود إلى
+   الحقل بـ‎3.1–4.5‎ شاشاتٍ — وعلى iOS لمسةٌ على شريط الحالة تكفي، **وعلى أندرويد
+   لا شيءَ يعادلها**. فنُقض في العاشرة إلى ما تحته: الحقلُ وحدَه لاصقًا. وزرُّ
+   الطباعة يُخفى: الطباعةُ من الجوّال في قائمة المتصفّح (‏أندرويد: ⋮ ← مشاركة ←
+   طباعة؛ iOS: مشاركة ← طباعة)، وصفٌّ كاملٌ كان له، ولا «اطبع» آخرَ في الصفحة —
+   ومن يطبع بطاقةً يطبعها من حاسوب. */
+/* ⚠️ **الحقلُ وحدَه يلتصق على الجوّال** — قرارٌ بأرقام سالي (الجولة التاسعة):
+   الشريطُ كلُّه لاصقًا = ‎220px‎ (‏34% من ارتفاع ‎640‎)؛ ساكنًا = العودةُ إلى
+   الترشيح من أسفل نتائج «ملف» ‎3.1–3.9‎ شاشاتٍ على أندرويد (لا لمسةَ شريطِ حالةٍ
+   هناك)؛ والحقلُ وحدَه لاصقًا = تنبّؤٌ ‎122‎ وقياسٌ ‎134px‎ (‏21% — الفرقُ زرُّ
+   «نزِّل» ‎44‎ على اللمس) بكلفةٍ مقيسةٍ **أقلَّ من صفٍّ واحد** عند التمريرة نفسِها. فـ`display: contents` يُذيب الشريطَ في تدفّق الأمّ ليصير
+   `.grow` لاصقًا بحقّ (‏sticky داخل شريطٍ ساكنٍ يُحبَس في صندوقه فلا يلتصق)،
+   وبقيّةُ الأزرار تتدفّق تحته وتُمرَّر. و`docs.js` يقيس اللاصقَ منهما. */
+@media (max-width: 560px) {
+	.kbd-toolbar { display: contents; }
+	.kbd-toolbar .grow {
+		position: sticky; top: var(--header-h); z-index: 20;
+		background: var(--bg); padding: var(--s3) 0; margin-bottom: var(--s3);
+		border-bottom: 1px solid var(--border);
+	}
+	/* ‏`display: contents` يُسقط `gap` الشريط: قِيس على ‎360‎ المبدِّلُ و«التقط» متلاصقين
+	   (‏`seg.left 169.6 = capture.right 169.6`، حدٌّ على حدّ). فالفجوةُ هامشٌ على جهة
+	   النهاية — ومن التفّ إلى صفٍّ جديد يبدأ من الحافّة لا مزاحًا عنها. */
+	.kbd-toolbar .seg, .kbd-toolbar > .icon-btn { margin: 0 0 var(--s3); margin-inline-end: var(--s3); vertical-align: middle; }
+	.kbd-toolbar .print-btn { display: none; }
+}
+/* أزرارُ الشريط على اللمس: المبدِّلُ ‎33‎ و«التقط» ‎31.6‎ (قِيسا على ‎360‎ و‎320‎) —
+   تحت ‎44‎ كزرّ «نزِّل» وزرّ النسخ قبلهما. والعلامةُ في الترويسة ‎29.6‎ مثلُها. */
+@media (pointer: coarse) {
+	.seg button, .kbd-toolbar > .icon-btn { min-height: 44px; }
+	.site-header .brand { min-height: 44px; }
+	/* وحقلا الترشيح والالتقاط ‎40‎ ⇒ ‎44‎: أهمُّ عنصرٍ في أهمّ صفحة. يرفع اللاصقَ
+	   على الجوّال من ‎134‎ إلى ‎138‎ — أربعةُ بكسلاتٍ لا صفٌّ كامل. */
+	#kbd-filter, #capture-field { min-height: 44px; }
+}
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .seg button {
 	background: none; border: 0; color: var(--text-dim); cursor: pointer;
@@ -291,6 +459,12 @@ th { color: var(--text-dim); font-size: 13px; font-weight: 600; letter-spacing: 
 	unicode-bidi: isolate; direction: ltr;
 	display: inline-flex; gap: var(--s1); align-items: center; vertical-align: middle;
 }
+/* ⚠️⚠️ **و`[hidden]` لا تُخفي ما أعطيناه `display`.** سمةُ `hidden` قاعدةُ متصفّحٍ
+   (‏`[hidden]{display:none}`) وأيُّ `display` من المؤلّف يغلبها. فكان **اختصارا
+   ويندوز وماك يظهران معًا في كلّ صفٍّ من ‎72‎ على كلّ عرض** — و«ويندوز / macOS»
+   في الشريط يبدّل سمةً لا أثرَ لها، والصفحةُ تبدو سليمةً لأنّ الاثنين مرتّبان.
+   قِيس في الجولة التاسعة باللقطة على ‎360‎ ثمّ بالعدّ على ‎1280‎: ‎72/72‎. */
+.keys[hidden] { display: none; }
 kbd.chord {
 	font-family: var(--font-mono); font-size: 13px; line-height: 1;
 	padding: 4px 7px; border-radius: 5px;
@@ -302,6 +476,23 @@ kbd.chord {
 
 .kbd-table td.k { text-align: center; white-space: nowrap; }
 .kbd-table td.id { color: var(--text-dim); font-size: 14px; }
+/* ⚠️ **وعلى الجوّال يلتفّ الاختصارُ ويسقط عمودُ المعرّف.** قِيس على ‎360‎ (الجولة
+   التاسعة): الجدولُ ‎659px‎ في حاويةٍ ‎328‎ — عمودُ الاختصار وحدَه ‎326‎ لأنّه لا يلتفّ
+   (أعرضُه `Ctrl+Shift+Alt+Down`)، فعمودُ المعرّف **خارج الشاشة في ‎65‎ صفًّا من ‎72‎**،
+   وعلى ‎320‎ تُقطَع **‎15‎ اختصارًا** نفسُها من حافّة الشاشة — في الصفحة التي بُني الموقعُ
+   لأجلها، ولا مؤشّرَ على أنّ الجدولَ يُسحَب جانبًا. والالتفافُ وحدَه لا يكفي (يبقى فيضُ
+   ‎85‎ ويتضاعف طولُ الصفحة إلى ‎14637‎)؛ فمع إخفاء المعرّف: لا فيض، ولا اختصارٌ مقطوع،
+   والصفحةُ أقصرُ ‎14٪‎ (‏‎8268‎ بدل ‎9649‎) لأنّ الوصفَ نال ‎159px‎ بدل ‎94‎. والمعرّفُ
+   لمن يحرّر `keybindings.json` — وذلك لا يُفعَل من هاتف؛ والترشيحُ به يبقى يعمل
+   (‏`data-search` يحمله). */
+@media (max-width: 560px) {
+	.kbd-table td.k { white-space: normal; }
+	.kbd-table .keys { display: flex; flex-wrap: wrap; justify-content: center; row-gap: var(--s1); }
+	/* ‏(0,2,0) مثلُ `.keys[hidden]` أعلاه ومتأخّرةٌ عنها، فتغلبها — قِيس: عاد الاثنان
+	   يظهران على الجوّال وحدَه (‏72/72) بعد إصلاح سطح المكتب. فوزنٌ أعلى هنا. */
+	.kbd-table .keys[hidden] { display: none; }
+	.kbd-table td.id, .kbd-table th:nth-child(3) { display: none; }
+}
 .kbd-table tr[hidden] { display: none; }
 .kbd-section h2 { margin-top: var(--s6); }
 .capture-box {
@@ -322,8 +513,11 @@ kbd.chord {
 }
 .search-results[hidden] { display: none; }
 .search-results a { display: block; padding: 7px var(--s3); border-radius: 6px; color: var(--text); }
-.search-results a:hover, .search-results a.sel { background: var(--surface); text-decoration: none; }
+/* ‏`.sel` زالت مع التنقّل بالأسهم الذي لم يُبنَ — قاعدةٌ تشهد على ميزةٍ
+   غير موجودة تُغري قارئًا لاحقًا بأنّها موجودة. */
+.search-results a:hover { background: var(--surface); text-decoration: none; }
 .search-results a small { display: block; color: var(--text-dim); }
+.search-results .no-hits { padding: 7px var(--s3); }
 .search-box { position: relative; }
 
 /* ════════ الجوال ════════ */
@@ -339,13 +533,19 @@ kbd.chord {
 
 	/* الدرجُ ينزلق **من اليمين**: اتّجاهُ الانزلاق يجب أن يطابق ضفّةَ المصدر
 	   وإلّا انكسر النموذجُ الذهنيّ. */
+	/* ⚠️ **والمغلقُ `visibility: hidden` لا منزاحٌ فحسب.** `translateX(100%)` يُخرج
+	   الدرجَ من الشاشة ويُبقيه في ترتيب التبويب: من يضغط Tab بعد «القائمة» على
+	   ‎360‎ يجد بؤرتَه على `.nav-app` عند ‎x=384‎ — رابطٌ لا يراه، ثمّ عشرون
+	   بعده. و`visibility` تُخرجه من التبويب ومن شجرة الوصول معًا، وتؤخَّر
+	   ‎.22s‎ عند الإغلاق كي لا يختفي قبل أن ينزلق. */
 	.site-nav {
 		position: fixed; inset: 0 0 0 auto; width: min(300px, 84vw);
 		background: var(--bg-alt); border-inline-start: 1px solid var(--border);
 		padding: var(--s5); z-index: 50; max-height: none; overflow-y: auto;
-		transform: translateX(100%); transition: transform .22s ease;
+		transform: translateX(100%); visibility: hidden;
+		transition: transform .22s ease, visibility 0s linear .22s;
 	}
-	.site-nav.open { transform: translateX(0); }
+	.site-nav.open { transform: translateX(0); visibility: visible; transition: transform .22s ease, visibility 0s; }
 	.nav-scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); z-index: 45; }
 	.nav-scrim[hidden] { display: none; }
 	.content { max-width: none; }
@@ -353,7 +553,11 @@ kbd.chord {
 	h1 { font-size: 28px; }
 	h2 { font-size: 22px; }
 }
-@media (prefers-reduced-motion: reduce) { .site-nav { transition: none; } }
+/* ⚠️ **و`.site-nav.open` معها، وإلّا لم تسرِ إلّا على الإغلاق.** `.site-nav.open`
+   تزن (0,2,0) وتعلن `transition` خاصّتَها، فكانت تغلب `.site-nav` (0,1,0) هنا:
+   قِيس على ‎360‎ مع `reduce`: الفتحُ ينزلق ‎240ms‎ (‏x: 360→253→134→60) والإغلاقُ
+   وحدَه فوريّ — نصفُ الحركة التي طلب المستخدمُ إيقافَها. */
+@media (prefers-reduced-motion: reduce) { .site-nav, .site-nav.open { transition: none; } }
 
 /* ════════════════════════════════════════════════════════════════════════
    الطباعة — هذه الصفحة تُطبَع: بديلُ مايكروسوفت PDF، وهذا مبرّرُ وجودنا.
@@ -362,6 +566,24 @@ kbd.chord {
 @media print {
 	.site-header, .site-nav, .site-toc, .kbd-toolbar, .nav-scrim,
 	.copy-btn, .capture-box, .src-note { display: none !important; }
+	/* ⚠️ الرموزُ تُقلَب للورق، لا `body` وحدَه. كان الجسمُ يصير أبيضَ وأسودَ
+	   والرموزُ تبقى على قيم السمة الداكنة — فكلُّ ما لوّنَّاه بـ`--text-dim`
+	   (‏وأوّلُه **بصمةُ SHA** نفسُها، وهي علّةُ طباعة هذه الصفحة) يُطبَع
+	   ‏#8CA0A6 على أبيض: نحو 2.4:1، تحت أيّ عتبةٍ مقروءة. وورقةٌ تُطبَع
+	   لتُقابَل بها بصمةٌ حرفًا بحرفٍ لا تحتمل حرفًا شاحبًا واحدًا.
+
+	   ⚠️⚠️ **و`:root[data-theme]` معها، وإلّا لم تسرِ على من نقر زرَّ السمة.**
+	   ‏`:root[data-theme="dark"]` تزن (0,1,1) و`:root` المجرّدةُ تزن (0,1,0)،
+	   والوزنُ يسبق الترتيبَ في التتالي. فالزائرُ الذي اختار سمةً — وهو بالضبط
+	   من يهتمّ بهذه الصفحة حتّى يضبط مظهرَها ثمّ يطبعها — كانت رموزُه الداكنة
+	   تنجو من كتلة الطباعة كلِّها: ‏`body` يصير أبيضَ (منتقًى بمحدِّد عنصر)
+	   و`--text-dim` يبقى #8CA0A6، فتُطبَع البصمةُ ٢٫٤:١ على ورقٍ أبيض. وهو
+	   العطبُ عينُه الذي كُتبت هذه الكتلةُ لإغلاقه، عاد من باب زرِّ السمة. */
+	:root, :root[data-theme] {
+		--bg: #fff; --bg-alt: #fff; --surface: #fff; --border: #888;
+		--text: #000; --text-dim: #333;
+		--gold: #6B4F12; --accent: #0B4F47; --warn: #8C3A1C;
+	}
 	body { background: #fff; color: #000; font-size: 10pt; line-height: 1.6; }
 	.layout { display: block; padding: 0; max-width: none; }
 	.content { max-width: none; }

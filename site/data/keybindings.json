@@ -121,14 +121,14 @@
         },
         {
           "ar": "تكرار السطر لأعلى",
-          "win": "Ctrl+Shift+Alt+Up",
-          "mac": "Cmd+Shift+Alt+Up",
+          "win": "Shift+Alt+Up",
+          "mac": "Shift+Alt+Up",
           "id": "editor.action.copyLinesUpAction"
         },
         {
           "ar": "تكرار السطر لأسفل",
-          "win": "Ctrl+Shift+Alt+Down",
-          "mac": "Cmd+Shift+Alt+Down",
+          "win": "Shift+Alt+Down",
+          "mac": "Shift+Alt+Down",
           "id": "editor.action.copyLinesDownAction"
         },
         {
@@ -229,13 +229,13 @@
         },
         {
           "ar": "رجوع",
-          "win": "Ctrl+Alt+-",
+          "win": "Alt+Left",
           "mac": "Ctrl+-",
           "id": "workbench.action.navigateBack"
         },
         {
           "ar": "تقدّم",
-          "win": "Ctrl+Shift+-",
+          "win": "Alt+Right",
           "mac": "Ctrl+Shift+-",
           "id": "workbench.action.navigateForward"
         },
@@ -284,13 +284,13 @@
         {
           "ar": "توسيع التحديد",
           "win": "Shift+Alt+Right",
-          "mac": "Ctrl+Shift+Right",
+          "mac": "Ctrl+Shift+Cmd+Right",
           "id": "editor.action.smartSelect.expand"
         },
         {
           "ar": "تقليص التحديد",
           "win": "Shift+Alt+Left",
-          "mac": "Ctrl+Shift+Left",
+          "mac": "Ctrl+Shift+Cmd+Left",
           "id": "editor.action.smartSelect.shrink"
         }
       ]
@@ -372,7 +372,7 @@
           "id": "workbench.action.toggleSidebarVisibility"
         },
         {
-          "ar": "إظهار مستكشف الملفّات",
+          "ar": "إظهار المستكشف",
           "win": "Ctrl+Shift+E",
           "mac": "Cmd+Shift+E",
           "id": "workbench.view.explorer"

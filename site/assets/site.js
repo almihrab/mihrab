@@ -18,17 +18,50 @@
 	var ua = navigator.userAgent || '';
 	var guess = { os: 'unknown', arch: 'x64' };
 
-	if (/Windows/i.test(ua)) { guess.os = 'windows'; }
+	/* ⚠️ **الهاتفُ أوّلًا، وإلّا قُرئ لينكس أو ماك.** أندرويد يقول `Linux` في
+	   userAgent وiPhone يقول `Mac OS X` — فكانت البطاقةُ تقول لحامل الهاتف
+	   «يبدو أنّك على لينكس x64» وتعرض أرشيفًا بـ‎175‎ ميغابايت لا يعمل على
+	   جهازه، وزرُّ الصفحة الأولى يصير «نزِّل لـلينكس x64» (قِيس بـUA بكسل 8
+	   وiPhone في الجولة التاسعة). وiPadOS منذ ‎13‎ يقول `Macintosh` حرفيًّا،
+	   فيُميَّز باللمس. ولا بناءَ للهاتف، فالتخمينُ «هاتف» يُسقط البطاقةَ ويُبقي
+	   الزرَّ العامَّ — والمتصفّحُ هو ما يعمل هناك. */
+	if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)
+		|| (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) { guess.os = 'mobile'; }
+	else if (/Windows/i.test(ua)) { guess.os = 'windows'; }
 	else if (/Mac OS X|Macintosh/i.test(ua)) { guess.os = 'mac'; }
 	else if (/Linux|X11|CrOS/i.test(ua)) { guess.os = 'linux'; }
 
 	if (/arm64|aarch64/i.test(ua)) { guess.arch = 'arm64'; }
 	/* macOS لا يفصح عن Apple Silicon في userAgent إطلاقًا — يقول Intel دائمًا.
 	   والأغلبيّةُ الساحقة من أجهزة macOS العاملة اليوم Apple Silicon، فالافتراضُ
-	   الأنفعُ arm64، والبديلُ ظاهرٌ في الجدول تحته مباشرةً. */
-	if (guess.os === 'mac') { guess.arch = 'arm64'; }
+	   الأنفعُ arm64، والبديلُ ظاهرٌ في الجدول تحته مباشرةً.
 
-	var OS_AR = { windows: 'ويندوز', mac: 'macOS', linux: 'لينكس', unknown: 'نظامك' };
+	   ⚠️ وهذا **تخمينٌ لا كشف** — ولذلك تُصاغ البطاقةُ أدناه سؤالًا لا إعلانًا:
+	   كانت تقول «يبدو أنّك على macOS (Apple Silicon)» بثقّةٍ تامّة، فمستخدمُ
+	   إنتل إمّا ينزّل ما لا يعمل، أو يقرأ صفَّ إنتل تحته ويفهم أنّه غيرُ
+	   مدعوم — بينما «المتطلّبات» بثلاثة أقسامٍ أسفلُ تَعِده صراحةً بالدعم.
+	   وعدٌ في الجدول ونقضُه في الجدول نفسِه. */
+	if (guess.os === 'mac') { guess.arch = 'arm64'; guess.uncertain = true; }
+
+	/* «ماك» لا «macOS»: الاسمُ يُركَّب في جملةٍ عربيّة («لا بناءَ جاهزٌ لـ…»)،
+	   فاللاتينيُّ يلتصق بحرف الجرّ بلا فاصلٍ ويتعثّر عنده القارئ. */
+	var OS_AR = { windows: 'ويندوز', mac: 'ماك', linux: 'لينكس', unknown: 'نظامك' };
+	/* الهاتف: لا «لا بناءَ جاهزٌ لـ…» — ليس نقصًا في الإصدار بل ليس جهازًا
+	   نبني له. الجملةُ تقول ما يعمل عنده وأين يجد نسخةَ حاسوبه. */
+	var MOBILE_META = 'لا نسخةَ للهاتف — محرابُ المتصفّح يعمل على جهازك الآن، والتنزيلُ لحاسوبك.';
+
+	/* تاريخُ ISO إلى عربيٍّ مقروء. والارتدادُ إلى النصّ كما هو مقصود: تاريخٌ
+	   بصيغةٍ غيرِ متوقّعةٍ يُعرَض خامًا ولا يختفي — إخفاءُ المعلومة أسوأُ من
+	   عرضِها بصيغةٍ ركيكة. */
+	function fmtDate(iso) {
+		var d = new Date(iso + 'T00:00:00Z');
+		if (isNaN(d.getTime())) { return iso; }
+		try {
+			return d.toLocaleDateString('ar', {
+				year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
+			});
+		} catch (e) { return iso; }
+	}
 
 	/* التنقيحُ الدقيق يصل متأخّرًا (وعدٌ غيرُ متزامن). حين يصل نُعيد الرسم. */
 	function refineArch(done) {
@@ -108,6 +141,12 @@
 
 		var a = manifest.version ? bestFor(guess.os, guess.arch) : null;
 
+		if (guess.os === 'mobile' && manifest.version) {
+			/* الزرُّ المخبوز («نزِّل محراب» ← الجدول) يبقى كما هو: صادقٌ لمن
+			   جاء ينزّل لحاسوبه من هاتفه. والسطرُ تحته يقول لماذا لا اسمَ نظام. */
+			if (meta) { meta.textContent = MOBILE_META; }
+			return;
+		}
 		if (!a) {
 			/* لا بناءَ لهذا النظام (أو لا إصدارَ أصلًا): الزرُّ يقود إلى الجدول
 			   الكامل — وجهةٌ صادقة — لا إلى ملفٍّ مفقود. */
@@ -131,9 +170,15 @@
 
 		if (meta) {
 			meta.textContent = '';
+			/* ‏`fmtDate` هنا كما في صفحة التنزيل. كان التاريخُ يُلصَق خامًا
+			   ‏(`2026-08-30`) بجوار رقم الإصدار (`1.121.05803`): رقمان
+			   لاتينيّان متجاوران بنقاطٍ وشُرَط في سطرٍ عربيّ، يُقرأ ثانيهما
+			   رقمَ نسخةٍ آخرَ لا تاريخًا. وهي العلّةُ نفسُها التي عولجت في
+			   `renderTable` بـ«صدر في» وبقيت هنا — **على الصفحة الأولى**،
+			   أوّلِ سطرٍ يقرؤه الزائرُ تحت الزرّ الذي جاء له. */
 			meta.appendChild(document.createTextNode(
 				'الإصدار ' + manifest.version
-				+ (manifest.date ? ' · ' + manifest.date : '')
+				+ (manifest.date ? ' · ' + fmtDate(manifest.date) : '')
 				+ ' · ' + p.kind + ' · '));
 			var all = el('a', null, 'منصّاتٌ أخرى');
 			all.href = base() + '/download/';
@@ -153,7 +198,14 @@
 		var g = el('div', 'guess');
 		g.appendChild(document.createTextNode('يبدو أنّك على '));
 		g.appendChild(el('b', null, p.label));
-		g.appendChild(document.createTextNode(' — إن كان التخمينُ خاطئًا فاختر من الجدول أدناه.'));
+		g.appendChild(document.createTextNode(
+			guess.uncertain
+				/* متصفّحُ ماك لا يفصح عن المعماريّة، فلا نَعِد بما لا نعلم.
+				   والصياغةُ تسمّي البديلَ بدل أن تقول «إن كان خاطئًا» مجرّدةً:
+				   من لا يعرف معماريّةَ جهازه لا ينفعه أن يُقال له «اختر». */
+				? ' — وأجهزةُ ماك المُباعةُ منذ 2020 كلُّها Apple Silicon. '
+				  + 'فإن كان جهازُك إنتل فاختر صفَّ ماك (Intel) من الجدول.'
+				: ' — إن كان التخمينُ خاطئًا فاختر من الجدول أدناه.'));
 		box.appendChild(g);
 
 		var btn = el('a', 'btn btn-primary');
@@ -175,11 +227,36 @@
 		var has = manifest.version && manifest.assets.length;
 		if (wrap) { wrap.hidden = !has; }
 		if (empty) { empty.hidden = !!has; }
+
+		/* ── وسطرُ «ثلاثٌ من ثماني منصّاتٍ» يتبع الجدولَ الذي يصفه ──
+		   هو مخبوزٌ في HTML، والجدولُ يُعاد رسمُه من المانيفست **الحيّ** بلا
+		   إعادةِ بناءِ موقع — وذلك كلُّ غرض المانيفست الحيّ. فبناءٌ يرفع حزمتَي
+		   deb وrpm ويحدّث `dl/releases.json` وحدَه يترك سطرًا يَعِد بما امتلأ
+		   فعلًا، أو — إن خلا الإصدارُ — يعد بمنصّاتٍ «جاهزة» فوق لافتةٍ تقول
+		   «لا إصدارَ منشورًا بعد». والعلاجُ إخفاؤه لا إعادةُ صياغته: الرقمُ
+		   بالحروف قرارُ تحرير، ومعنى السطر كلُّه «الجدولُ ناقصٌ مؤقّتًا» —
+		   فمتى صدق الجدولُ سقطت حاجتُه. */
+		var pending = document.querySelector('.dl-pending');
+		if (pending) {
+			var ready = 0;
+			for (var pi = 0; pi < PLATFORMS.length; pi++) {
+				for (var ai = 0; ai < manifest.assets.length; ai++) {
+					if (manifest.assets[ai].id === PLATFORMS[pi].id) { ready++; break; }
+				}
+			}
+			var baked = parseInt(pending.getAttribute('data-ready'), 10);
+			pending.hidden = !has || ready >= PLATFORMS.length || ready !== baked;
+		}
+
 		if (!has) { return; }
 
 		if (stamp) {
+			/* «الإصدار 1.121.05803 — 2026-08-30»: رقمان متجاوران بصيغةٍ متشابهة،
+			   فيُقرأ الثاني رقمَ نسخةٍ آخرَ لا تاريخًا. والكلمةُ تفصل بينهما
+			   بتكلفةِ حرفَين. (‏`ar` لا `ar-SA`: الأخيرةُ تُخرِج تقويمًا هجريًّا
+			   على بعض المتصفّحات، وتاريخُ الإصدار ميلاديٌّ هنا.) */
 			stamp.textContent = 'الإصدار ' + manifest.version
-				+ (manifest.date ? ' — ' + manifest.date : '');
+				+ (manifest.date ? ' — صدر في ' + fmtDate(manifest.date) : '');
 		}
 
 		var mine = bestFor(guess.os, guess.arch);
