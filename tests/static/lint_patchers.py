@@ -8,6 +8,7 @@
 الاستعمال: python tests/static/lint_patchers.py   (خرج 0 = نجاح، 1 = فشل)
 لا يعتمد pytest (أسرار CI صفريّة) — إطار فحص بسيط داخليّ.
 """
+import glob
 import json
 import os
 import py_compile
@@ -58,6 +59,59 @@ def check(name):
 def _read(path):
     with open(path, "r", encoding="utf-8", newline="") as f:
         return f.read()
+
+
+# ── إعدادات nginx **المركّبة** — مصدرُ حقيقةٍ واحدٌ لكلّ حارسٍ يقرؤها ───────
+# كان كلُّ حارسٍ يسمّي ملفَّه بيده، فوقعت طفرتان خضراوان: [DEP-01] يقيس
+# `mihrab.dev.conf` **المتقاعد** فيعمى عن `mihrab.dev.static.conf` المنشور (بدّلتُ
+# كلَّ سلالات الشهادة فيه إلى مفتاح الـwildcard ⇒ ‎94/94‎ نجحت)، و[SUB-01] يحتسب
+# كتلَ المتقاعد «مخدومةً» فيُجيب نيابةً عن المنشور (حذفتُ كتلتَي `www` والجذر من
+# الحيّ ⇒ بقي أخضر).
+#
+# والتمييزُ يسكن **الملفَّ** لا الحارس: وسمُ `[MIHRAB-CONF-RETIRED]` في رأسه. فحارسٌ
+# جديدٌ لا يحتاج أن يعرف أسماءَ ملفّاتٍ بعينها، وملفٌّ يتقاعد غدًا يُوسَم مرّةً
+# فيخرج من كلّ قياس. و`.example` ليس إعدادًا بل نموذجٌ يُنسَخ.
+def _ngx_strip(text):
+    """نصُّ إعدادِ nginx بلا تعليقات.
+
+    تعليقاتُ إعداداتِنا تقتبس التوجيهاتِ **حرفًا بحرف** لتشرحها — و`#` وحدَه
+    يفصل بين توجيهٍ يُرسَل وسطرٍ لا يفعل شيئًا. فحارسٌ يقرأ النصَّ خامًا يقبل
+    سطرًا معلَّقًا مكانَ توجيهٍ حيّ. قِيس بالطفرة: تعليقُ سطرِ
+    `add_header Content-Security-Policy …` في كتلة `= /404.html` مرَّ أخضرَ في
+    ‏[CSP-01] و[W404] معًا، وصفحةُ الخطأ تخرج بلا سياسةِ أمانِ محتوًى البتّة.
+    و`#` داخل قيمةٍ مقتبسة ليس تعليقًا — لذلك تُتابَع حالةُ الاقتباس.
+
+    ⚠️ ووسمُ `[MIHRAB-CONF-RETIRED]` نفسُه تعليق، فيُقرأ من النصّ **الخامّ**
+    قبل التجريد لا بعده.
+    """
+    out = []
+    for line in text.splitlines(True):
+        quoted = False
+        for i, ch in enumerate(line):
+            if ch == '"':
+                quoted = not quoted
+            elif ch == "#" and not quoted:
+                line = line[:i] + ("\n" if line.endswith("\n") else "")
+                break
+        out.append(line)
+    return "".join(out)
+
+
+def _live_nginx_confs():
+    """[(الاسم، النصُّ مجرَّدًا من التعليقات)] لكلّ إعدادٍ مركّبٍ فعلًا، مرتّبةً."""
+    ngx = os.path.join(ROOT, "deploy", "nginx")
+    out = []
+    for fn in sorted(os.listdir(ngx)):
+        if not fn.endswith(".conf"):
+            continue
+        text = _read(os.path.join(ngx, fn))
+        if "[MIHRAB-CONF-RETIRED]" in text:
+            continue
+        out.append((fn, _ngx_strip(text)))
+    assert len(out) >= 3, (
+        "لم يُقرَأ إلّا %d إعدادَ nginx حيّ — إمّا وُسِم ملفٌّ حيٌّ بالتقاعد خطأً أو "
+        "تغيّرت بنيةُ المجلّد. لا يُترَك حارسٌ يقيس الهواء." % len(out))
+    return out
 
 
 # ───────────────────────── L0-1: صياغة المرقِّعات ─────────────────────────
@@ -262,8 +316,11 @@ def _core_diffs_wired():
         dest = m.group(1)
         assert dest in inject, (
             f"‏{dest} يُنسَخ ولا يُطبَّق: لا ذكرَ له في كتلة الحقن — رقعةٌ تُشحَن ولا تُقرأ ({diff})")
-        applied = [ln for ln in inject.splitlines() if dest in ln and "git apply" in ln]
-        assert applied, f"‏{dest} مذكورٌ في كتلة الحقن بلا `git apply` — لا يُطبَّق ({diff})"
+        # التطبيقُ عبر `_mihrab_apply` (عاديًّا ثمّ `--3way` — انظر [APPLY-01]) أو `git apply`
+        # مباشرًا؛ الذكرُ في `cp`/`if [ -f` وحدَه لا يكفي.
+        applied = [ln for ln in inject.splitlines()
+                   if dest in ln and ("git apply" in ln or "_mihrab_apply " in ln)]
+        assert applied, f"‏{dest} مذكورٌ في كتلة الحقن بلا `git apply`/`_mihrab_apply` — لا يُطبَّق ({diff})"
         assert "exit 1" in applied[0], (
             f"تطبيقُ {dest} لا يُفشِل البناء عند الخطأ — انجرافُ مرساةٍ يمرّ صامتًا ({diff})")
         # ورقعةٌ بلا سطرٍ في جدول `patches/README.md` دَينٌ لا يعرفه أحدٌ بعد أشهر.
@@ -843,15 +900,44 @@ def _docs_glossary_respected():
     if not (os.path.isfile(gpath) and os.path.isdir(content)):
         return
     terms = json.load(open(gpath, encoding="utf-8"))["terms"]
+
+    # ── ما يُقتبَس بحرف الشاشة بين «» يُعفى ──
+    # المسردُ فصيحٌ والشاشةُ (حزمةُ اللغة المورَّدة) تقول غيرَه في مواضع؛ فحين يذكر
+    # التوثيقُ **زرًّا أو لسانًا** بحرفه («وحدة تحكم التصحيح») يجب أن يقول ما يراه
+    # القارئُ لا ما يفضّله المسرد — وإلّا لم يجد الزرّ. الإعفاءُ مشروطٌ بأنّ المقتبَسَ
+    # قيمةٌ **حرفيّةٌ** في الحزمة أو الملحقين (ما تعرضه الشاشةُ فعلًا) — فلا يُعفى
+    # لفظٌ ممنوعٌ لمجرّد أنّه بين قوسين. النثرُ خارج «» يبقى للمسرد (قرار (ج) عند
+    # الكاتب التقنيّ).
+    screen = set()
+    def _walk(o):
+        if isinstance(o, dict):
+            for v in o.values():
+                _walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v)
+        elif isinstance(o, str):
+            screen.add(o.strip())
+    for _sp in ("extensions/language-pack-ar/translations/main.i18n.json",
+                "build/mihrab_ar_supplement.json", "build/mihrab_ext_nls_ar.json"):
+        _spp = os.path.join(ROOT, *_sp.split("/"))
+        if os.path.isfile(_spp):
+            try:
+                _walk(json.load(open(_spp, encoding="utf-8")))
+            except ValueError:
+                pass
+
     bad = []
     for fn in sorted(os.listdir(content)):
         if not fn.endswith(".md"):
             continue
         text = open(os.path.join(content, fn), encoding="utf-8").read()
+        text = re.sub(r"«([^»\n]{1,80})»",
+                      lambda m: "«…»" if m.group(1).strip() in screen else m.group(0), text)
         for t in terms:
             for wrong in t.get("forbidden", []):
                 if wrong in text:
-                    bad.append(f"{fn}: «{wrong}» ⇐ المعتمد «{t['ar']}»")
+                    bad.append(f"{fn}: «{wrong}» ⇐ المعتمد «{t['ar']}» (أو اقتبس نصَّ الشاشة بحرفه بين «»)")
     assert not bad, "مصطلحاتٌ خارج المسرد:\n    " + "\n    ".join(bad)
 
 
@@ -3329,7 +3415,15 @@ def _static_csp():
     والسياساتُ **تتقاطع**، فيُمنَع سكربتُهما الداخليُّ ويموت المضيف. قِيس.
     """
     import re as _re
-    conf = _read(os.path.join(ROOT, "deploy", "nginx", "mihrab.dev.static.conf"))
+    # ── والنصُّ **بلا تعليقات** ──
+    # تعليقاتُ هذا الملفّ تقتبس التوجيهاتِ حرفًا بحرف لتشرحها، و`#` وحدَه يفصل
+    # بين ترويسةٍ تُرسَل وسطرٍ لا يفعل شيئًا. وطفرةٌ مرّت خضراء: **تعليقُ سطرِ
+    # `add_header Content-Security-Policy …`** في كتلة `= /404.html` — الحارسُ
+    # يقرأ السياسةَ من داخل التعليق ويُعلِنها حاضرة، وصفحةُ الخطأ تخرج بلا
+    # سياسةٍ البتّة. ومرّت على [W404] كذلك، لأنّ الضعفَ واحدٌ في الاثنين.
+    conf_raw = _read(os.path.join(ROOT, "deploy", "nginx",
+                                  "mihrab.dev.static.conf"))
+    conf = _ngx_strip(conf_raw)
 
     # ── الترويسةُ مرّةً واحدةً **في كلّ كتلة خادم**، لا مرّةً في الملفّ ──
     # كان المقياسُ «مرّةً في الملفّ» وكان صحيحًا يومَ كان فيه خادمٌ واحد. ثمّ انتقل
@@ -3356,39 +3450,168 @@ def _static_csp():
         "التقطيع. لا يُترَك الحارسُ يقيس الهواء [CSP-01]")
 
     RX = r'add_header\s+Content-Security-Policy\s+"([^"]+)"'
+    # والوحدةُ `location` لا `server`: كتلةُ خادمٍ واحدةٌ تحمل اليومَ سياستَين
+    # مشروعتَين — واحدةً في `location /` وأخرى في `location = /404.html`، لأنّ
+    # `add_header` في المستوى الأدنى يُلغي الوراثة، فصفحةُ الخطأ بلا إعادةٍ
+    # تُقدَّم بلا سياسةٍ البتّة. والخطرُ المقيسُ هو التكرارُ **في الـ`location`
+    # الواحد**: ترويستان تُرسَلان معًا فيقرأ المتصفّحُ تقاطعَهما.
+    def _locations(blk):
+        """[(الرأس، النصّ)] لكلّ `location` في الكتلة، بموازنة الأقواس."""
+        out = []
+        for lm in _re.finditer(r"^\s*location\s+([^{]+?)\s*\{", blk, _re.MULTILINE):
+            j = blk.index("{", lm.start())
+            depth, k = 0, j
+            while k < len(blk):
+                if blk[k] == "{":
+                    depth += 1
+                elif blk[k] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                k += 1
+            out.append((lm.group(1).strip(), blk[j:k]))
+        return out
+
     by_name = {}
+    policies = []
     for blk in servers:
-        hits = _re.findall(RX, blk)
         name = (_re.search(r"server_name\s+([^;]+);", blk) or [None, "?"])[1].strip()
-        assert len(hits) <= 1, (
-            "‏Content-Security-Policy مكرَّرةٌ في كتلة «" + name + "» — التكرارُ في "
-            "الكتلة الواحدة يجعل المتصفّحَ يقرأ تقاطعَ السياستين فيكسر صامتًا [CSP-01]")
-        if hits:
-            by_name[name] = hits[0]
-    policies = list(by_name.values())
+        for head, text in _locations(blk):
+            hits = _re.findall(RX, text)
+            assert len(hits) <= 1, (
+                "‏Content-Security-Policy مكرّرةٌ في `location " + head + "` من كتلة «"
+                + name + "» — التكرارُ في الموضِع الواحد يجعل المتصفّحَ يقرأ تقاطعَ "
+                "السياستين فيكسر صامتًا [CSP-01]")
+            if hits:
+                policies.append(hits[0])
+                if head == "/":
+                    by_name[name] = hits[0]
     # كتلةُ `www` تحويلٌ محضٌ بلا محتوى، فلا سياسةَ لها. والباقي يجب أن يحملها.
     assert len(policies) >= 2, (
         f"لم تُرسَل السياسةُ إلّا في {len(policies)} كتلةً — غيابُها عن كتلةٍ تخدم "
         "محتوًى نقصٌ صامت [CSP-01]")
 
+    # ── والسياسةُ الأصلُ في `location /` لا في مستوى `server` ──
+    # طفرةٌ زُرِعت ومرّت **‎94/94‎ خضراء**: نقلُ الترويسة من `location /` إلى مستوى
+    # `server`. والحارسُ كان يسأل «أفي الكتلةِ سياسةٌ؟» ولا يسأل «في أيّ مستوًى؟».
+    # و`location /` تحمل أربعَ `add_header` أخرى — و`add_header` في المستوى الأدنى
+    # **يُلغي وراثةَ ما فوقه**، فلا تُرسَل السياسةُ أصلًا. ورشةٌ بلا أيّ سياسةِ أمانِ
+    # محتوى، بلا صفحةٍ بيضاء ولا خطأ ولا شيءٍ أحمر في أيّ طبقة. والقاعدةُ التي
+    # تكسرها هذه الطفرةُ مشروحةٌ في ملفّ الإعداد نفسِه ثلاثَ مرّات.
+    for blk in servers:
+        if not _re.search(RX, blk):
+            continue                  # كتلةُ تحويلٍ بلا محتوى
+        name = (_re.search(r"server_name\s+([^;]+);", blk) or [None, "?"])[1].strip()
+        assert name in by_name, (
+            "كتلة «" + name + "» تحمل سياسةَ أمانِ محتوًى ولا تحملها `location /` — "
+            "و`add_header` في المستوى الأدنى يُلغي وراثةَ ما فوقه، فكلُّ ما يُخدَم من "
+            "`location /` يخرج **بلا سياسةٍ البتّة**، بلا صفحةٍ بيضاء ولا خطأ [CSP-01]")
+
+    # ── وكلُّ موضعٍ يخدم محتوًى يحمل سياستَه ──
+    # `add_header` في `location` **يُلغي وراثةَ ما في `server`** — فكلُّ موضعٍ
+    # يضيف ترويسةً واحدةً يفقد كلَّ ما فوقه. وطفرتان مرّتا خضراوَين:
+    #
+    #   · حذفُ السياسة من `location = /404.html` ⇒ ‎95/95‎ — صفحةُ الخطأ تُقدَّم
+    #     بلا سياسةِ أمانِ محتوًى البتّة، وهي صفحةٌ تُعرَض على **كلّ** مسارٍ مجهول.
+    #   · إضافةُ `location ^~ /docs/` بترويسةٍ واحدةٍ ⇒ ‎95/95‎ — شجرةُ التوثيق
+    #     كلُّها تخرج بلا سياسة.
+    #
+    # والاستثناءان **مقصودان ومسمَّيان**، لا قائمةً تتّسع كلّما أزعج الحارسُ أحدًا:
+    #   · `/out/` — إرسالُ سياستنا إلى إطار مضيف الامتدادات وصفحة الـwebview
+    #     يتقاطع مع سياستَيهما فيمنع سكربتَهما الداخليَّ ويقتل المضيف (مشروحٌ
+    #     أعلاه بالتفصيل).
+    #   · `/notes/` — ملفُّ نصٍّ خامٌّ يُجلَب بـ`fetch` ولا يُصيَّر مستندًا،
+    #     فلا سياسةَ تُستشار له أصلًا.
+    # وكتلُ `return` المحضةُ لا تخدم محتوًى فلا تُسأل.
+    CSP_EXEMPT = {"/out/", "^~ /out/", "/notes/"}
+    for blk in servers:
+        if not _re.search(RX, blk):
+            continue                  # كتلةُ تحويلٍ بلا محتوى
+        name = (_re.search(r"server_name\s+([^;]+);", blk) or [None, "?"])[1].strip()
+        for head, text in _locations(blk):
+            if head in CSP_EXEMPT:
+                continue
+            # ‏**تحويلٌ محضٌ = فيه `return`/`rewrite` ولا يخدم شيئًا.** وجودُ
+            # الكلمةِ وحدَه لا يكفي: طفرتان مرّتا خضراوَين على هذا الشرط —
+            #   · موضِعٌ فيه `try_files` وفيه حارسُ نقطةٍ متعدّدُ الأسطر
+            #     (`location ~ /\. {` ثمّ `return 404;` في سطرٍ مستقلّ)،
+            #   · موضِعٌ فيه `try_files` وفيه `rewrite` لمسارٍ قديم.
+            # وكلاهما **يخدم شجرةً كاملةً** بترويسةٍ واحدةٍ وبلا سياسة. فالسؤالُ
+            # عن الخدمة لا عن الكلمة: `try_files`/`alias`/`root`/`proxy_pass`
+            # تعني أنّ للموضِع محتوًى يخرج منه مهما كان فيه من تحويل.
+            # ولا مِرساةَ `^`: كتلُ التحويل عندنا **أحاديّةُ السطر**
+            # (`location = /issues { return 301 …; }`)، فالمِرساةُ كانت تُسقِطها
+            # من الاستثناء وتُحمِّر الحارسَ على بنيةٍ صحيحة — وشرطُ «لا تخدم
+            # شيئًا» أدناه هو ما يمنع التسرّبَ لا موضعُ الكلمة في السطر.
+            if (_re.search(r"\b(return|rewrite)\s", text)
+                    and not _re.search(r"^\s*(try_files|alias|root|proxy_pass)\s",
+                                       text, _re.MULTILINE)):
+                continue              # تحويلٌ محضٌ لا محتوى
+            # ⚠️ **ولا استثناءَ لموضِعٍ بلا ترويسات.** كان هنا `continue` بحجّة
+            #    «لا ترويساتٍ أصلًا ⇒ الوراثةُ سليمة» — وهي حجّةٌ **غيرُ صحيحةٍ
+            #    لهذا الملفّ**: لا `add_header` على مستوى `server` في أيّ كتلةٍ
+            #    منه (مكتوبٌ صراحةً في رأسه)، فالوراثةُ من `server` = **لا شيء**.
+            #    فموضِعٌ جديدٌ بـ`try_files` وحدَه كان يخدم بصفرِ ترويسةِ أمان
+            #    ويمرّ أخضر. قِيس بالطفرة.
+            assert _re.search(RX, text), (
+                "‏`location " + head + "` في كتلة «" + name + "» تخدم محتوًى وتضيف "
+                "ترويساتٍ ولا تحمل سياسةَ أمانِ محتوى — و`add_header` في الموضِع "
+                "**يُلغي وراثةَ ما في `server`**، فكلُّ ما يخرج من هنا يخرج بلا "
+                "سياسةٍ البتّة. أعِدها حرفًا بحرف أو أضِف الموضِعَ إلى "
+                "`CSP_EXEMPT` بتعليلٍ مكتوب [CSP-01]")
+
+    # ── والجذرُ مربوطٌ باسمه ──
+    # أُغلق تبديلُ **السياستين** بالاسم أعلاه، ولم يُربَط **الجذر**. وطفرةٌ زُرِعت
+    # ومرّت خضراء: تبديلُ `root` بين الكتلتين. والأثرُ هو الأثرُ عينُه — `mihrab.dev`
+    # يخدم الورشةَ تحت السياسة الضيّقة (بلا `unsafe-eval` ولا `blob:` ولا
+    # `worker-src`) فتُقلِع وتُرسَم سمتُها **ولا امتدادَ يعمل**، و`app.mihrab.dev`
+    # يمنح صفحاتٍ تسويقيّةً `'unsafe-eval'` واتّصالًا خارجيًّا. سياستان في محلّهما
+    # فوق جذرَين متبادلَين = العطبُ نفسُه بابٍ آخر.
+    ROOTS = {"mihrab.dev": "/opt/mihrab/site", "app.mihrab.dev": "/opt/mihrab/static"}
+    seen_roots = 0
+    for blk in servers:
+        name = (_re.search(r"server_name\s+([^;]+);", blk) or [None, ""])[1].strip()
+        names = set(name.split())
+        got = _re.search(r"^\s*root\s+(\S+?)/?;", blk, _re.M)
+        if not got:
+            continue  # كتلةُ تحويلٍ بلا محتوى
+        for host, want in ROOTS.items():
+            if host in names:
+                seen_roots += 1
+                assert got.group(1) == want, (
+                    "جذرُ كتلة «" + host + "» = " + got.group(1) + " والمنتظَر "
+                    + want + " — تبديلُ الجذرين يمنح الموقعَ التعريفيَّ رخصةَ "
+                    "الورشة ويقتل مضيفَ الامتدادات بلا صفحةٍ بيضاء [CSP-01]")
+    assert seen_roots == len(ROOTS), (
+        "قُرئ " + str(seen_roots) + " جذرًا من " + str(len(ROOTS)) + " — كتلةٌ فقدت "
+        "`server_name` أو `root`، فالربطُ لم يُقَس [CSP-01]")
+
     # **وفي كتلةِ الصفحة لا كتلةِ الأصول.** يُقتطَع نصُّ `location /out/` بموازنةِ
     # الأقواس لا بنافذةِ أسطرٍ تقديريّة — نافذةٌ ثابتةٌ تُخطئ عند أوّل تعليقٍ يُضاف.
-    i = conf.find("location /out/")
-    assert i > 0, "لا كتلةَ `location /out/` في الإعداد — تغيّرت بنيتُه [CSP-01]"
-    j = conf.index("{", i)
-    depth, k = 0, j
-    while k < len(conf):
-        if conf[k] == "{":
-            depth += 1
-        elif conf[k] == "}":
-            depth -= 1
-            if depth == 0:
-                break
-        k += 1
-    assert "Content-Security-Policy" not in conf[j:k], (
-        "السياسةُ مُرسَلةٌ في `location /out/` — هناك مستندان منبعيّان يحملان "
-        "سياستَيهما، والتقاطعُ معهما يمنع سكربتَهما الداخليَّ فيموت مضيفُ الامتدادات "
-        "بلا صفحةٍ بيضاء [CSP-01]")
+    #
+    # **وكلُّ كتلةٍ تطابق `/out/` تُقاس لا أوّلُها.** كان السطرُ `conf.find(...)`
+    # أي «أوّلُ ورودٍ نصّيٍّ في الملفّ»، وطفرةٌ زُرِعت ومرّت خضراء: تحويلُ
+    # `location ^~ /out/` في كتلة الموقع (تحويلُ ‎301‎ من سطرٍ واحد) إلى
+    # `location /out/` — فصار `find` يلتقط ذلك السطرَ ويعمى عن كتلة الورشة
+    # الحقيقيّة، ثمّ أُضيفت السياسةُ إليها فبقي الحارسُ أخضر. والأثرُ هو الأثرُ
+    # الموصوفُ أدناه بعينه: مضيفُ الامتدادات يموت بلا صفحةٍ بيضاء.
+    outs = [m.start() for m in _re.finditer(r"location\s+(?:\^~\s+)?/out/", conf)]
+    assert outs, "لا كتلةَ `location /out/` في الإعداد — تغيّرت بنيتُه [CSP-01]"
+    for i in outs:
+        j = conf.index("{", i)
+        depth, k = 0, j
+        while k < len(conf):
+            if conf[k] == "{":
+                depth += 1
+            elif conf[k] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            k += 1
+        assert "Content-Security-Policy" not in conf[j:k], (
+            "السياسةُ مُرسَلةٌ في `location /out/` — هناك مستندان منبعيّان يحملان "
+            "سياستَيهما، والتقاطعُ معهما يمنع سكربتَهما الداخليَّ فيموت مضيفُ الامتدادات "
+            "بلا صفحةٍ بيضاء [CSP-01]")
 
     def has(policy, directive, value):
         m = _re.search(re.escape(directive) + r"\s+([^;]+)", policy)
@@ -3443,9 +3666,12 @@ def _static_csp():
         "يشرحها لا تخمينًا [CSP-01]")
 
     # وما لا مفرّ منه مُعلَنٌ بنصِّه في التعليق: تسامحٌ بلا تعليلٍ يصير عادة.
+    # **والنصُّ الخامُّ هنا وحدَه**: هذا الشرطُ الوحيدُ في الحارس الذي يقصد
+    # التعليقَ نفسَه — فالتعليلُ يعيش في تعليق. وسائرُ الشروط تقيس توجيهاتٍ
+    # تُرسَل، فتقرأ `conf` مجرَّدةً كي لا يُرضيها سطرٌ معلَّق.
     for token, why in (("'unsafe-eval'", "new Function"),
                        ("'unsafe-inline'", "style-src")):
-        assert token in conf and why in conf, (
+        assert token in conf and why in conf_raw, (
             f"التسامحُ {token} بلا تعليلٍ مكتوبٍ في الإعداد — يصير عادةً لا قرارًا [CSP-01]")
 
     # والمضيفاتُ الخارجيّةُ **مقصورةٌ على المقيس**: كلُّ مضيفٍ هنا شوهد في طلبٍ حقيقيّ.
@@ -4591,10 +4817,24 @@ def _deploy_wildcard_scope_is_contained():
     wv_lin = set(LIN.findall(body))
     assert wv_lin == {"webview.mihrab.dev"}, (
         "سلالةُ شهادة الـwebview ليست منفصلة: " + repr(sorted(wv_lin)))
-    site_lin = set(LIN.findall(_read(os.path.join(dep, "nginx", "mihrab.dev.conf"))))
-    assert "webview.mihrab.dev" not in site_lin, (
-        "كتلُ الموقع تستعمل سلالةَ الـwebview: " + repr(sorted(site_lin))
-        + " — الاحتواءُ يعمل في الاتّجاهين أو لا يعمل.")
+    # و**كلُّ إعدادٍ مركّبٍ يُقاس لا واحدٌ باسمه**: كان السطرُ يسمّي `mihrab.dev.conf`
+    # وحدَه — وهو **المتقاعد**، والمنشور `.static.conf`. فمرّت طفرةٌ خضراءَ
+    # ‎94/94‎: تبديلُ كلّ سلالات الشهادة في المنشور إلى مفتاح الـwildcard — وهو
+    # بالحرف ما يدّعي هذا الحارسُ منعَه. والمصدرُ الآنَ `_live_nginx_confs()`.
+    seen = 0
+    for fn, text in _live_nginx_confs():
+        if fn == "webview.mihrab.dev.conf":
+            continue          # هي صاحبةُ السلالة، وقد قُيست أعلاه
+        lin = set(LIN.findall(text))
+        if not lin:
+            continue
+        seen += 1
+        assert "webview.mihrab.dev" not in lin, (
+            "كتلُ الموقع في «" + fn + "» تستعمل سلالةَ الـwebview: " + repr(sorted(lin))
+            + " — الاحتواءُ يعمل في الاتّجاهين أو لا يعمل.")
+    assert seen >= 1, (
+        "لا إعدادَ موقعٍ حيًّا فيه سلالةُ شهادة — إمّا وُسِم المنشورُ بالتقاعد خطأً "
+        "أو تغيّرت صيغةُ `ssl_certificate`. لا يُترَك أخضرَ فارغًا [DEP-01]")
 
 
 @check("لا نداءَ `python` مجرَّدًا في أيّ سكربت [PY-01]")
@@ -5655,6 +5895,27 @@ def _repo_references_are_current():
     # فأسقط ثمانيةَ مُصاباتٍ أخرى معه.)
     EXEMPT = {"tests/meta/mutants.json"}
 
+    # ── ومنظّمةٌ **ثالثة** لا تمرّ ──
+    # الفحصُ كان يعرف اسمين: القديمَ فيحمرّ عليه، والجديدَ فيعدّه. ومرجعٌ إلى
+    # منظّمةٍ ثالثةٍ — خطأُ طباعة، أو اسمٌ جُرِّب ثمّ تُرك — لا هو القديمُ ولا
+    # الجديد، فكان يمرّ أخضر. قِيس فعلًا: مرجعٌ كاملٌ إلى `mihrab-org` (منظّمةٌ
+    # **غيرُ مسجَّلةٍ** على GitHub، أي اسمٌ يستطيع أيُّ أحدٍ تسجيلَه) عاش في
+    # تعليقٍ والحارسُ أخضر. فيُقاس **كلُّ** مرجعٍ على شكل «github.com/‹منظّمة›/mihrab»
+    # و«‹منظّمة›.github.io/mihrab»، والمنظّمةُ المعتمَدةُ **تُقرأ من `product.json`
+    # لا تُكتَب هنا**: هي ما يصل المستخدمَ في «أبلغ عن مشكلة»، وشاهدٌ يملكه ملفٌّ
+    # آخر لا يتقلّص مع المُقاس.
+    _prod = _read(os.path.join(ROOT, "product-overrides", "product.json"))
+    _canon = re.search(r'"reportIssueUrl":\s*"https://github\.com/([A-Za-z0-9_.-]+)/mihrab/', _prod)
+    assert _canon, "تعذّرت قراءةُ منظّمة المستودع من `reportIssueUrl` في `product.json`"
+    ORG = _canon.group(1)
+    assert NEW == ORG + "/mihrab", (
+        f"‏`product.json` على منظّمة «{ORG}» والحارسُ يعدّ «{NEW}» — أحدُهما بائت")
+    _org_pats = (
+        re.compile(r"github\.com/([A-Za-z0-9_.-]+)/mihrab(?![A-Za-z0-9_-])"),
+        re.compile(r"(?<![A-Za-z0-9_.-])([A-Za-z0-9-]+)\.github\.io/mihrab(?![A-Za-z0-9_-])"),
+    )
+    foreign = []
+
     stale = []
     seen_new = 0
     for rel in tracked:
@@ -5672,7 +5933,17 @@ def _repo_references_are_current():
                 if OLD in line:
                     stale.append(f"{rel}:{i}")
         seen_new += text.count(NEW)
+        for _pat in _org_pats:
+            for i, line in enumerate(text.splitlines(), 1):
+                for _m in _pat.finditer(line):
+                    if _m.group(1) != ORG:
+                        foreign.append(f"{rel}:{i} ← {_m.group(1)}")
 
+    assert not foreign, (
+        "مرجعٌ إلى المستودع على منظّمةٍ **ليست** منظّمتَه (" + ORG + "):\n       "
+        + "\n       ".join(foreign[:20])
+        + "\n       اسمٌ غيرُ مسجَّلٍ يستطيع أيُّ أحدٍ تسجيلَه ثمّ رفعَ أرشيفٍ بالاسم "
+        "المتوقَّع. بدِّله إلى " + NEW + " أو اكتبه مقطوعًا إن كان مثالًا.")
     assert not stale, (
         "مرجعٌ بائتٌ للمستودع القديم في:\n       " + "\n       ".join(stale[:20])
         + "\n       بدِّله إلى " + NEW)
@@ -5682,6 +5953,234 @@ def _repo_references_are_current():
         f"لم يُرَ إلّا {seen_new} مرجعًا لـ{NEW} — إمّا أنّ الاسمَ تغيّر (فيُحدَّث "
         f"الحارس) أو أنّ المراجعَ زالت. لا يُترَك أخضرَ فارغًا.")
 
+
+
+@check("فجوةُ المسرد مع حزمة اللغة مقيسةٌ ولا تتّسع [GLS-02]")
+def _glossary_gap_with_langpack_measured():
+    """المسردُ يمنع كلماتٍ تعرضها الشاشةُ — والحارسُ السابقُ يستثني الحزمةَ صراحةً.
+
+    ‏`glossary.json` يقول في ديباجته إنّ التوثيقَ **يجب** أن يطابق `language-pack-ar`
+    حرفًا بحرف، ثمّ يمنع «الإضافة» و«التصحيح» و«التحكّم بالمصدر» — وهي بالضبط ما
+    تعرضه الحزمةُ المورَّدة من مايكروسوفت (‏«الإضافات» مئاتِ المرّات). فالتوثيقُ
+    يقول «الامتداد» والشاشةُ تقول «الإضافة»، وهو ما وصفه المسردُ نفسُه بأنّه أسوأُ
+    من توثيقٍ إنجليزيّ. و[VA-06] يستثني الحزمةَ عمدًا («مورَّدةٌ لا نملك صياغتَها»)،
+    فبقي التعارضُ **غيرَ مقيس** — لا أخضرَ ولا أحمر — حتّى قرأه الكاتبُ التقنيّ.
+
+    وقرارُ حلّه قرارُ منتج (توسيعُ الملحق `mihrab_ar_supplement.json` ليغطّي الحزمة،
+    أو تبديلُ المسرد إلى ألفاظها). وما يملكه الحارسُ حتّى يُتَّخذ: **أن يُقاس ولا
+    يتّسع** — عدُّ كلّ لفظٍ ممنوعٍ في الحزمة (كلماتٍ كاملةً) مقابلَ خطٍّ أساسٍ مثبَّتٍ
+    هنا؛ فترقيةُ حزمةٍ تزيده تحمرّ، وملحقٌ يُنقِصه يُحدِّث الخطَّ نزولًا.
+    """
+    pack_path = os.path.join(ROOT, "extensions", "language-pack-ar", "translations", "main.i18n.json")
+    if not os.path.isfile(pack_path):
+        return
+    pack = _read(pack_path)
+    gpath = os.path.join(ROOT, "site", "data", "glossary.json")
+    terms = json.load(open(gpath, encoding="utf-8")).get("terms", [])
+    assert terms, "المسرَدُ فارغ — عمِيَ الحارس [GLS-02]"
+    # الخطُّ الأساس: ما تعرضه الحزمةُ اليومَ من الألفاظ الممنوعة. يُحدَّث نزولًا فقط.
+    BASELINE = {
+            "التفضيلات": 10,
+            "الخيارات": 29,
+            "بيئة العمل": 8,
+            "الإضافة": 785,
+            "الملحق": 75,
+            "التصحيح": 232
+    }
+    # **التصريفُ لا الكلمةُ الكاملة**: العدُّ الأوّل رأى «الإضافة» ‎468‎ وأغفل «الإضافات»
+    # ‎318‎ التي تذكرها ديباجةُ الحارس نفسِه — أي ‎37–58%‎ من الفجوة (قياسُ المحلّل).
+    # فيُقبَل حرفُ عطفٍ/جرٍّ سابق، و«ال»، وجمعٌ وضمائرُ لاحقة.
+    def _infl(w):
+        stem = w[2:] if w.startswith("ال") else w
+        # «ال» تُشترَط إن كانت في اللفظ: بلا شرطها يُعدّ «إضافة» بمعنى add (‏~‎800‎ سلسلة)
+        # فيتضخّم الرقمُ بما ليس مصطلحًا. و«بالإضافة إلى» (‏9) تبقى إيجابًا كاذبًا معلومًا.
+        pre = r"(?<![\w؀-ۿ])[وفبلك]?" + (r"ال" if w.startswith("ال") else r"(?:ال)?")
+        post = r"(?![\w\u0600-\u06FF])"
+        if " " in stem:
+            return pre + re.escape(stem) + post
+        if stem.endswith("ة"):
+            return pre + re.escape(stem[:-1]) + r"(?:ة|ات|ته|تها|تهم|تك|تي)" + post
+        return pre + re.escape(stem) + r"(?:ات|ون|ين|ه|ها|هم|ك|ي)?" + post
+
+    counts = {}
+    for t in terms:
+        for w in t.get("forbidden", []):
+            c = len(re.findall(_infl(w), pack))
+            if c:
+                counts[w] = c
+    assert counts, (
+        "لا لفظَ ممنوعًا في الحزمة — إمّا زال التعارضُ (فيُحذَف الحارس بقرار) أو تغيّر "
+        "مسارُ الحزمة [GLS-02]")
+    grew = {w: (BASELINE.get(w, 0), c) for w, c in counts.items() if c > BASELINE.get(w, 0)}
+    assert not grew, (
+        "الفجوةُ بين المسرد وحزمة اللغة اتّسعت — ألفاظٌ ممنوعةٌ زادت في الحزمة:\n       "
+        + "\n       ".join("«%s»: %d ← %d" % (w, a, b) for w, (a, b) in sorted(grew.items()))
+        + "\n       إمّا أن يغطّيها الملحقُ `mihrab_ar_supplement.json` أو يُحدَّث `BASELINE` في "
+        "`_glossary_gap_with_langpack_measured` بقرارٍ مكتوب [GLS-02]")
+    shrank = {w: (a, counts.get(w, 0)) for w, a in BASELINE.items() if counts.get(w, 0) < a}
+    assert not shrank, (
+        "الفجوةُ ضاقت — حدِّث `BASELINE` في `_glossary_gap_with_langpack_measured` نزولًا "
+        "كي يبقى الحارسُ صادقًا:\n       "
+        + "\n       ".join("«%s»: %d ← %d" % (w, a, b) for w, (a, b) in sorted(shrank.items()))
+        + " [GLS-02]")
+
+
+def _shell_code(line):
+    """ما قبل أوّل `#` **تعليقيٍّ** في السطر: في أوّله أو بعد فراغ، وخارج الاقتباس.
+
+    ‏`line.split("#", 1)[0]` كان يبتر `echo "a # b /opt/sad-website"` عند `#` داخل السلسلة
+    فيمرّ الموضعُ القديمُ أخضر (قِيس بالطفرة)؛ و`$#` و`${#x}` ليسا تعليقًا.
+    """
+    q = None
+    for i, ch in enumerate(line):
+        if q:
+            if ch == q:
+                q = None
+        elif ch in "\"'":
+            q = ch
+        elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
+            return line[:i]
+    return line
+
+
+@check("محرابٌ منفصلٌ عن موقع لغة ص: لا كتابةَ ولا رابطَ إلى sad-lang.org/mihrab [SEP-01]")
+def _separated_from_sad_lang_site():
+    """الموقعُ انتقل إلى `mihrab.dev` والبقايا بقيت على `sad-lang.org/mihrab/` تردّ ‎200‎.
+
+    الفصلُ ثلاثةُ أضلاع: (١) لا سكربتَ نشرٍ يكتب تحت `/opt/sad-website` ولا يسمّي
+    `sad-lang.org/mihrab` في **شيفرةٍ** (التعليقاتُ تاريخٌ ولا تُقاس)؛ (٢) لا صفحةَ
+    مبنيّةً تربط إلى الموضع القديم (يقيسه `check_site.py`)؛ (٣) الحيُّ نفسُه لا يردّ
+    ‎200‎ هناك — وذلك سطحٌ شبكيٌّ يقيسه `tests/live/probe_live.py`، فيُشترَط هنا أنّ
+    المجسَّ يسأل السؤالَ، وأنّ سكربتَ الإزاحة موجودٌ وسليمُ الصياغة.
+    """
+    bad = []
+    for rel in sorted(glob.glob(os.path.join(ROOT, "build", "*.sh")) + glob.glob(os.path.join(ROOT, "deploy", "*.sh"))
+                      + glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml"))
+                      + glob.glob(os.path.join(ROOT, "build", "*.py")) + [os.path.join(ROOT, "site", "build.py")]):
+        if os.path.basename(rel) == "retire_sad_lang_mirror.sh":
+            continue   # هو من يسمّي الموضعَ القديمَ ليُزيحه
+        for i, line in enumerate(_read(rel).splitlines(), 1):
+            code = _shell_code(line)
+            if "/opt/sad-website" in code or "sad-lang.org/mihrab" in code:
+                bad.append("%s:%d" % (os.path.relpath(rel, ROOT), i))
+    assert not bad, ("شيفرةٌ (لا تعليق) تسمّي موضعَ محرابٍ القديمَ تحت موقع لغة ص:\n       "
+                     + "\n       ".join(bad)
+                     + "\n       محرابٌ منفصل: الوجهةُ /opt/mihrab وmihrab.dev فقط [SEP-01]")
+    probe = os.path.join(ROOT, "tests", "live", "probe_live.py")
+    pt = _read(probe) if os.path.isfile(probe) else ""
+    # الحلقةُ نفسُها تُقاس لا وجودُ السلاسل: `for p in ():` أبقى النصَّ ومرّ أخضر
+    # (قِيس بالطفرة). و`follow=False` شرطٌ: `urlopen` يتبع ‎301‎ فيرى ‎200‎ الوجهةَ
+    # ويحمرّ كذبًا لحظةَ تركيب القصاصة (قِيس بخادمٍ محلّيّ).
+    pm = re.search(r'for p in \(([^)]*)\):\n\s+try:\n\s+s7, h7, _ = get\("https://sad-lang.org" \+ p, "HEAD", follow=False\)', pt)
+    assert pm and all(x in pm.group(1) for x in ('"/mihrab/"', '"/mihrab/download/"', '"/mihrab/docs/"')) \
+        and "s7 != 200" in pt, (
+        "مجسُّ الحيّ لا يسأل عن sad-lang.org/mihrab/ و/download/ و/docs/ على HEAD بلا تتبُّع تحويل "
+        "— الفصلُ بلا قياسٍ حيٍّ يبقى دعوى [SEP-01]")
+    retire = os.path.join(ROOT, "deploy", "retire_sad_lang_mirror.sh")
+    assert os.path.isfile(retire), "لا سكربتَ إزاحةٍ للبقايا (`deploy/retire_sad_lang_mirror.sh`) [SEP-01]"
+    # الشيفرةُ لا التعليقات: تعليقٌ يقول «لا rm -rf هنا» كان يُحمِّر (قِيس بالطفرة).
+    rt = "\n".join(_shell_code(l) for l in _read(retire).splitlines())
+    # والشرطان قبل الإزاحة (قياسُ سالي): المانيفستُ الحيُّ لا يشير إلى الموضع القديم،
+    # والقصاصةُ مركَّبةٌ (مسارٌ عشوائيٌّ تحت /mihrab/ يردّ ‎301‎) — وإلّا انقطع تنزيلُ
+    # محرابٍ من موقعه (أزرارُه كانت تمرّ عبر sad-lang.org/mihrab/dl/) وابتلعت صفحةُ
+    # اللغة الروابطَ القديمة بـ‎200‎. يُقاسان في الشيفرة لا التعليقات.
+    assert "mihrab.dev/dl/releases.json" in rt and "sad-lang.org*" in rt, (
+        "سكربتُ الإزاحة لا يتحقّق من أصل المانيفست الحيّ قبل النقل — أزرارُ التنزيل على "
+        "mihrab.dev كانت تمرّ عبر sad-lang.org/mihrab/dl/ [SEP-01]")
+    assert "retire-probe-" in rt and "MIHRAB_ALLOW_SWALLOW" in rt and "exit 4" in rt, (
+        "سكربتُ الإزاحة لا يقيس تركيبَ قصاصة التحويل قبل النقل — بلا تحويلٍ تردّ كتلةُ "
+        "sad-lang.org صفحةَ اللغة بـ200 لكلّ رابطٍ قديم (ابتلاعٌ صامت) [SEP-01]")
+    assert "mv '$OLD' '$KEEP'" in rt and "rm -rf" not in rt, (
+        "سكربتُ الإزاحة يجب أن ينقل لا يحذف — الحذفُ النهائيُّ قرارُ المالك بعد أسبوع [SEP-01]")
+
+
+@check("بوّابةُ أدوات ص تحمرّ بلا مانيفست حين يُشترَط الرسميّ [TOOLS-01]")
+def _sad_tools_gate_fails_without_manifest():
+    """أخضرُ أجوف: بناءٌ بلا لغة ص يمرّ البوّابةَ التي شُرِطت لأجله.
+
+    ‏`check_sad_tools.py` كان يردّ ‎0‎ «تخطٍّ مُعلَن» حين لا مانيفست — **قبل** أن يقرأ
+    `MIHRAB_REQUIRE_OFFICIAL_TOOLS`. فحين يفشل الجلبُ (المستودعُ خاصٌّ، لا رمز) تخضرّ
+    المصفوفةُ وتُشحَن حزمةٌ بلا أدوات ص بينما الصفحةُ الأولى تَعِد «جاهزةٌ في الصندوق»
+    (قياسُ مدير المنتج). والإصلاحُ نفسُه بلا حارسٍ عاد يمرّ حين طُفِّر (‏`if False:`)
+    — فيُقاس **سلوكًا**: بلا مانيفست، الشرطُ مضبوطٌ ⇒ ‎1‎، وغيرُ مضبوطٍ ⇒ ‎0‎ تخطٍّ.
+    """
+    import importlib.util
+    p = os.path.join(ROOT, "tests", "bundle", "check_sad_tools.py")
+    spec = importlib.util.spec_from_file_location("_cst", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.MANIFEST = os.path.join(ROOT, ".no-such-manifest-%d.json" % os.getpid())
+    old = os.environ.get("MIHRAB_REQUIRE_OFFICIAL_TOOLS")
+    try:
+        os.environ["MIHRAB_REQUIRE_OFFICIAL_TOOLS"] = "yes"
+        rc, out = mod.verify(os.path.join(ROOT, ".no-such-dist"))
+        assert rc == 1, "بلا مانيفست ومع MIHRAB_REQUIRE_OFFICIAL_TOOLS=yes ردّت البوّابةُ %d لا 1 — أخضرُ أجوف يشحن حزمةً بلا لغة ص" % rc
+        assert any("SAD_TOOLS_TOKEN" in l for l in out), "رسالةُ الفشل لا تسمّي السرَّ الناقص `SAD_TOOLS_TOKEN` — من يقرؤها لا يعرف ما يفعل"
+        os.environ.pop("MIHRAB_REQUIRE_OFFICIAL_TOOLS", None)
+        rc2, _ = mod.verify(os.path.join(ROOT, ".no-such-dist"))
+        assert rc2 == 0, "بلا شرطٍ يجب أن يكون غيابُ المانيفست تخطّيًا مُعلَنًا لا فشلًا (%d)" % rc2
+    finally:
+        if old is None:
+            os.environ.pop("MIHRAB_REQUIRE_OFFICIAL_TOOLS", None)
+        else:
+            os.environ["MIHRAB_REQUIRE_OFFICIAL_TOOLS"] = old
+
+
+@check("رُقَعُ النواة تُطبَّق عاديًّا قبل --3way [APPLY-01]")
+def _core_patches_apply_plain_first():
+    """‏`git apply --3way` وحدَه يرفض ملفًّا عدّلته رقعُ VSCodium بلا تهيئة.
+
+    الرقعةُ ‎036‎ (مصدرُ ملاحظات الإصدار) سقطت على CI في ثلاثَ عشرةَ دفعةً متتاليةً
+    بـ«does not match index» — لا لأنّ سياقَها انجرف، بل لأنّ `--3way` يشترط مطابقةَ
+    شجرةِ العمل للفهرس، ورقعُ VSCodium (‏`00-brand-remove-branding`،
+    `12-update-add-cooldown`) تمسّ `product.ts` و`update.config.contribution.ts`
+    قبلها **بلا `git add`**. ومرّت رُقَعُنا التسعُ الأخرى لأنّ ملفّاتها لم يمسّها أحد —
+    فبدا العطبُ خاصًّا بـ‎036‎ وهو عامٌّ ينتظر أوّلَ رقعةٍ تشترك في ملفٍّ مع المنبع.
+
+    والحارسُ المحلّيّ `check_anchors` لم يره: يقيس الرقعةَ على منبعٍ **نظيفٍ**، والعطبُ
+    لا يظهر إلّا فوق شجرةٍ عدّلها VSCodium. قِيس في مستودعٍ مؤقّت: الأربعةُ من HEAD +
+    رقعتا VSCodium بلا تهيئة ⇒ `git apply --check` يمرّ و`--3way --check` يرفض.
+
+    فيُشترَط: دالّةٌ `_mihrab_apply` تجرّب `git apply` العاديَّ أوّلًا ثمّ `--3way`،
+    ولا `git apply --3way ../.mihrab-*.patch` مباشرًا في أيّ موضع.
+    """
+    src = _read(os.path.join(ROOT, "build", "patch_bundle_extensions.py"))
+    body = src.replace("\r\n", "\n")
+    fn = re.search(r"_mihrab_apply\(\) \{\n(.*?)\n  \}", body, re.S)
+    assert fn, "لا دالّةَ `_mihrab_apply` في `patch_bundle_extensions.py` — رُقَعُ النواة تُطبَّق بـ`--3way` وحدَه فتسقط فوق ملفٍّ مسّته رقعةُ VSCodium"
+    # التعليقاتُ خارجَ القياس: سطرُ شرحٍ يذكر `--3way` ليس احتياطًا ولا يُقاس موضعُه.
+    lines = [l.strip() for l in fn.group(1).splitlines()
+             if l.strip() and not l.strip().startswith("#")]
+    assert lines and lines[0].startswith('git apply "$1"') and "--3way" not in lines[0], (
+        "‏`_mihrab_apply` لا تجرّب `git apply` العاديَّ أوّلًا — و`--3way` أوّلًا يرفض ملفًّا "
+        "عدّلته رقعُ VSCodium بلا تهيئة مهما صحّ سياقُه")
+    assert any("--3way" in l for l in lines[1:]), (
+        "‏`_mihrab_apply` بلا احتياط `--3way` — انجرافُ المنبع يُسقِط رقعةً كان يمكن دمجُها")
+    # ── و`git add` لمسارات الرقعة **بين** العاديّ و`--3way` — لا قبلهما ولا بعدهما ──
+    # هذه الخطوةُ هي الإصلاحُ نفسُه: `--3way` يشترط أن يطابق ملفُّ الشجرة الفهرسَ، والتهيئةُ
+    # هي ما يجعلهما يتطابقان. طفرةٌ حذفت حلقةَ `git add` مرّت **خضراء** على الحارس
+    # الأوّل (الجولة ١١) — فيعود CI أحمرَ بـ«does not match index» والحارسُ راضٍ.
+    # وقبل العاديّ لا معنى لها (العاديُّ لا يقرأ الفهرس)، وبعد `--3way` لا تُنفَّذ.
+    _i3 = next(i for i, l in enumerate(lines) if "--3way" in l)
+    assert any(re.search(r"git add --? ", l) for l in lines[1:_i3]), (
+        "‏`_mihrab_apply` لا تهيّئ مساراتِ الرقعة بـ`git add` قبل `--3way` — فالاحتياطُ يسقط "
+        "بـ«does not match index» على كلّ ملفٍّ مسّته رقعةُ VSCodium (عطبُ ‎036‎ بعينه)")
+    assert re.search(r"\+\+\+ b/", fn.group(1)), (
+        "المساراتُ المهيَّأة لا تُشتقّ من ترويسات `+++ b/` في الرقعة — قائمةٌ مكتوبةٌ بيدٍ "
+        "تترك رقعةً جديدةً بلا تهيئة")
+    bare = [m.group(0) for m in re.finditer(r"git apply --3way \.\./\.mihrab-[\w-]+\.patch", body)]
+    assert not bare, (
+        "رُقعةُ نواةٍ تُطبَّق بـ`--3way` مباشرةً (تسقط فوق ملفٍّ مسّته رقعةُ VSCodium):\n       "
+        + "\n       ".join(bare))
+    used = re.findall(r"_mihrab_apply \.\./\.mihrab-([\w-]+)\.patch", body)
+    assert len(used) >= 9, f"‏{len(used)} رقعةً فقط تمرّ بـ`_mihrab_apply` — الصيغةُ تغيّرت؛ يُحدَّث الحارس"
+    # وكلُّ رقعةِ نواةٍ في `patches/core/` لها موضعُ تطبيقٍ — رقعةٌ تُنسَخ ولا تُطبَّق صامتة.
+    copied = re.findall(r'cp -f "\$ROOT/patches/core/\d+-([\w-]+)\.patch" "\$UP/\.mihrab-([\w-]+)\.patch"',
+                        _read(os.path.join(ROOT, "build", "build.sh")))
+    for _src_name, _dst_name in copied:
+        assert _dst_name in used, (
+            f"‏`patches/core/*-{_src_name}.patch` تُنسَخ إلى `.mihrab-{_dst_name}.patch` ولا يطبّقها "
+            "`_mihrab_apply` في `patch_bundle_extensions.py` — رقعةٌ تُشحَن ولا تعمل")
 
 
 @check("ملاحظاتُ الإصدار: العقدُ الخماسيّ [RN-01]")
@@ -5715,7 +6214,51 @@ def _release_notes_contract_holds():
     m = _re.match(r"^https://([^/]+)(/.*)$", base)
     assert m, f"قاعدةُ الملاحظات بلا مسارٍ بعد النطاق: {base}"
     host, path = m.group(1), m.group(2)
-    conf = _read(os.path.join(ROOT, "deploy", "nginx", "%s.static.conf" % host))
+    # ── الكتلةُ تُطلَب بـ`server_name` لا باسم الملفّ ──
+    # كان السطرُ يشتقّ `"%s.static.conf" % host` — وهو افتراضٌ يصدُق ما دام
+    # لكلّ مضيفٍ ملفٌّ باسمه. والملفُّ الواحدُ يحمل اليومَ ثلاثَ كتل، فنقلُ
+    # القاعدة إلى `app.mihrab.dev` كان سيُحمِرَ الحارسَ على بنيةٍ صحيحة — وهو
+    # فشلٌ في الحارس يدفع إلى تعطيله لا إلى إصلاحِه.
+    #
+    # **والكتلةُ هي وحدةُ القياس لا الملفّ**: طفرةٌ زُرِعت ومرّت خضراء —
+    # حذفُ `default_type text/markdown;` من كتلةٍ واحدةٍ من اثنتين، لأنّ الشرطَ
+    # كان `in conf` أي «في الملفّ موضِعٌ ما». وكذلك `alias` كان **أوّلَ** ورودٍ
+    # في الملفّ لا ورودَ كتلةَ الملاحظات.
+    conf = None
+    for fn, text in _live_nginx_confs():
+        for m2 in _re.finditer(r"^\s*server_name\s+([^;]+);", text, _re.MULTILINE):
+            if host in m2.group(1).split():
+                # اقتطاعُ كتلة `server` بموازنة الأقواس من رأسها.
+                # ‏**رأسُ الكتلة لا آخرُ ورودٍ لكلمة «server»**: كان
+                # `text.rindex("server", 0, m2.start())` — وأيُّ تعليقٍ فوق
+                # `server_name` فيه الكلمةُ (وهي كلمةٌ شائعةٌ في تعليقِ إعدادِ
+                # خادم) يجعل الاقتطاعَ يبدأ من داخل التعليق فتنهار الموازنةُ
+                # ويحمرّ الحارسُ على بنيةٍ صحيحة. قِيس بالطفرة.
+                heads = [h.start() for h in
+                         _re.finditer(r"^[ 	]*server\s*\{", text, _re.MULTILINE)
+                         if h.start() < m2.start()]
+                if not heads:
+                    continue
+                st = heads[-1]
+                jj = text.index("{", st)
+                depth, kk = 0, jj
+                while kk < len(text):
+                    if text[kk] == "{":
+                        depth += 1
+                    elif text[kk] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    kk += 1
+                cand = text[st:kk]
+                if ("location %s/ {" % path) in cand:
+                    conf = cand
+                    break
+        if conf:
+            break
+    assert conf, (
+        "لا كتلةَ `server` حيّةٌ لـ%s تخدم `%s/` — القاعدةُ في الهويّة تشير إلى "
+        "مسارٍ لا يخدمه الخادم، فيجلب المحرّرُ ‎404‎ ويرتدّ إلى المتصفّح" % (host, path))
     assert ("location %s/ {" % path) in conf, (
         "لا كتلةَ `location %s/` في إعداد nginx لـ%s — القاعدةُ في الهويّة تشير إلى "
         "مسارٍ لا يخدمه الخادم، فيجلب المحرِّرُ ‎404‎ ويرتدّ إلى المتصفّح" % (path, host))
@@ -5725,14 +6268,57 @@ def _release_notes_contract_holds():
     # `vscode-file://vscode-app`)، فبلا `Access-Control-Allow-Origin` يسقط في التطبيق
     # **بينما يردّ الخادمُ ‎200‎ لـcurl** — نجاحٌ كاذبٌ عند الناشر وميزةٌ ميّتةٌ عند القارئ.
     # قِيس حيًّا: المنبعُ يُجيب العارضَ، و`mihrab.dev` بلا الترويسة يسقط.
-    notes_block = conf[conf.index("location %s/ {" % path):]
-    notes_block = notes_block[:notes_block.index(chr(10) + "    }")]
-    assert "Access-Control-Allow-Origin" in notes_block, (
-        "كتلةُ الملاحظات بلا `Access-Control-Allow-Origin` — الجلبُ عابرُ أصلٍ فيسقط في "
-        "التطبيق رغم أنّ الخادمَ يردّ ‎200‎ لـcurl")
-    assert "default_type text/markdown;" in conf, (
-        "كتلةُ الملاحظات بلا `default_type text/markdown;` — مع `nosniff` يصير النصُّ تنزيلًا. "
-        "و`charset_types` وحدَه لا يكفي: هو يضبط الترميزَ لا النوع")
+    # ── و**كلُّ** كتلةِ ملاحظاتٍ حيّةٍ تُقاس، لا كتلةُ الأصل وحدَها ──
+    # بعد انتقال القاعدة إلى `app.mihrab.dev` صارت في الملفّ كتلتان. وكانت
+    # الثانيةُ — كتلةُ `mihrab.dev` — **خارجَ كلّ قياس**: ثلاثُ طفراتٍ مرّت
+    # خضراءَ عليها (حذفُ `ACAO` · `alias` إلى مجلّدٍ لا يُنشَر إليه · **حذفُ
+    # الكتلة بجملتها**).
+    #
+    # وهي كتلةٌ حاملةٌ للحِمل لا أثرٌ متروك: كلُّ ثنائيٍّ شُحِن قبل الانتقال يحمل
+    # `https://mihrab.dev/notes` **مخبوزًا في `product.json` داخله** — لا يبلغه
+    # تحويلٌ ولا تحديثُ خادم. فحذفُها يُسكِت ملاحظاتِ الإصدار عند كلّ من نزّل
+    # محرابًا قبل اليوم، وهم كلُّ المستخدِمين. والعقدُ يُقاس على الاثنتين.
+    notes_blocks = []
+    for _fn, _text in _live_nginx_confs():
+        for _m in _re.finditer(r"location\s+%s/\s*\{" % _re.escape(path), _text):
+            _j = _text.index("{", _m.start())
+            _depth, _k = 0, _j
+            while _k < len(_text):
+                if _text[_k] == "{":
+                    _depth += 1
+                elif _text[_k] == "}":
+                    _depth -= 1
+                    if _depth == 0:
+                        break
+                _k += 1
+            # اسمُ الخادم للرسالة: «أيُّ كتلة؟» أنفعُ من «الكتلة».
+            _prev = [x for x in _re.finditer(r"^\s*server_name\s+([^;]+);",
+                                             _text[:_m.start()], _re.MULTILINE)]
+            _who = _prev[-1].group(1).strip() if _prev else _fn
+            notes_blocks.append((_who, _text[_j:_k]))
+
+    assert len(notes_blocks) >= 2, (
+        "لم تُقرَأ إلّا %d كتلةَ `location %s/` حيّة — والمنتظَر اثنتان: كتلةُ "
+        "`app.mihrab.dev` (الأصلُ الذي تقصده الهويّة) وكتلةُ `mihrab.dev` التي "
+        "تخدم الثنائيّاتِ المشحونةَ قبل الانتقال. حذفُ إحداهما يُسكِت ملاحظاتِ "
+        "الإصدار عند شريحةٍ كاملة [RN-01]" % (len(notes_blocks), path))
+
+    for _who, notes_block in notes_blocks:
+        assert "Access-Control-Allow-Origin" in notes_block, (
+            "كتلةُ الملاحظات في «" + _who + "» بلا `Access-Control-Allow-Origin` — "
+            "الجلبُ عابرُ أصلٍ فيسقط في التطبيق رغم أنّ الخادمَ يردّ ‎200‎ لـcurl")
+        assert "default_type text/markdown;" in notes_block, (
+            "كتلةُ الملاحظات في «" + _who + "» بلا `default_type text/markdown;` — "
+            "مع `nosniff` يصير النصُّ تنزيلًا. و`charset_types` وحدَه لا يكفي: هو "
+            "يضبط الترميزَ لا النوع")
+        _al = _re.search(r"alias\s+(\S+?)/?;", notes_block)
+        assert _al, "كتلةُ الملاحظات في «" + _who + "» بلا `alias` — لا مجلّدَ تُقرأ منه"
+        assert _al.group(1) in _read(os.path.join(ROOT, "build",
+                                                  "publish_release_notes.sh")), (
+            "مجلّدُ `alias` في كتلة «" + _who + "» (" + _al.group(1) + ") لا يذكره "
+            "سكربتُ النشر — النشرُ يكتب حيث لا يقرأ الخادم")
+
+    notes_block = notes_blocks[0][1]
 
     # **والرقعةُ داخل القياس لا خارجَه.** هي الضلعُ الوحيدُ الذي يقرأ المفتاح، فلو أُعيدت
     # تسميتُه فيها وحدَها لمرّ كلُّ شيء: الحارسُ أخضر، والرقعةُ تُطبَّق نظيفةً، والبناءُ
@@ -5748,7 +6334,7 @@ def _release_notes_contract_holds():
     pub = os.path.join(ROOT, "build", "publish_release_notes.sh")
     assert os.path.isfile(pub), "لا سكربتَ نشرٍ للملاحظات — لا طريقَ يضع الملفَّ على الخادم"
     # ووجهةُ النشر هي التي يخدمها `alias`: النشرُ حيث لا يقرأ الخادمُ ‎404‎ صامتٌ عند القارئ.
-    alias = _re.search(r"alias\s+(\S+?)/?;", conf)
+    alias = _re.search(r"alias\s+(\S+?)/?;", notes_block)
     assert alias, "كتلةُ الملاحظات بلا `alias` — لا مجلّدَ تُقرأ منه"
     assert alias.group(1) in _read(pub), (
         "مجلّدُ `alias` في nginx (%s) لا يذكره سكربتُ النشر — النشرُ يكتب حيث لا يقرأ الخادم"
@@ -5897,15 +6483,16 @@ def _published_hostnames_are_served():
     # الخادم الافتراضيّ — و`.dev` في قائمة HSTS المحمَّلة، فالنتيجةُ حجبٌ تامٌّ بلا
     # زرِّ تجاوز. أمّا ‎80‎ فلا يُطرَق أصلًا من متصفّح.
     served = set()
-    ngx = os.path.join(ROOT, "deploy", "nginx")
     blocks_443 = 0
-    for fn in sorted(os.listdir(ngx)):
-        if not fn.endswith(".conf"):
-            continue
+    # و**المركّبُ وحدَه يُحتسَب خدمةً**: كان الجمعُ من كلّ `.conf` في المجلّد،
+    # وفيه `mihrab.dev.conf` المتقاعد — فكان يُجيب نيابةً عن المنشور. قِيس
+    # بالطفرة: حذفُ كتلتَي `www` والجذر من الملفّ الحيّ ⇒ بقي هذا الحارسُ
+    # أخضرَ لأنّ المتقاعدَ يعلِن الاسمَين نفسَيهما. وملفٌّ لا يُركَّب لا يخدم.
+    for fn, _text in _live_nginx_confs():
         # تقطيعٌ بسيطٌ يكفي هذه الملفّات: كلُّ `server {` يفتح كتلةً، والقوسُ
         # المغلقُ في العمود الأوّل يُنهيها. ولا `server` متداخلةٌ في nginx.
         block, inside = [], False
-        for line in _read(os.path.join(ngx, fn)).splitlines() + ["}"]:
+        for line in _text.splitlines() + ["}"]:
             if not inside:
                 if _re.match(r"^\s*server\s*\{", line):
                     inside, block = True, []
@@ -6117,6 +6704,117 @@ def _site_output_has_no_inline_script():
         "سكربتٌ داخليٌّ في مخرَج الموقع — تحجبه سياسةُ الجذر فتُصيَّر الصفحةُ ‎200‎ "
         "وقد بطُل ما يبنيه:\n       " + "\n       ".join(bad[:20])
         + "\n       أخرِجه إلى `site/assets/<اسم>.js` وصِلْه بـ`src` [WEB-10 · WEB-09].")
+
+
+@check("كلُّ منصّةٍ تُعلِنُها الصفحةُ تُبنى وتُغلَّف [PKG-01]")
+def _every_advertised_platform_is_actually_built():
+    """صفحةُ التنزيل تُعلِن ثمانيَ منصّاتٍ ولا يُبنى منها إلّا ثلاث.
+
+    والأثرُ ليس نقصَ ميزةٍ بل **إعلانٌ يُنقَض في الشاشة نفسِها**: خمسةُ صفوفٍ
+    رماديّةٍ تقول «لم يُبنَ بعد» من ثمانٍ — أي أنّ أغلبَ الجدول «لا»، والانطباعُ
+    الأوّل «مشروعٌ ناقص». وجدولُ المتطلّبات تحتَه يَعِد صراحةً بـ«macOS 12 أو
+    أحدث · Intel أو Apple Silicon» — وعدٌ في الجدول ونقضُه في الجدول نفسِه.
+
+    والضلعان يُقاسان معًا لأنّ أحدَهما وحدَه لا يكفي: فرعُ تغليفٍ بلا صفٍّ في
+    المصفوفة شيفرةٌ لا تُشغَّل، وصفٌّ بلا فرعٍ وظيفةُ ساعةٍ تنتهي بلا ملفّ.
+    """
+    import json as _json
+    import re as _re
+
+    site = _json.loads(_read(os.path.join(ROOT, "site", "data", "site.json")))
+    ids = [p["id"] for p in site["platforms"]]
+    assert len(ids) >= 6, (
+        "لم تُقرَأ إلّا %d منصّةً في صفحة التنزيل — تغيّرت البنية؛ لا يُترَك "
+        "الحارسُ يقيس الهواء [PKG-01]" % len(ids))
+
+    # ── ١ · المُغلِّفُ يعرف كلَّ معرّف ──
+    # المعرّفاتُ فيه مكتوبةٌ بمعماريّةٍ متغيّرة (`win-$VSCODE_ARCH-zip`)، فيُوضَع
+    # مكانَها ما يطابقها قبل المقارنة.
+    pkg_raw = _read(os.path.join(ROOT, "build", "package_assets.sh"))
+
+    # ── ويُقاس النصُّ **الحيّ** لا التعليقات ──
+    # كان المقياسُ يقرأ الملفَّ خامًّا، فحذفُ حلقة التحقّق كلِّها مع إبقاء أضلاعها
+    # الثلاثة في تعليقٍ يمرّ أخضرَ حرفًا بحرف (قِيس: مرّت، و`bash -n` سليم).
+    # فالاشتراطُ على ثلاث سلاسلَ بدل واحدةٍ لم يُغلق الثقب — نقله من سلسلةٍ إلى
+    # ثلاث. والإغلاقُ هو تجريدُ التعليقات، كما يفعل `ngx_strip` مع nginx.
+    def _sh_strip(text):
+        out = []
+        for line in text.splitlines(True):
+            q = None
+            for i, ch in enumerate(line):
+                if q:
+                    if ch == q:
+                        q = None
+                elif ch in "'\"":
+                    q = ch
+                elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
+                    line = line[:i] + ("\n" if line.endswith("\n") else "")
+                    break
+            out.append(line)
+        return "".join(out)
+
+    pkg = _sh_strip(pkg_raw)
+
+    # ‏`want` لا مجرّدُ ورودٍ في الملفّ: الاسمُ يظهر في السكربت ثلاثَ مرّاتٍ
+    # (الشرطُ ومهمّةُ gulp واسمُ المخرَج)، فـ«موجودٌ في النصّ» أضعفُ ممّا يلزم.
+    #
+    # ⚠️ **وحدُّ هذا الحارس معلَنٌ هنا**: هو يقيس أنّ الاسمَ مكتوبٌ في شرطِ `want`،
+    # **لا أنّ الفرعَ يُنفَّذ**. فمن لفَّ الفرعَ بشرطٍ كاذبٍ أو أفرغ جسمَه يمرّ
+    # خضراءَ عليه (جُرِّب: مرّت). وتنفيذُ Bash ساكنًا ليس متاحًا، فالطبقةُ التي
+    # تمسك ذلك هي **وقتُ التشغيل**: `package_assets.sh` يتحقّق في نهايته أنّ كلَّ
+    # أصلٍ طُلِب قد وُلِد له ملفٌّ فعلًا، ويسقط بخطأٍ يسمّي المنصّةَ إن لم يُولَد.
+    # حارسان في طبقتين، وادّعاءُ كلٍّ منهما بقدره — **وهذا الحارسُ يشترط بقاءَ
+    # أخيه**: إفراغُ تلك الحلقة في السكربت كان يمرّ خضراءَ هنا، فتنهار الطبقةُ
+    # الثانيةُ بلا أثرٍ بينما يُحيل هذا التعليقُ إليها.
+    # والشرطُ على **الحلقة** لا على الرسالة: إبقاءُ السلسلة في تعليقٍ مع إفراغ
+    # الحلقة كان يمرّ أخضر. فتُشترَط أضلاعُها الثلاثةُ معًا — المسحُ والشرطُ
+    # والخروج — إذ لا ينفع واحدٌ منها بلا صاحبَيه.
+    for _need in ('for a in $ASSETS', 'compgen -G "$DIST/$STEM-$a."*', "exit 1"):
+        assert _need in pkg, (
+            "فحصُ «كلُّ أصلٍ طُلِب قد وُلِد» ناقصٌ في `build/package_assets.sh`: "
+            "ينقص `%s`. وهو الطبقةُ الوحيدةُ التي تمسك فرعًا مكتوبًا لا يُنفَّذ — "
+            "وبدونه يخرج المُغلِّفُ بـ0 و`dist/` فارغة، ويرفع `upload-artifact` "
+            "لا شيء، والسيرُ أخضر [PKG-01]" % _need)
+    # ‏`codesign --verify` كذلك: بناءُ ماك بلا توقيعٍ صالحٍ لا يُقلِع على Apple
+    # Silicon البتّة (النواةُ ترفض تنفيذَه)، وذلك عطبٌ لا يظهر إلّا عند المستخدم.
+    assert "codesign --verify" in pkg, (
+        "‏`codesign --verify` زال من `build/package_assets.sh` — فتوقيعٌ فاشلٌ "
+        "يمرّ صامتًا، وحزمةُ ماك تُشحَن غيرَ قابلةٍ للإقلاع على Apple Silicon [PKG-01]")
+    assert "طُلِبَ تغليفُها ولم يُولَد لها ملفّ" in pkg, (
+        "فحصُ «كلُّ أصلٍ طُلِب قد وُلِد» زال من `build/package_assets.sh` — وهو "
+        "الطبقةُ الوحيدةُ التي تمسك فرعًا مكتوبًا لا يُنفَّذ. وبدونه يخرج المُغلِّفُ "
+        "بـ0 و`dist/` فارغة، ويرفع `upload-artifact` لا شيء، والسيرُ أخضر [PKG-01]")
+    def _covered(pid):
+        cands = {pid}
+        for arch in ("x64", "arm64"):
+            cands.add(pid.replace("-" + arch + "-", "-$VSCODE_ARCH-"))
+            if pid.endswith("-" + arch):
+                cands.add(pid[:-len(arch)] + "$VSCODE_ARCH")
+        return any(_re.search(r'want\s+"?' + _re.escape(c) + r'"?(\s|$|;|\|)', pkg)
+                   for c in cands)
+
+    missing_pkg = [p for p in ids if not _covered(p)]
+    assert not missing_pkg, (
+        "منصّةٌ تُعلِنُها صفحةُ التنزيل ولا فرعَ تغليفٍ لها في "
+        "`build/package_assets.sh`:\n       " + "\n       ".join(missing_pkg)
+        + "\n       الأثر: صفٌّ رماديٌّ دائمٌ يقول «لم يُبنَ بعد» ولا شيءَ يبنيه [PKG-01].")
+
+    # ── ٢ · والمصفوفةُ تطلُبه فعلًا ──
+    wf = _read(os.path.join(ROOT, ".github", "workflows", "build-matrix.yml"))
+    declared = set()
+    for m in _re.finditer(r"assets:\s*([A-Za-z0-9 _.-]+?)\s*[,}]", wf):
+        declared.update(m.group(1).split())
+    assert declared, (
+        "لا حقلَ `assets:` في مصفوفة البناء — تغيّرت صيغةُ السير؛ يُحدَّث الحارس [PKG-01]")
+    missing_ci = [p for p in ids if p not in declared]
+    assert not missing_ci, (
+        "منصّةٌ تُعلِنُها الصفحةُ ولا تبنيها مصفوفةُ البناء:\n       "
+        + "\n       ".join(missing_ci)
+        + "\n       الأثر: فرعُ تغليفٍ مكتوبٌ لا يُشغّلُه أحدٌ [PKG-01].")
+    stray = [d for d in sorted(declared) if d not in ids]
+    assert not stray, (
+        "المصفوفةُ تبني معرّفًا لا تعرفه صفحةُ التنزيل: " + ", ".join(stray)
+        + " — وظيفةُ ساعةٍ تُنتِج أصلًا لا يظهر في الجدول [PKG-01].")
 
 
 def _assert_lines():

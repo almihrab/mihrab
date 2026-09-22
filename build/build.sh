@@ -288,6 +288,17 @@ fi
 # فيُقتل البناءُ بـOOM في منتصفه — وهو فشلٌ يصعب ردُّه إلى سببه.
 JOBS="${MIHRAB_JOBS:-$( { nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4; } )}"
 export npm_config_jobs="$JOBS"
+# ── معماريّةُ الوحدات الأصليّة **صريحةٌ لا مستنتَجة** ──
+# بلا هذا يبني `node-gyp` — ويُنزّل `prebuild-install` — لمعماريّة **المضيف** لا
+# الهدف. فبناءُ `win32-arm64` على عدّاءِ x64 يُنتج شجرةً كاملةً يبدو كلُّ شيءٍ
+# فيها صحيحًا، وداخلَها `.node` بمعماريّةٍ خاطئة: التطبيقُ يُثبَّت ثمّ يسقط عند
+# أوّلِ نداءٍ للوحدة (‏keytar ‏· ripgrep ‏· spdlog) بلا رسالةٍ مفهومة. وهو عطبٌ لا
+# تمسكه أيُّ خطوةٍ على عدّاءٍ x64 لأنّ الثنائيَّ لا يُشغَّل هناك أصلًا.
+#
+# وقيمتُه على البناءِ الأصليّ هي المعماريّةُ نفسُها، فالتصريحُ لا يغيّر شيئًا
+# هناك — وهذا هو المطلوب: مسارٌ واحدٌ لا مساران.
+export npm_config_arch="$VSCODE_ARCH"
+export npm_config_target_arch="$VSCODE_ARCH"
 export UV_THREADPOOL_SIZE="$JOBS"
 export NODE_OPTIONS="--max-old-space-size=8192"
 export VSCODE_SKIP_NODE_VERSION_CHECK=yes

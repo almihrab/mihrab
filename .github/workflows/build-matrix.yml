@@ -92,9 +92,35 @@ jobs:
           # jobs=2 على لينكس لا 4: عدّاءُ أوبنتو مات بـ«runner received a shutdown
           # signal» في منتصف حزم esbuild — وهي بصمةُ نفادِ ذاكرةٍ لا خطأِ بناء.
           # أربعُ وظائفَ متوازية × 8GB لكومة V8 تتجاوز ذاكرةَ العدّاء.
-          - { name: لينكس x64,      os: ubuntu-22.04,  asset: linux-x64-tar,   out: VSCode-linux-x64,    jobs: 2 }
-          - { name: macOS arm64,    os: macos-14,      asset: mac-arm64,       out: VSCode-darwin-arm64, jobs: 3 }
-          - { name: ويندوز x64,     os: windows-2022,  asset: win-x64-zip,     out: VSCode-win32-x64,    jobs: 4 }
+          #
+          # ── الثمانيةُ كلُّها تُبنى ──
+          # كانت ثلاثةً، وصفحةُ التنزيل تُعلِن ثمانيًا: خمسةُ صفوفٍ رماديّةٍ تقول
+          # «لم يُبنَ بعد» من ثمانٍ. ويحرس التطابقَ [PKG-01] في L0: كلُّ `id` في
+          # `site/data/site.json` له `assets:` هنا **وفرعُ تغليفٍ** في
+          # `build/package_assets.sh`، ولا معرّفَ هنا تجهله الصفحة.
+          #
+          # وعدّةُ أصولٍ في الوظيفة الواحدة حيث يكفي بناءٌ واحد: حزمةُ دبيان
+          # وحزمةُ فيدورا والأرشيفُ المحمول ثلاثةُ تغليفاتٍ لشجرةٍ واحدة، وبناؤها
+          # ثلاثَ مرّاتٍ ساعتان ضائعتان ومخاطرةُ اختلافِ ثلاثِ نسخٍ من الشيء نفسِه.
+          - { name: لينكس x64,       os: ubuntu-22.04,    arch: x64,   out: VSCode-linux-x64,    jobs: 2,
+              assets: linux-x64-tar linux-x64-deb linux-x64-rpm, native: true }
+          - { name: macOS arm64,     os: macos-14,        arch: arm64, out: VSCode-darwin-arm64, jobs: 3,
+              assets: mac-arm64, native: true }
+          # عدّاءٌ إنتلٌ **أصليّ** لا ترجمةٌ متقاطعة: اختبارُ الإقلاع أدناه هو
+          # نصفُ قيمةِ هذه الوظيفة، وثنائيُّ x64 لا يُشغَّل على عدّاءٍ من سيليكون.
+          # ⚠️ ولا بديلَ إنتليًّا آخرَ: `macos-13` **متقاعدٌ سلفًا**، وهذا الوسمُ
+          # هو ما حلّ محلَّه. فإن زال فلا خيارَ إلّا الترجمةُ المتقاطعة على
+          # عدّاء arm64 (`MIHRAB_ARCH=x64`) — **ويُسقَط معها اختبارُ الإقلاع**
+          # بـ`native: false` صراحةً لا صامتًا، كما في صفّ ويندوز arm64.
+          - { name: macOS x64,       os: macos-15-intel,  arch: x64,   out: VSCode-darwin-x64,   jobs: 3,
+              assets: mac-x64, native: true }
+          - { name: ويندوز x64,      os: windows-2022,    arch: x64,   out: VSCode-win32-x64,    jobs: 4,
+              assets: win-x64-zip win-x64-setup, native: true }
+          # ‏arm64 ترجمةٌ متقاطعةٌ على عدّاء x64 — ولا عدّاءَ ويندوزَ arm64 عامًّا.
+          # و`npm_config_arch` في `build.sh` هو ما يمنع شحنَ `.node` بمعماريّة
+          # المضيف داخل شجرةٍ يبدو كلُّ شيءٍ فيها صحيحًا.
+          - { name: ويندوز arm64,    os: windows-2022,    arch: arm64, out: VSCode-win32-arm64,  jobs: 4,
+              assets: win-arm64-setup, native: false }
 
     defaults:
       run: { shell: bash }
@@ -128,6 +154,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev fakeroot rpm \
             xvfb libnss3 libasound2 libgbm1 libgtk-3-0
+          # ‏`dpkg-shlibdeps` يشتقّ اعتماديّاتِ الحزمة من الثنائيّات نفسِها
+          # (‏`dependencies-generator.ts`)، وبدونه تُبنى حزمةٌ تُثبَّت ثمّ لا تُقلِع
+          # على جهازٍ تنقصه مكتبة. وهو في `dpkg-dev` لا في الأساس.
+          sudo apt-get install -y --no-install-recommends dpkg-dev
 
       # ذاكرةُ العدّاء لا تكفي ذروةَ الحزم. والمبادلةُ أبطأُ من الذاكرة لكنّها
       # تُنهي البناء — والبديلُ عدّاءٌ يموت بلا سجلٍّ مفيد بعد أربعين دقيقة.
@@ -152,6 +182,10 @@ jobs:
         run: bash build/fetch_sad_tools.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # المستودعُ خاصٌّ في منظّمةٍ أخرى؛ رمزُ قراءةٍ مخصَّصٌ يُضاف سرًّا باسم
+          # `SAD_TOOLS_TOKEN` — وبدونه تبقى الخطوةُ «لا إصدار» وتُسقِط الوظيفةَ بوّابةُ
+          # `MIHRAB_REQUIRE_OFFICIAL_TOOLS`.
+          SAD_TOOLS_TOKEN: ${{ secrets.SAD_TOOLS_TOKEN }}
 
       - name: تصديرُ مسارات أدوات ص
         if: steps.sad_tools.outcome == 'success'
@@ -173,6 +207,10 @@ jobs:
         run: bash build/build.sh
         env:
           MIHRAB_JOBS: ${{ matrix.jobs }}
+          # ‏`build.sh` يكشف معماريّةَ **المضيف** بـ`uname -m`؛ و`MIHRAB_ARCH` هو
+          # ما يجعله يبني للهدف. وتصريحُه في كلّ صفٍّ — حتّى الأصليّ — يمنع
+          # مسارَين: الصريحُ لا يخطئ، والصامتُ يخطئ يومَ يتغيّر العدّاء.
+          MIHRAB_ARCH: ${{ matrix.arch }}
           MIHRAB_EXTRA_EXT_DIRS: ${{ inputs.preview_alif && format('{0}/.preview-extensions/alif-lang', github.workspace) || '' }}
           # ‏vscode-min-prepack ينزّل الإضافاتِ المدمجة من واجهة GitHub. وبلا رمزٍ
           # يكون النداءُ مجهولًا، وحدُّه ٦٠ نداءً في الساعة **لعنوان العدّاء لا
@@ -243,7 +281,15 @@ jobs:
       # أنّه **يفتح**: مكتبةٌ مشتركةٌ ناقصة، أو حزمةٌ لا تُقلع، تمرّ خضراءَ تمامًا
       # ثمّ تصل إلى المستخدم تنزيلًا لا يعمل. وهذه بالضبط الفجوةُ التي لا يسدّها
       # إلّا تشغيلُ الثنائيّ فعلًا — ودقيقةٌ هنا أرخصُ من إصدارٍ مسحوب.
+      # ⚠️ **الإقلاعُ يُقاس حيث يمكن تشغيلُه.** بناءُ `win32-arm64` يجري على عدّاء
+      # x64، وثنائيُّ arm64 لا يُنفَّذ هناك — فلو شُغِّلت هذه الخطوةُ لسقطت الوظيفةُ
+      # على بناءٍ سليم، وهو فشلٌ في الحارس لا في المحروس ويدفع إلى تعطيله.
+      # والتخطّي **مُعلَنٌ في الشرط** لا مدفونٌ في `|| true` داخل السكربت: حارسٌ
+      # يتخطّى نفسَه بصمتٍ أسوأُ من غيابه. والأثرُ المقبولُ مُقاسٌ ومعروف: شحنُ
+      # `win-arm64-setup` بلا اختبارِ إقلاع — تغطّيه [PKG-01] والفحوصُ الساكنة
+      # وحدَها حتّى يوجد عدّاءُ ويندوزَ arm64 عامّ.
       - name: إقلاعُ التطبيق
+        if: matrix.native
         run: |
           set -uo pipefail
           OUT=".upstream/${{ matrix.out }}"
@@ -330,30 +376,29 @@ jobs:
           echo "الإصدار: $V"
 
       # ── التغليف ──
-      # أرشيفٌ واحدٌ لكلّ منصّة، اسمُه اسمُ الأصل في مانيفست الموقع — فرفعُه لاحقًا
-      # لا يحتاج ترجمةَ أسماء.
+      # كان `case` من ثلاثة أسطرٍ هنا: أرشيفٌ واحدٌ لكلّ منصّة. وصار مُغلِّفًا
+      # مستقلًّا — `build/package_assets.sh` — لثلاثة أسباب: يُشغَّل على جهاز
+      # مطوّرٍ فيُختبَر، ويحرسه [PKG-01]، ووصفةُ الحزم (‏deb ‏· rpm ‏· Inno) أطولُ
+      # من أن تعيش في YAML. واسمُ الملفّ اسمُ الأصل في مانيفست الموقع، فلا
+      # يحتاج الرفعُ لاحقًا ترجمةَ أسماء.
       - name: تغليف
-        id: pack
-        run: |
-          OUT=".upstream/${{ matrix.out }}"
-          V="${{ steps.stamp.outputs.version }}"
+        run: bash build/package_assets.sh ${{ matrix.assets }}
+        env:
+          # ‏**`MIHRAB_ARCH` هنا كما في خطوة البناء.** المُغلِّفُ يستدعي
+          # `build.sh --platform` ليعرف المنصّةَ — وهو يكشف معماريّةَ **المضيف**
+          # بـ`uname -m` ما لم يُصرَّح له. فبلا هذا السطر تجيب وظيفةُ
+          # `ويندوز arm64` بـ`windows/x64`، فيُطلَب مخرَجٌ اسمُه
+          # `VSCode-win32-x64` لا وجودَ له (البناءُ أخرج `…-arm64`) وتسقط
+          # الوظيفةُ بعد ساعةِ بناءٍ كاملة. قِيس: `MIHRAB_ARCH=arm64 bash
+          # build/build.sh --platform` ⇒ `windows/arm64 out=VSCode-win32-arm64`.
+          MIHRAB_ARCH: ${{ matrix.arch }}
           # لاحقةُ المعاينة في الاسمِ لا في مكانِ الرفعِ وحدَه: ملفٌّ يُنزَّل ويُعاد
           # مشاركتُه ينفصل عن صفحتِه، فيجب أن يقول عن نفسِه إنّه معاينةٌ لا إصدار.
-          SUFFIX="${{ inputs.preview_alif && '-alif' || '' }}"
-          NAME="Mihrab-$V$SUFFIX-${{ matrix.asset }}"
-          mkdir -p dist
-          case "${{ runner.os }}" in
-            Windows) 7z a -tzip -mx=5 "dist/$NAME.zip" "./$OUT/*" >/dev/null ;;
-            macOS)   ( cd "$OUT" && zip -qry "../../dist/$NAME.zip" . ) ;;
-            Linux)   tar -C "$OUT" -czf "dist/$NAME.tar.gz" . ;;
-          esac
-          F=$(ls dist/ | head -1)
-          echo "file=$F" >> "$GITHUB_OUTPUT"
-          ls -lh dist/
+          MIHRAB_ASSET_SUFFIX: ${{ inputs.preview_alif && '-alif' || '' }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mihrab${{ inputs.preview_alif && '-alif' || '' }}-${{ matrix.asset }}
+          name: mihrab${{ inputs.preview_alif && '-alif' || '' }}-${{ matrix.arch }}-${{ runner.os }}
           path: dist/*
           retention-days: 14
           compression-level: 0   # مضغوطٌ سلفًا؛ إعادةُ الضغط دقائقُ بلا مكسب

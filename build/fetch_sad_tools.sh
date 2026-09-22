@@ -33,8 +33,10 @@ case "$(uname -s)" in
   Darwin) PLATFORM=mac; EXE= ;;
   *) PLATFORM=linux; EXE= ;;
 esac
-ARCH="$(uname -m)"; [[ "$ARCH" == "aarch64" ]] && ARCH=arm64
-[[ "$ARCH" == "x86_64" ]] && ARCH=x64
+# المعماريّةُ المستهدَفة لا معماريّةُ المضيف: بناءُ ويندوز arm64 يجري على عدّاء x64،
+# وبلا `MIHRAB_ARCH` كانت تُحزَم أدواتُ x86_64 داخل حزمة arm64 صامتةً.
+ARCH="${MIHRAB_ARCH:-$(uname -m)}"; [[ "$ARCH" == "aarch64" ]] && ARCH=arm64
+[[ "$ARCH" == "x86_64" || "$ARCH" == "amd64" ]] && ARCH=x64
 
 # **رموزُ المنصّة متعدّدة عمدًا**: `v1.0.0` سمّى أصلَه `…-windows-x64.zip`، وسيرُ عمل
 # الإصدار على الفرع الرئيسيّ اليومَ يسمّي `…-windows-x86_64.zip` و`…-linux-aarch64.tar.gz`.
@@ -51,6 +53,11 @@ case "$PLATFORM/$ARCH" in
 esac
 
 command -v gh >/dev/null || { echo "❌ لا gh CLI — لازمٌ لجلب الإصدار الرسميّ." >&2; exit 1; }
+# ⚠️ المستودعُ `sadlang/s-programming-language` **خاصٌّ** في منظّمةٍ غيرِ منظّمة محراب،
+# و`GITHUB_TOKEN` الآليُّ لا يعبر المنظّمات — فردّ الجلبُ على CI «release not found»
+# منذ الانتقال إلى `almihrab` (قياسُ مدير المنتج). فيُقدَّم رمزُ قراءةٍ مخصَّص
+# (‏`SAD_TOOLS_TOKEN` سرًّا في المستودع) إن وُجد، ثمّ ما ورّثته البيئة.
+export GH_TOKEN="${SAD_TOOLS_TOKEN:-${GH_TOKEN:-${GITHUB_TOKEN:-}}}"
 
 if [[ -z "$TAG" ]]; then
   TAG="$(gh release view --repo "$REPO" --json tagName --jq .tagName)"

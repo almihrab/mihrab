@@ -51,6 +51,14 @@ def verify(dist):
     """يعيد (رمزَ الخروج، أسطرَ التقرير)."""
     out = []
     if not os.path.isfile(MANIFEST):
+        # ⚠️ التخطّي المُعلَن كان يمرّ **حتّى مع** `MIHRAB_REQUIRE_OFFICIAL_TOOLS=yes`:
+        # البوّابةُ لم تكن تعمل إلّا حين يوجد مانيفستٌ وتوجد أدواتٌ دخيلة. فأوّلُ دفعةٍ
+        # خضراء بعد إصلاح ‎036‎ كانت ستشحن حزمةً بلا لغة ص بينما الصفحةُ الأولى تَعِد
+        # «جاهزةٌ في الصندوق» (قياسُ مدير المنتج). الأحمرُ الصادق خيرٌ من أخضرَ يكذب.
+        if os.environ.get("MIHRAB_REQUIRE_OFFICIAL_TOOLS") == "yes":
+            return 1, ["❌ لا manifest لأدوات ص والنشرُ يشترطها (MIHRAB_REQUIRE_OFFICIAL_TOOLS=yes). "
+                       "الجلبُ فشل غالبًا لغياب رمزٍ يقرأ المستودعَ الخاصّ: أضِف السرَّ "
+                       "`SAD_TOOLS_TOKEN` في إعدادات المستودع، أو انشر الأدواتِ علنًا."]
         return 0, ["⏭️  لا manifest لأدوات ص (لم يُجلَب إصدارٌ رسميّ لهذه المنصّة) — تخطٍّ مُعلَن"]
     man = json.load(open(MANIFEST, encoding="utf-8"))
     app = _app_dir(dist)

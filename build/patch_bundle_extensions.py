@@ -62,6 +62,25 @@ _INJECT_TEMPLATE = """
     done
   fi
   [ -n "${_MIHRAB_PY}" ] || { echo "محراب: لا مفسّرَ بايثون 3 — رُقَع النواة كلُّها بايثون" >&2; exit 1; }
+  # محراب: رُقَعُ النواة تُطبَّق **عاديًّا أوّلًا** ثمّ بـ`--3way` عند الفشل — لا `--3way`
+  # مباشرةً. ‏`--3way` يشترط أن يطابق ملفُّ شجرة العمل **الفهرسَ** قبل أن يلمسه، ورقعُ
+  # VSCodium (‏`apply_patch` في utils.sh) تعدّل الشجرةَ بلا تهيئة. فأيُّ رقعةٍ لنا تمسّ
+  # ملفًّا مسّته رقعةُ VSCodium قبلها تسقط بـ«does not match index» **مهما كان سياقُها
+  # صحيحًا** — وقد سقطت ‎036‎ (‏`product.ts` و`update.config.contribution.ts` تمسّهما
+  # ‎00-brand-remove-branding‎ و‎12-update-add-cooldown‎) في ثلاثَ عشرةَ دفعةً متتالية
+  # ولم تُطبَّق على CI قطّ، بينما مرّت رُقَعُنا التسعُ قبلها لأنّ ملفّاتها لم يمسّها أحد.
+  # قِيس في مستودعٍ مؤقّت: الأربعةُ من HEAD + رقعتا VSCodium بلا تهيئة ⇒ `git apply
+  # --check` يمرّ، و`git apply --3way --check` يردّ «does not match index» على الملفَّين.
+  # و`--3way` يبقى احتياطًا لانجراف المنبع؛ ويحرس الصيغةَ [APPLY-01].
+  _mihrab_apply() {
+    git apply "$1" 2>/dev/null && return 0
+    # وقبل `--3way` تُسجَّل مساراتُ الرقعة في الفهرس (ما فعلته رقعةُ ‎030‎ يدويًّا) —
+    # فالاحتياطُ نفسُه كان يسقط بـ«does not match index» على ملفٍّ مسّه VSCodium.
+    sed -n 's|^+++ b/||p' "$1" | while read -r _mp; do
+      [ -n "${_mp}" ] && git add -- "${_mp}" 2>/dev/null || true
+    done
+    git apply --3way "$1"
+  }
   # محراب: حقن الإضافات المدمجة المُجهَّزة في ../.mihrab-extensions (الطبقة 1).
   # نستعمل if لا «[ -d ] && cmd» (الأخيرة تُفشِل البناء تحت set -e عند غياب التطابق).
   for _mext in ../.mihrab-extensions/*/; do
@@ -161,7 +180,9 @@ _INJECT_TEMPLATE = """
     # الملفّ يفشل «Could not resolve» (كلاهما مثبَت تجريبيًّا). data: URI يتركه esbuild حرفيًّا فلا
     # loader ولا رُقعة نواة. سقوط رشيق: غياب الخطّ ⇒ لا حقن ⇒ لا @font-face ⇒ بناء نظيف والسقوط لبقيّة المكدّس.
     if [ -f ../.mihrab-kawkab-mono.woff2 ]; then
-      _mfont_b64="$( base64 -w0 ../.mihrab-kawkab-mono.woff2 2>/dev/null || base64 ../.mihrab-kawkab-mono.woff2 | tr -d '\\n' )"
+      # ‏`-w0` غنو، و`-i` بي‌إس‌دي (ماك)، وopenssl احتياطٌ للاثنين. كان الاحتياطُ الثاني
+      # `base64 file` يفشل على ماك أيضًا فيخرج المتغيّرُ فارغًا ويسقط خطُّ القشرة صامتًا.
+      _mfont_b64="$( base64 -w0 ../.mihrab-kawkab-mono.woff2 2>/dev/null || base64 -i ../.mihrab-kawkab-mono.woff2 2>/dev/null | tr -d '\\n' || openssl base64 -A -in ../.mihrab-kawkab-mono.woff2 2>/dev/null )"
       if [ -n "${_mfont_b64}" ]; then
         _mfont_css="src/vs/workbench/browser/media/mihrab-rtl.css"
         printf '@font-face{font-family:"Kawkab Mono";font-style:normal;font-weight:400;font-display:swap;src:url("data:font/woff2;base64,%s") format("woff2");}\\n' "${_mfont_b64}" > "${_mfont_css}.font"
@@ -207,17 +228,17 @@ _INJECT_TEMPLATE = """
     "${_MIHRAB_PY}" ../.mihrab-patch-tabsdrop-rtl.py src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts || { echo "محراب: فشلت رُقعة إفلات التبويبات RTL" >&2; exit 1; }
   fi
   # محرّر Monaco RTL: تعديلٌ **منبعيٌّ** كامل (خيار editor.textDirection: auto|ltr|rtl) مُصاغٌ
-  # للرفع إلى microsoft/vscode، لا رُقعةً خاصّة. يُطبَّق diff واحدًا بـgit apply --3way (يتسامح
-  # مع انجراف المنبع). فشلٌ قاتل لا تخطٍّ صامت: بلا هذه الرقعة يخرج محرّرٌ إنجليزيّ الاتّجاه.
+  # للرفع إلى microsoft/vscode، لا رُقعةً خاصّة. يُطبَّق diff واحدًا بـ`_mihrab_apply` (عاديًّا ثمّ
+  # ‏`--3way` احتياطًا لانجراف المنبع — انظر تعليلَه أعلاه). فشلٌ قاتل لا تخطٍّ صامت: بلا هذه الرقعة يخرج محرّرٌ إنجليزيّ الاتّجاه.
   if [ -f ../.mihrab-editor-text-direction.patch ]; then
-    git apply --3way ../.mihrab-editor-text-direction.patch || { echo "محراب: فشل تطبيق رُقعة اتّجاه المحرّر" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-editor-text-direction.patch || { echo "محراب: فشل تطبيق رُقعة اتّجاه المحرّر" >&2; exit 1; }
     echo "محراب: طُبِّق اتّجاه نصّ المحرّر (editor.textDirection)"
   fi
   # حدُّ الكلمة في المطابقة الضبابيّة [م-١٥/ب]: تعديلٌ **منبعيّ** أيضًا (لا هويّةَ فيه ولا
   # عربيّةَ في شيفرته سوى المحرفين اللذين يعرّفهما). بلا هذه الرقعة تسقط الكتابةُ من وسط
   # المعرّف العربيّ سقوطًا كاملًا — مقيسًا في tests/dx/completion_rank.mjs.
   if [ -f ../.mihrab-nonlatin-word-start.patch ]; then
-    git apply --3way ../.mihrab-nonlatin-word-start.patch || { echo "محراب: فشل تطبيق رُقعة حدّ الكلمة غير اللاتينيّ" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-nonlatin-word-start.patch || { echo "محراب: فشل تطبيق رُقعة حدّ الكلمة غير اللاتينيّ" >&2; exit 1; }
     echo "محراب: طُبِّق حدُّ الكلمة بعد أداة التعريف (المطابقة الضبابيّة)"
   fi
   # صناديقُ الإدخال البسيطة [SC-01]: اتّجاهُ النصّ وأشكالُه السياقيّة يبلغان رسالةَ الالتزام
@@ -233,14 +254,14 @@ _INJECT_TEMPLATE = """
     sed -n 's|^+++ b/||p' ../.mihrab-simple-editor-rtl-input.patch | while read -r _mp; do
       [ -n "${_mp}" ] && git add -- "${_mp}" 2>/dev/null || true
     done
-    git apply --3way ../.mihrab-simple-editor-rtl-input.patch || { echo "محراب: فشل تطبيق رُقعة صناديق الإدخال البسيطة" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-simple-editor-rtl-input.patch || { echo "محراب: فشل تطبيق رُقعة صناديق الإدخال البسيطة" >&2; exit 1; }
     echo "محراب: طُبِّقت صناديقُ الإدخال البسيطة (اتّجاه + أشكال سياقيّة + ارتفاع سطر)"
   fi
   # حجمُ خطّ شجرة التنقيح [DG-01]: الصفُّ يُحجَّم بالمفتاح والحبرُ لا — فتكبيرُ الخطّ
   # يزيد الفراغَ وحدَه في اللوحة التي يقرأ فيها المستخدمُ قيمَ متغيّراته. سطرا CSS
   # مربوطان بمتغيّرٍ منبعيٍّ قائم. فشلٌ قاتل كسابقتيها: إصلاحٌ لم يُطبَّق لا يُشحَن صامتًا.
   if [ -f ../.mihrab-debug-tree-font-size.patch ]; then
-    git apply --3way ../.mihrab-debug-tree-font-size.patch || { echo "محراب: فشل تطبيق رُقعة حجم خطّ شجرة التنقيح" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-debug-tree-font-size.patch || { echo "محراب: فشل تطبيق رُقعة حجم خطّ شجرة التنقيح" >&2; exit 1; }
     echo "محراب: طُبِّق حجمُ خطّ شجرة التنقيح (يتبع مفتاحَ الشريط الجانبيّ)"
   fi
   # تجدُّدُ خيارات صندوق الالتزام حيًّا [SC-01 + م-١٧]: الشقُّ الحاملُ ليس المرشِّحَ بل
@@ -248,7 +269,7 @@ _INJECT_TEMPLATE = """
   # فإضافتُهما إلى المرشِّح وحدَه رقعةٌ تبدو مغلِقةً وهي فارغةٌ في اثنين من ثلاثة.
   # فشلٌ قاتلٌ كسابقاتها.
   if [ -f ../.mihrab-scm-input-live-options.patch ]; then
-    git apply --3way ../.mihrab-scm-input-live-options.patch || { echo "محراب: فشل تطبيق رُقعة تجدُّد خيارات صندوق الالتزام" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-scm-input-live-options.patch || { echo "محراب: فشل تطبيق رُقعة تجدُّد خيارات صندوق الالتزام" >&2; exit 1; }
     echo "محراب: طُبِّق تجدُّدُ خيارات صندوق الالتزام حيًّا (اتّجاه · أشكال · ارتفاع سطر)"
   fi
   # خلطُ الكتابتَين في إبراز يونيكود [AR-05 · م-١٣/ب]: بند الهروب المنبعيّ يعدّ **أيَّ**
@@ -257,7 +278,7 @@ _INJECT_TEMPLATE = """
   # تسقط (`exampاe` و`faiا` و`pcb_ديناميّ` تبقى مُشخَّصة). فشلٌ قاتل: بلا هذه الرقعة
   # يعود المستطيلُ الأصفر حول كلّ ألفٍ في كلّ لغةٍ خارج ص.
   if [ -f ../.mihrab-unicode-word-script-mixing.patch ]; then
-    git apply --3way ../.mihrab-unicode-word-script-mixing.patch || { echo "محراب: فشل تطبيق رُقعة خلط الكتابتَين في إبراز يونيكود" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-unicode-word-script-mixing.patch || { echo "محراب: فشل تطبيق رُقعة خلط الكتابتَين في إبراز يونيكود" >&2; exit 1; }
     echo "محراب: طُبِّق خلطُ الكتابتَين (حروفُ ASCII وحدَها تُعدّ خلطًا)"
   fi
   # الطرفيّةُ حيث لا طرفيّة [WEB-05]: في بنائنا الثابت `processSupported` كاذبٌ —
@@ -267,19 +288,19 @@ _INJECT_TEMPLATE = """
   # وCtrl+Shift+C. والوعدُ الذي لا خلفيّةَ له أسوأُ من غياب الميزة: المستخدم يظنّ
   # العطبَ في جهازه. فشلٌ قاتل: بلا هذه الرقعة يعود اللوحُ الميّت.
   if [ -f ../.mihrab-terminal-unavailable-in-web.patch ]; then
-    git apply --3way ../.mihrab-terminal-unavailable-in-web.patch || { echo "محراب: فشل تطبيق رُقعة الطرفيّة في المتصفّح" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-terminal-unavailable-in-web.patch || { echo "محراب: فشل تطبيق رُقعة الطرفيّة في المتصفّح" >&2; exit 1; }
     echo "محراب: طُبِّقت الطرفيّةُ حيث لا طرفيّة (أربعةُ مداخلَ تُقيَّد بـprocessSupported)"
   fi
   # اتّجاهُ حقل الإدخال يتبع محتواه: `dir="auto"` على حقل `InputBox`. بلا هذه الرقعة يعود
   # الاستعلامُ العربيُّ الطويل يخرج من الحقل بلا تمرير — الكاتبُ لا يرى ما يكتب. فشلٌ قاتل.
   if [ -f ../.mihrab-inputbox-content-direction.patch ]; then
-    git apply --3way ../.mihrab-inputbox-content-direction.patch || { echo "محراب: فشل تطبيق رُقعة اتّجاه حقول الإدخال" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-inputbox-content-direction.patch || { echo "محراب: فشل تطبيق رُقعة اتّجاه حقول الإدخال" >&2; exit 1; }
     echo "محراب: طُبِّق اتّجاهُ حقول الإدخال (يتبع المحتوى، وافتراضُه اتّجاهُ المستند)"
   fi
   # مصدرُ ملاحظات الإصدار: بلا هذه الرقعة يجلب المحرِّرُ `code.visualstudio.com/raw`
   # مهما كتبنا في الهويّة — فيقرأ المستخدمُ ملاحظاتِ منتَجٍ آخر. فشلٌ قاتل.
   if [ -f ../.mihrab-release-notes-source.patch ]; then
-    git apply --3way ../.mihrab-release-notes-source.patch || { echo "محراب: فشل تطبيق رُقعة مصدر ملاحظات الإصدار" >&2; exit 1; }
+    _mihrab_apply ../.mihrab-release-notes-source.patch || { echo "محراب: فشل تطبيق رُقعة مصدر ملاحظات الإصدار" >&2; exit 1; }
     echo "محراب: طُبِّق مصدرُ ملاحظات الإصدار (releaseNotesBaseUrl + اتّجاهُ المستند)"
   fi
   # رُقعة صفحة الترحيب: شعار القوس + الجملة الاستعاريّة في ترويسة Get Started (شكل الشعار في mihrab-identity.css — ورقةُ الهويّة [VA-05]).
