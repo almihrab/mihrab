@@ -3,8 +3,6 @@
 هدف م0: **بناء VSCodium نظيف من المنبع المثبَّت، قابل للتكرار** — قبل أيّ هويّة أو حزم
 أدوات أو رُقَع نواة. هذا الأساس شرط لكل المراحل اللاحقة.
 
-> مصدر حقيقة م0 التخطيطيّة: [`sadlang-planning/projects/mihrab-editor/plan/خطط/01-التأسيس/م0-أساس-البناء.md`](https://github.com/sadlang/sadlang-planning/tree/main/projects/mihrab-editor/plan).
-
 ## المتطلّبات
 
 | المتطلّب | الملاحظة |

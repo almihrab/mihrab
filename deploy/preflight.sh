@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # قياساتٌ تسبق أيَّ نسخٍ إلى `/etc/nginx` — تُشغَّل **على الخادم**.
 #
-# كلُّ سؤالٍ هنا جوابُه يغيّر ما يُنسَخ. والتخمينُ في أيٍّ منها يُسقِط `sad-lang.org`.
+# كلُّ سؤالٍ هنا جوابُه يغيّر ما يُنسَخ. والتخمينُ في أيٍّ منها يُسقِط المواقعَ الأخرى على الخادم.
 #
 #   scp -P 2000 deploy/preflight.sh saleh@176.106.227.73:/tmp/
 #   ssh -p 2000 saleh@176.106.227.73 'sudo bash /tmp/preflight.sh'
@@ -47,10 +47,10 @@ echo "── (4) هل الخريطةُ معرَّفةٌ سلفًا؟ (التعر
 _conf | grep -n 'connection_upgrade' | head -5 || echo '   غيرُ معرَّفة — انسخ 00-mihrab-shared.conf'
 
 echo
-echo "── (5) كيف تجدّد mihrab.dev شهادتَها (والقديمُ sad-lang.org للمقارنة) ──"
-# ⚠️ كان المجسُّ يسأل عن `sad-lang.org.conf` وحدَه — النطاقِ الذي انفصل عنه محراب —
+echo "── (5) كيف تجدّد mihrab.dev شهادتَها ──"
+# ⚠️ كان المجسُّ يسأل عن نطاقٍ آخرَ على الخادم وحدَه —
 # بينما شهادةُ `mihrab.dev` تنتهي ‎2026-12-19‎ ولا أحدَ يسأل كيف تتجدّد (قياسُ المحلّل).
-for _dom in mihrab.dev sad-lang.org; do
+for _dom in mihrab.dev; do
   if [ -r "/etc/letsencrypt/renewal/${_dom}.conf" ]; then
     echo "   ${_dom}:"; grep -E 'authenticator|webroot_path|installer' "/etc/letsencrypt/renewal/${_dom}.conf"
   else

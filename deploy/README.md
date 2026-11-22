@@ -19,25 +19,8 @@
 > تعليمات. والحذفُ يُغري بإعادة الاختراع.
 
 > **حالةُ الملفّات (تاريخيًّا):** كُتِبت من قياسٍ محلّيّ، ثمّ روجِعت هندسيًّا فوُجد فيها
-> ثلاثةُ أعطابٍ كانت تُسقِط `sad-lang.org` لحظةَ التطبيق — صُحِّحت، ثمّ طُبِّقت فعلًا
+> ثلاثةُ أعطابٍ كانت تُسقِط مواقعَ الخادم المشترك لحظةَ التطبيق — صُحِّحت، ثمّ طُبِّقت فعلًا
 > ونجحت، ثمّ تقاعدت بقرار.
-
-## الفصلُ عن موقع لغة ص (2026-09-22)
-
-محرابٌ وموقعُ لغة ص (‏`sadlang/website`، ينشر إلى GitHub Pages ويُخدَم من الخادم نفسِه
-باسم `sad-lang.org`) **منفصلان**: مصدرُ موقع اللغة لا يحمل إشارةً واحدةً إلى محراب
-(قِيس على الشجرة المتعقَّبة)، ومحرابٌ يُخدَم من `mihrab.dev` بجذر `/opt/mihrab` وكتله
-وشهادته. ما بقي هو **بقايا النشر القديم** في `/opt/sad-website/mihrab/` تردّ ‎200‎ بنسخةٍ
-قديمة — تُزاح بـ`deploy/retire_sad_lang_mirror.sh` (نقلٌ لا حذف)، ويقيس الفصلَ
-`tests/live/probe_live.py` [SEP-01] (لا ‎200‎ هناك)، ويحرس الشيفرةَ [SEP-01] في L0.
-**والترتيبُ ملزِم** (قياسُ سالي): ① نشرُ الموقع بالأصل الجديد — `releases.json` الحيُّ كان
-أصلُه `sad-lang.org/mihrab/` فأزرارُ التنزيل تمرّ من هناك؛ ② تركيبُ القصاصة
-`deploy/nginx/sad-lang.org-mihrab-301.conf.example` بـsudo — كتلةُ `location /` هناك تردّ
-صفحةَ اللغة بـ‎200‎ لأيّ مسارٍ مفقود، فبلا تحويلٍ ابتلاعٌ صامت لا ‎404‎؛ ③ السكربت —
-ويرفض التشغيلَ ما لم يتحقّق ①و②. والخريطةُ نزعُ البادئة: `/mihrab/X ⇒ /X`.
-
-ما يبقى من `sad-lang.org` في هذا المجلّد سِجلُّ خادمٍ مشترك (شهادات، ترتيبُ `conf.d`)
-لا رابطٌ بين الموقعين.
 
 ## الحالةُ المقيسة (2026-09-05، ومُحدَّثةٌ 2026-09-20) — من الخادم نفسِه
 
@@ -46,7 +29,7 @@ mihrab.dev · www · app · docs · dl · *.webview  →  176.106.227.73  ✅ م
 CAA: 0 issue "letsencrypt.org" · 0 issuewild "letsencrypt.org"  ✅
 
 nginx 1.24.0 (Ubuntu) · ستّةُ مواقعَ قائمة:
-   kadah · sad-academy · sad-lang · sad-registry · sad-website · sila-hub
+   (أسماؤها في `sites-enabled/` على الخادم — ليست من شأن هذا المستودع)
 إدراجُ nginx.conf:  conf.d/*.conf  ثمّ  sites-enabled/*
 لا `default_server` على 443 في أيٍّ منها     ⇒ الأوّلُ أبجديًّا يملك الافتراضيّ
 `kadah` يضع listen 443 ssl http2            ⇒ HTTP/2 مفعَّلٌ سلفًا على المقبس
@@ -121,13 +104,6 @@ curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal   # ‏CLI مكت
 `build.sh` عندنا، و`python` في الشيفرة المحقونة، و`rustup`. الأوّلان أُصلِحا في
 المستودع فلا يتكرّران؛ والثالثُ تبعيّةُ بيئةٍ مذكورةٌ أعلاه.
 
-## ما ينقص المحتوى
-
-⚠️ **وأدواتُ ص ويندوزيّةٌ فقط** (`sad-run.exe` · `sad-lsp.exe` · `sad-build.exe`).
-فبناءُ لينكس يسقط سقوطًا رشيقًا، والحصيلةُ **محرِّرٌ عربيٌّ معكوسُ الاتّجاه يعمل، لكنّه
-لا يُصرِّف ص ولا يُشغِّلها ولا خادمَ لغةٍ فيه**. إطلاقٌ عامٌّ يحتاج بناءَ سلسلة ص
-للينكس — مسارٌ مستقلّ.
-
 ## الترتيب — ملزِم
 
 كلُّ مرحلةٍ تنتهي بتحقّقٍ يقيس أنّها نجحت. ولا تُبدأ التاليةُ قبل أن يخضرّ.
@@ -182,7 +158,7 @@ sudo ln -sf /etc/nginx/sites-available/mihrab-acme /etc/nginx/sites-enabled/
 # (ج) بوّابة: لا تتابع قبل «syntax is ok» و«test is successful».
 sudo nginx -t && sudo systemctl reload nginx
 
-# (د) الشهادة — بمُصادِقِ nginx (مقيسٌ من ملفّ تجديد sad-lang.org)
+# (د) الشهادة — بمُصادِقِ nginx (مقيسٌ من ملفّات تجديد المواقع الأخرى على الخادم)
 sudo certbot certonly --nginx -d mihrab.dev -d www.mihrab.dev
 sudo certbot certificates
 ```
@@ -191,13 +167,13 @@ sudo certbot certificates
 
 ```bash
 curl -sI http://mihrab.dev/ | head -2          # ⇒ 301 إلى https
-for h in sad-lang.org sila-hub.dev kadah.tech; do
+for h in $(sudo ls /etc/letsencrypt/renewal | sed -n 's/\.conf$//p'); do
   printf '%-16s %s\n' "$h" "$(curl -sk -o /dev/null -w '%{http_code}' https://$h/)"
 done
 ```
 
 > **اسمُ السلالة مقيسٌ سلفًا:** `certbot certificates` على هذا الخادم يُظهِر
-> `sad-lang.org` و`sila-hub.dev` فقط — فلا تصادمَ، والسلالةُ ستكون `mihrab.dev`
+> سلالتَين لموقعَين آخرين فقط — فلا تصادمَ، والسلالةُ ستكون `mihrab.dev`
 > بالضبط. ومساراتُ `mihrab.dev.conf` صحيحةٌ كما هي.
 
 **التراجعُ عن هذه المرحلة وحدَها:**
@@ -276,7 +252,7 @@ curl -sI https://www.mihrab.dev/ | grep -i location        # ⇒ يحوّل إل
 curl -sI https://mihrab.dev/issues | grep -i location      # ⇒ github
 curl -sk -o /dev/null -w '%{http_version}\n' https://mihrab.dev/   # ⇒ 2
 # والأهمُّ: أنّ المواقعَ الستّةَ ما زالت تعمل
-for h in sad-lang.org sila-hub.dev kadah.tech; do
+for h in $(sudo ls /etc/letsencrypt/renewal | sed -n 's/\.conf$//p'); do
   printf '%-16s %s\n' "$h" "$(curl -sk -o /dev/null -w '%{http_code}' https://$h/)"
 done
 ```
@@ -317,7 +293,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## الشهادة: قرارٌ واحدٌ يستحقّ الانتباه
 
-‏`mihrab.dev` و`www` بمُصادِقِ `nginx` — وهو ما يستعمله `sad-lang.org` فعلًا (مقيسٌ من ملفّ تجديده). أمّا `*.webview.mihrab.dev`
+‏`mihrab.dev` و`www` بمُصادِقِ `nginx` — وهو ما تستعمله المواقعُ الأخرى على الخادم فعلًا (مقيسٌ من ملفّات تجديدها). أمّا `*.webview.mihrab.dev`
 فـ**يستلزم DNS-01** — ‏HTTP-01 لا يصدر wildcard أصلًا. وواجهةُ Namecheap البرمجيّة
 تشترط قائمةَ IP بيضاءَ فتتعطّل صامتةً عند تغيّر عنوانك، والاكتشافُ يقع بعد انتهاء
 الشهادة. **أوصي بنقل الـDNS إلى Cloudflare** واستعمال `certbot-dns-cloudflare`.

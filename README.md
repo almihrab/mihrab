@@ -9,12 +9,9 @@
 - **الحالة:** م3 (اتّجاه RTL) **مُغلَق**؛ م6 (الحرف والوصول والأمن) **جارٍ**.
   التفصيل ولوح الحالة الوحيد: [`docs/milestones.md`](docs/milestones.md) — يُشار إليه ولا يُنسَخ.
 - **الرؤية:** مفتوح الآن (MIT) — منصّة عربيّة تقبل اللغاتِ عبر سوق Open VSX.
-- **مصدر حقيقة التخطيط:** [`sadlang-planning/projects/mihrab-editor/`](https://github.com/sadlang/sadlang-planning/tree/main/projects/mihrab-editor)
-- **المقترح (RFC):** [`sadlang/rfcs#21`](https://github.com/sadlang/rfcs/pull/21) (`tools/mihrab`).
 - **المعلم الفيدراليّ:** `M-mihrab-1.0` (المرحلة الثالثة).
 
-> هذا المستودع لا ينسخ خطّة التخطيط ولا يكرّرها — يشير إليها. حقيقة المراحل والتصميم
-> تعيش في `sadlang-planning`؛ هنا **الكود والبناء** فقط.
+> حقيقة المراحل في [`docs/milestones.md`](docs/milestones.md)؛ وهنا **الكود والبناء**.
 
 ---
 
@@ -104,7 +101,7 @@
 
 ## المراحل
 
-م0 أساس البناء · م1 الهويّة · م2 حزم سلسلة الأدوات · م3 RTL من الدرجة الأولى ·
+م0 أساس البناء · م1 الهويّة · م2 (أُزيل) · م3 RTL من الدرجة الأولى ·
 م4 التوزيع · م5 أتمتة دَيْن الدمج · م6 الحرف والوصول والأمن. تفصيلها: [`docs/milestones.md`](docs/milestones.md).
 
 ## محرابٌ في المتصفّح — <https://app.mihrab.dev>

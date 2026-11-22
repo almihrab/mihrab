@@ -190,8 +190,7 @@ def _no_backtick_in_templates():
     import re as _re
     targets = [os.path.join(ROOT, "tests", "runtime", "harness.mjs"),
                os.path.join(ROOT, "tests", "runtime", "launch.mjs"),
-               os.path.join(ROOT, "tests", "runtime", "rtl.spec.mjs"),
-               os.path.join(ROOT, "extensions", "mihrab-nebras", "chat.js")]
+               os.path.join(ROOT, "tests", "runtime", "rtl.spec.mjs")]
     OPEN = _re.compile(r"(?:evaluate\(|html\s*=\s*|return\s+)`")
     for path in targets:
         if not os.path.isfile(path):
@@ -243,8 +242,7 @@ def _no_single_escape_in_templates():
     import re as _re
     targets = [os.path.join(ROOT, "tests", "runtime", "harness.mjs"),
                os.path.join(ROOT, "tests", "runtime", "launch.mjs"),
-               os.path.join(ROOT, "tests", "runtime", "rtl.spec.mjs"),
-               os.path.join(ROOT, "extensions", "mihrab-nebras", "chat.js")]
+               os.path.join(ROOT, "tests", "runtime", "rtl.spec.mjs")]
     OPEN = _re.compile(r"(?:evaluate\(|html\s*=\s*|return\s+)`")
     # شرطةٌ **فردٌ** (عددٌ زوجيّ من الشرطات قبلها ⇒ مُضاعَفة ⇒ سليمة) يتبعها حرفُ فئة.
     BAD = _re.compile(r"(?<!\\)(?:\\\\)*\\([pPsSdDwWbB])")
@@ -800,8 +798,8 @@ def _docs_urls_resolve_to_pages():
     content = os.path.join(ROOT, "site", "content")
     if not os.path.isdir(content):
         return  # لا موقع في هذا الفرع — تخطٍّ
-    # ‏**الأصلُ يُقرأ ولا يُكتَب هنا.** كان مكتوبًا بيدٍ (`sadlang.github.io/mihrab-ide/`)،
-    # ثمّ انتقل الأصلُ إلى `sad-lang.org/mihrab/` وصارت تلك مرآةً — فتوقّف الفحصُ عن
+    # ‏**الأصلُ يُقرأ ولا يُكتَب هنا.** كان مكتوبًا بيدٍ على مضيفٍ سابق،
+    # ثمّ انتقل الأصلُ وصار ذاك مرآةً — فتوقّف الفحصُ عن
     # مطابقة رابطٍ واحد وبقي **أخضرَ يقيس صفرًا**. مصدرُ الحقيقة `site/data/site.json`،
     # وهو ما يبنى منه `rel=canonical` في كلّ صفحة.
     site_root = json.load(open(os.path.join(ROOT, "site", "data", "site.json"),
@@ -1482,30 +1480,8 @@ def _word_separators_prefix():
             f"فُتح البندُ لأجله [IN-01]")
 
 
-# ───────────── L0-8: سمتا محراب (خريطة الرموز ↔ نحو ص) ─────────────
-def _grammar_scopes():
-    """كلّ نطاقات (scopes) نحو ص الفعليّة من sad.tmLanguage.json."""
-    g = os.path.join(ROOT, "extensions", "sad-lang", "syntaxes", "sad.tmLanguage.json")
-    if not os.path.isfile(g):
-        return None
-    data = json.load(open(g, encoding="utf-8"))
-    found = set()
-
-    def walk(o):
-        if isinstance(o, dict):
-            n = o.get("name")
-            if isinstance(n, str) and "." in n:
-                found.add(n)
-            for v in o.values():
-                walk(v)
-        elif isinstance(o, list):
-            for v in o:
-                walk(v)
-    walk(data)
-    return found
-
-
-@check("سمتا محراب: JSON صالح، مُسهَمتان وافتراضيّة، ونطاقاتها تطابق نحو ص")
+# ───────────── L0-8: سمتا محراب ─────────────
+@check("سمتا محراب: JSON صالح، مُسهَمتان وافتراضيّة")
 def _themes():
     ext = os.path.join(ROOT, "extensions", "mihrab-themes")
     if not os.path.isdir(ext):
@@ -1538,10 +1514,6 @@ def _themes():
         assert defaults.get(key) == t["label"], (
             f"‏`{key}` = «{defaults.get(key)}» لا «{t['label']}» — عند تبديل النظام إلى هذا "
             f"الوضع يخرج المستخدم من سمات محراب إلى سمة المنبع العامّة")
-    gscopes = _grammar_scopes()  # نحو ص الفعليّ
-    grammar_sad = {s for s in gscopes if s.endswith(".sad")} if gscopes is not None else set()
-    # نطاقات نحو لا تُلوَّن عمدًا (حاويات بنيويّة نلوّن محتواها لا هي): تُعفى من التغطية العكسيّة.
-    uncolored = {"meta.interpolation.sad"}
     for t in themes:
         assert t.get("label") and t.get("uiTheme") and t.get("path"), f"عقد سمة ناقص: {t}"
         tp = os.path.join(ext, *t["path"].lstrip("./").split("/"))
@@ -1551,23 +1523,6 @@ def _themes():
         # أنواع سمات VS Code الأربعة (dark/light + نظيراهما عاليا التباين).
         assert td.get("type") in ("dark", "light", "hcDark", "hcLight"),             f"type غير صالح في {t['path']}"
         assert td.get("colors") and td.get("tokenColors"), f"بلا colors/tokenColors: {t['path']}"
-        # نطاقات ص في **هذه السمة** (التغطية تُفحَص لكلّ سمة، لا اتّحادهما).
-        this_scopes = set()
-        for rule in td["tokenColors"]:
-            sc = rule.get("scope", [])
-            for s in ([sc] if isinstance(sc, str) else sc):
-                if s.endswith(".sad"):
-                    this_scopes.add(s)
-        # (أمام) كلّ نطاق ص في السمة موجود في النحو الفعليّ (لا اختراع/انجراف):
-        if gscopes is not None:
-            invented = this_scopes - grammar_sad
-            assert not invented, (
-                f"نطاقات في {t['path']} غير موجودة في نحو ص (مخترَعة/منجرفة): {sorted(invented)}")
-            # (خلف) كلّ نطاق نحو ص مُلوَّن في هذه السمة (أو مُعفى) — يمسك نطاقًا جديدًا بلا لون:
-            missing = grammar_sad - this_scopes - uncolored
-            assert not missing, (
-                f"نطاقات نحو ص بلا لون في {t['path']} (سترث افتراضيًّا متنافرًا): {sorted(missing)} "
-                f"— أضِف لونًا في gen_themes.py أو أعفِها صراحةً")
 
 
 @check("طباعة القشرة العربيّة [AR-03]: مكدّس :lang(ar) للمنصّات الثلاث + وحدة الوجه الأحاديّ")
@@ -1596,7 +1551,7 @@ def _arabic_chrome_typography():
         prop = "".join(bodies)
         assert "--monaco-font:" in prop, f"قاعدة {plat}:lang(ar) بلا `--monaco-font` [AR-03]"
         assert "--monaco-monospace-font:" in prop, \
-            (f"قاعدة {plat}:lang(ar) بلا `--monaco-monospace-font` — شيفرة ص العربيّة داخل "
+            (f"قاعدة {plat}:lang(ar) بلا `--monaco-monospace-font` — الشيفرة العربيّة داخل "
              f"القشرة (تلميحات/اختصارات/فتات) ستُعرَض بوجه مغاير للمحرّر [AR-03]")
         assert ARABIC_FACE[plat] in prop, (
             f"مكدّس {plat}:lang(ar) بلا الوجه العربيّ الصريح «{ARABIC_FACE[plat]}» — "
@@ -2223,7 +2178,7 @@ def _font_size_measured():
             f"‏`lineHeight`={lh} مع `fontSize`={size} يعطي "
             f"{round(lh * size) / size:.3f}em بعد تقريب المنبع — دون الأرضيّة {floor} [TY-02]")
     # **الطرفيّةُ تتبع**: حجّةُ VA-04 خاصّيّةُ **وجهٍ** لا خاصّيّةُ محرّر، والوجهُ نفسُه
-    # مضبوطٌ للطرفيّة. فتركُها على ‎14‎ يجعل مخرجاتِ ص العربيّةَ أصغرَ ممّا قِيس أنّه كافٍ.
+    # مضبوطٌ للطرفيّة. فتركُها على ‎14‎ يجعل المخرجاتِ العربيّةَ أصغرَ ممّا قِيس أنّه كافٍ.
     tsize = defaults.get("terminal.integrated.fontSize")
     assert tsize == size, (
         f"‏`terminal.integrated.fontSize` = {tsize!r} ≠ `editor.fontSize` = {size} — "
@@ -2462,8 +2417,8 @@ def _milestones_claims_are_anchored():
         head = _read(os.path.join(ROOT, "docs", name)).splitlines()[0]
         if re.search(r"مُغلَق\S*\s+سلب", head):
             judgments.append(name)
-    # لا حدَّ أدنى لعددها: الحكمان اللذان كانا هنا (‏`DAP-01` و`LSP-01/02`) خصّا لغةَ ص
-    # وأُزيلا معها (2026-11-22). وشاهدُ التفعيل في (١) أعلاه، فالفحصُ لا يقيس العدمَ بغيابهما.
+    # لا حدَّ أدنى لعددها: الحكمان اللذان كانا هنا (‏`DAP-01` و`LSP-01/02`) خصّا اللغةَ
+    # المدمجةَ وأُزيلا معها (2026-11-22). وشاهدُ التفعيل في (١) أعلاه، فالفحصُ لا يقيس العدمَ بغيابهما.
     unlinked = [n for n in judgments if n not in board and urllib.parse.quote(n) not in board]
     assert not unlinked, (
         "أحكامٌ سلبيّةٌ لا يذكرها لوحُ الحالة الوحيد: " + " · ".join(unlinked)
@@ -3761,7 +3716,7 @@ def _unicode_script_mixing_patch_behaves():
     if not os.path.isfile(patch):
         raise AssertionError(
             "لا رقعةَ `033-unicode-word-script-mixing.patch` — يعود المستطيلُ الأصفرُ حول "
-            "كلّ ألفٍ وهاءٍ في معرّفات ص خارجَ `[sad]` (‏622 مرسومًا في مفردات.yaml) [AR-05]")
+            "كلّ ألفٍ وهاءٍ في المعرّفات العربيّة [AR-05]")
     body = _read(patch)
 
     # (أ) المِرساةُ المنبعيّة **وشرطُ عدم الإضعاف معًا**. كانت الرقعةُ تحذف عدّادَ المنبع
@@ -3848,7 +3803,7 @@ def _unicode_script_mixing_patch_behaves():
                 w.append(ch)
         return n
 
-    # (د) الطرفُ الأوّل: معرّفاتُ ص تُعفى. (العَرَضُ الذي بلّغ عنه مستخدم.)
+    # (د) الطرفُ الأوّل: المعرّفاتُ العربيّةُ تُعفى. (العَرَضُ الذي بلّغ عنه مستخدم.)
     for word in ("حقل_اسم", "خط_مائل", "نصاب_الفضة", "40_تعابير", "اكتب_ذاكرة"):
         assert sim(word) == 0, (
             f"«{word}» ما زال يُبرَز — الشَرطةُ السفليّةُ والأرقامُ غِراءُ معرّفاتٍ لا خلطَ "
@@ -3866,7 +3821,7 @@ def _unicode_script_mixing_patch_behaves():
             "حقًّا. هذا **إسقاطُ حمايةٍ** لا إسكاتَ ضجيج [AR-05]")
 
     # (و) حدُّ الرقعة مكتوبٌ توكيدًا لا نثرًا: كلمةٌ كلُّها ملتبسٌ لا يطالها بندُ الهروب
-    # بأيّ صياغة، فتبقى مُشخَّصةً خارج `[sad]`. تثبيتُه هنا يمنع ادّعاءً أوسعَ من المُنجَز.
+    # بأيّ صياغة، فتبقى مُشخَّصةً. تثبيتُه هنا يمنع ادّعاءً أوسعَ من المُنجَز.
     assert sim("٥٥") == 2, (
         "تغيّر سلوكُ «٥٥» — حدُّ الرقعة المُعلَن أنّها لا تطال الأرقامَ العربيّةَ المفردة "
         "في النثر. تغيُّرُه يعني أنّ الوثيقةَ صارت تكذب [AR-05]")
@@ -4125,7 +4080,7 @@ def _no_bare_python_invocation():
     ‏`python` المجرَّد غائبٌ عن أوبونتو 24.04، وعلى توزيعاتٍ أقدمَ هو بايثون 2 —
     والثانيةُ أخبثُ لأنّ الأمرَ يوجد فيفشل المُرقِّعُ بخطأِ صياغةٍ في ملفٍّ سليم.
     وأُصلِح موضعان بالاسم، ثمّ كُتب في رسالة الإيداع «فلا يتكرّران» — وذلك صحيحٌ
-    للموضعَين وخاطئٌ للصنف: بقي `python` في جالب أدوات ص وجالب ألف ونشرِ الموقع
+    للموضعَين وخاطئٌ للصنف: بقي `python` في جالب الأدوات وجالب ألف ونشرِ الموقع
     ونشرِ الإصدار، وكلُّها تعمل على لينكس في CI.
 
     والقاعدة: يُحلّ المفسّرُ بـ`resolve_py_bin` من `build/lib/pybin.sh` ثمّ يُنادى
@@ -4872,8 +4827,8 @@ def _deploy_does_not_expose_editor():
 
     # ── ‏[CACHE-02] ‏`/out/` غيرُ مبصومٍ ⇒ عمرُ الطزاجة صفرٌ ──
     # الحارسُ فوقَه يمنع **يومًا فأكثر**، وعشرُ دقائقَ كانت تمرّ منه — وهي التي
-    # أعطبت حيًّا: نُشِرت `sad-lang` ولم تُلوِّن عند المُبلِّغ، لأنّ قائمةَ الامتدادات
-    # المضمَّنة مخبوزةٌ في الحزمة، فحزمةٌ عمرُها دقائقُ لا تعرف اللغةَ إطلاقًا.
+    # أعطبت حيًّا: نُشِر امتدادٌ ولم يُلوِّن عند المُبلِّغ، لأنّ قائمةَ الامتدادات
+    # المضمَّنة مخبوزةٌ في الحزمة، فحزمةٌ عمرُها دقائقُ لا تعرفه إطلاقًا.
     # أي أنّ الحارسَ السابقَ كان يقيس **الحدَّ الفادح** ويترك الفادحَ الصغير.
     #
     # ويُقاس العقدُ لا الإملاء: `no-cache` و`max-age=0, must-revalidate` و`no-store`
@@ -5113,9 +5068,6 @@ def _repo_references_are_current():
     نسخًا قديمةً بحكم كونها لقطاتٍ لما مضى.
     """
     import subprocess
-    # **يُبنى من جزأين لا يُكتب حرفيًّا**: الفحصُ يمسح الشجرةَ المتعقَّبة ومنها هذا
-    # الملفّ، فكتابةُ الاسم القديم حرفيًّا تجعله يبلّغ عن نفسِه. أُوقِع فعلًا.
-    OLD = "sadlang" + "/mihrab"
     NEW = "almihrab" + "/mihrab"
     try:
         out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
@@ -5127,13 +5079,13 @@ def _repo_references_are_current():
     assert tracked, "لا ملفّاتٍ متعقَّبة — الحارسُ يقيس الهواء"
 
     # **سجلُّ المُصابات مستثنًى بالاسم**: هو بحكم وظيفته مخزنُ أعطابٍ مقصودة —
-    # مُصابُ `org-reference-stale` يحمل الاسمَ القديمَ عمدًا كي يُزرَع. ومسحُه يجعل
+    # مُصابُ `org-reference-foreign` يحمل منظّمةً غريبةً عمدًا كي يُزرَع. ومسحُه يجعل
     # الحارسَ يبلّغ عن الأداة التي تحرسه. (أُوقِع فعلًا: احمرّ على شجرةٍ سليمةٍ
     # فأسقط ثمانيةَ مُصاباتٍ أخرى معه.)
     EXEMPT = {"tests/meta/mutants.json"}
 
     # ── ومنظّمةٌ **ثالثة** لا تمرّ ──
-    # الفحصُ كان يعرف اسمين: القديمَ فيحمرّ عليه، والجديدَ فيعدّه. ومرجعٌ إلى
+    # الفحصُ كان يعرف اسمين: السابقَ فيحمرّ عليه، والحاليَّ فيعدّه. ومرجعٌ إلى
     # منظّمةٍ ثالثةٍ — خطأُ طباعة، أو اسمٌ جُرِّب ثمّ تُرك — لا هو القديمُ ولا
     # الجديد، فكان يمرّ أخضر. قِيس فعلًا: مرجعٌ كاملٌ إلى `mihrab-org` (منظّمةٌ
     # **غيرُ مسجَّلةٍ** على GitHub، أي اسمٌ يستطيع أيُّ أحدٍ تسجيلَه) عاش في
@@ -5153,7 +5105,6 @@ def _repo_references_are_current():
     )
     foreign = []
 
-    stale = []
     seen_new = 0
     for rel in tracked:
         if rel in EXEMPT:
@@ -5165,10 +5116,6 @@ def _repo_references_are_current():
             text = _read(f)
         except (UnicodeDecodeError, OSError):
             continue  # ثنائيّ
-        if OLD in text:
-            for i, line in enumerate(text.splitlines(), 1):
-                if OLD in line:
-                    stale.append(f"{rel}:{i}")
         seen_new += text.count(NEW)
         for _pat in _org_pats:
             for i, line in enumerate(text.splitlines(), 1):
@@ -5181,9 +5128,6 @@ def _repo_references_are_current():
         + "\n       ".join(foreign[:20])
         + "\n       اسمٌ غيرُ مسجَّلٍ يستطيع أيُّ أحدٍ تسجيلَه ثمّ رفعَ أرشيفٍ بالاسم "
         "المتوقَّع. بدِّله إلى " + NEW + " أو اكتبه مقطوعًا إن كان مثالًا.")
-    assert not stale, (
-        "مرجعٌ بائتٌ للمستودع القديم في:\n       " + "\n       ".join(stale[:20])
-        + "\n       بدِّله إلى " + NEW)
     # تفعيلٌ موجب: لو زالت المراجعُ كلُّها لمرّ الفحصُ أخضرَ بلا معنى. والمرجعُ
     # الأدنى مرسًى حقيقيّ — `product.json` وحدَه يحمل أربعة.
     assert seen_new >= 4, (
@@ -5260,75 +5204,6 @@ def _glossary_gap_with_langpack_measured():
         "كي يبقى الحارسُ صادقًا:\n       "
         + "\n       ".join("«%s»: %d ← %d" % (w, a, b) for w, (a, b) in sorted(shrank.items()))
         + " [GLS-02]")
-
-
-def _shell_code(line):
-    """ما قبل أوّل `#` **تعليقيٍّ** في السطر: في أوّله أو بعد فراغ، وخارج الاقتباس.
-
-    ‏`line.split("#", 1)[0]` كان يبتر `echo "a # b /opt/sad-website"` عند `#` داخل السلسلة
-    فيمرّ الموضعُ القديمُ أخضر (قِيس بالطفرة)؛ و`$#` و`${#x}` ليسا تعليقًا.
-    """
-    q = None
-    for i, ch in enumerate(line):
-        if q:
-            if ch == q:
-                q = None
-        elif ch in "\"'":
-            q = ch
-        elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
-            return line[:i]
-    return line
-
-
-@check("محرابٌ منفصلٌ عن موقع لغة ص: لا كتابةَ ولا رابطَ إلى sad-lang.org/mihrab [SEP-01]")
-def _separated_from_sad_lang_site():
-    """الموقعُ انتقل إلى `mihrab.dev` والبقايا بقيت على `sad-lang.org/mihrab/` تردّ ‎200‎.
-
-    الفصلُ ثلاثةُ أضلاع: (١) لا سكربتَ نشرٍ يكتب تحت `/opt/sad-website` ولا يسمّي
-    `sad-lang.org/mihrab` في **شيفرةٍ** (التعليقاتُ تاريخٌ ولا تُقاس)؛ (٢) لا صفحةَ
-    مبنيّةً تربط إلى الموضع القديم (يقيسه `check_site.py`)؛ (٣) الحيُّ نفسُه لا يردّ
-    ‎200‎ هناك — وذلك سطحٌ شبكيٌّ يقيسه `tests/live/probe_live.py`، فيُشترَط هنا أنّ
-    المجسَّ يسأل السؤالَ، وأنّ سكربتَ الإزاحة موجودٌ وسليمُ الصياغة.
-    """
-    bad = []
-    for rel in sorted(glob.glob(os.path.join(ROOT, "build", "*.sh")) + glob.glob(os.path.join(ROOT, "deploy", "*.sh"))
-                      + glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml"))
-                      + glob.glob(os.path.join(ROOT, "build", "*.py")) + [os.path.join(ROOT, "site", "build.py")]):
-        if os.path.basename(rel) == "retire_sad_lang_mirror.sh":
-            continue   # هو من يسمّي الموضعَ القديمَ ليُزيحه
-        for i, line in enumerate(_read(rel).splitlines(), 1):
-            code = _shell_code(line)
-            if "/opt/sad-website" in code or "sad-lang.org/mihrab" in code:
-                bad.append("%s:%d" % (os.path.relpath(rel, ROOT), i))
-    assert not bad, ("شيفرةٌ (لا تعليق) تسمّي موضعَ محرابٍ القديمَ تحت موقع لغة ص:\n       "
-                     + "\n       ".join(bad)
-                     + "\n       محرابٌ منفصل: الوجهةُ /opt/mihrab وmihrab.dev فقط [SEP-01]")
-    probe = os.path.join(ROOT, "tests", "live", "probe_live.py")
-    pt = _read(probe) if os.path.isfile(probe) else ""
-    # الحلقةُ نفسُها تُقاس لا وجودُ السلاسل: `for p in ():` أبقى النصَّ ومرّ أخضر
-    # (قِيس بالطفرة). و`follow=False` شرطٌ: `urlopen` يتبع ‎301‎ فيرى ‎200‎ الوجهةَ
-    # ويحمرّ كذبًا لحظةَ تركيب القصاصة (قِيس بخادمٍ محلّيّ).
-    pm = re.search(r'for p in \(([^)]*)\):\n\s+try:\n\s+s7, h7, _ = get\("https://sad-lang.org" \+ p, "HEAD", follow=False\)', pt)
-    assert pm and all(x in pm.group(1) for x in ('"/mihrab/"', '"/mihrab/download/"', '"/mihrab/docs/"')) \
-        and "s7 != 200" in pt, (
-        "مجسُّ الحيّ لا يسأل عن sad-lang.org/mihrab/ و/download/ و/docs/ على HEAD بلا تتبُّع تحويل "
-        "— الفصلُ بلا قياسٍ حيٍّ يبقى دعوى [SEP-01]")
-    retire = os.path.join(ROOT, "deploy", "retire_sad_lang_mirror.sh")
-    assert os.path.isfile(retire), "لا سكربتَ إزاحةٍ للبقايا (`deploy/retire_sad_lang_mirror.sh`) [SEP-01]"
-    # الشيفرةُ لا التعليقات: تعليقٌ يقول «لا rm -rf هنا» كان يُحمِّر (قِيس بالطفرة).
-    rt = "\n".join(_shell_code(l) for l in _read(retire).splitlines())
-    # والشرطان قبل الإزاحة (قياسُ سالي): المانيفستُ الحيُّ لا يشير إلى الموضع القديم،
-    # والقصاصةُ مركَّبةٌ (مسارٌ عشوائيٌّ تحت /mihrab/ يردّ ‎301‎) — وإلّا انقطع تنزيلُ
-    # محرابٍ من موقعه (أزرارُه كانت تمرّ عبر sad-lang.org/mihrab/dl/) وابتلعت صفحةُ
-    # اللغة الروابطَ القديمة بـ‎200‎. يُقاسان في الشيفرة لا التعليقات.
-    assert "mihrab.dev/dl/releases.json" in rt and "sad-lang.org*" in rt, (
-        "سكربتُ الإزاحة لا يتحقّق من أصل المانيفست الحيّ قبل النقل — أزرارُ التنزيل على "
-        "mihrab.dev كانت تمرّ عبر sad-lang.org/mihrab/dl/ [SEP-01]")
-    assert "retire-probe-" in rt and "MIHRAB_ALLOW_SWALLOW" in rt and "exit 4" in rt, (
-        "سكربتُ الإزاحة لا يقيس تركيبَ قصاصة التحويل قبل النقل — بلا تحويلٍ تردّ كتلةُ "
-        "sad-lang.org صفحةَ اللغة بـ200 لكلّ رابطٍ قديم (ابتلاعٌ صامت) [SEP-01]")
-    assert "mv '$OLD' '$KEEP'" in rt and "rm -rf" not in rt, (
-        "سكربتُ الإزاحة يجب أن ينقل لا يحذف — الحذفُ النهائيُّ قرارُ المالك بعد أسبوع [SEP-01]")
 
 
 @check("رُقَعُ النواة تُطبَّق عاديًّا قبل --3way [APPLY-01]")
@@ -5742,7 +5617,7 @@ def _extension_ids_match_their_publisher():
 
     الأوّلُ `package.json` (الحقيقةُ التي يبني منها كلُّ شيء)، والثاني سلاسلُ نصٍّ
     في الشيفرة تُنادي `extensions.getExtension(...)`. وحين انتقل محرابٌ إلى منظّمته
-    تغيّر الناشرُ من `sadlang` إلى `mihrab` في ستّة `package.json` وأربعِ سلاسلَ —
+    تغيّر الناشرُ إلى `mihrab` في ستّة `package.json` وأربعِ سلاسلَ —
     **ولا شيءَ كان يربط بينها.**
 
     قِيس بالطفرة: إعادةُ `publisher` في `mihrab-shell` وحدَه إلى القديم، مع بقاء
@@ -5807,7 +5682,7 @@ def _extension_ids_match_their_publisher():
                             f"{rel}:{i} يقول \u00ab{prefix}.{ext}\u00bb"
                             f"\n           بينما {where[ext]} يقول publisher = \u00ab{owner[ext]}\u00bb")
 
-    # ثلاثةٌ بعد إزالة امتدادَي ص ونِبراس (2026-11-22): كانت أربعة.
+    # ثلاثةٌ بعد إزالة امتدادَين مدمجَين (2026-11-22): كانت أربعة.
     assert seen >= 3, (
         f"لم يُرَ إلّا {seen} مُعرِّفًا مكتوبًا بيد — إمّا أنّها زالت (فيُحدَّث الحارس) "
         "أو أنّ النمطَ كُسِر. لا يُترَك أخضرَ فارغًا.")

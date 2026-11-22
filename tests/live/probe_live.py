@@ -55,9 +55,8 @@ _NOFOLLOW = urllib.request.build_opener(_NoRedirect)
 
 
 def get(url, method="GET", follow=True):
-    # ‏`follow=False` لسؤال الفصل [SEP-01]: `urlopen` يتبع ‎301‎ افتراضيًّا فيرى ‎200‎
-    # الوجهةِ (‏mihrab.dev) بدل التحويل — قِيس بخادمٍ محلّيٍّ يردّ ‎301‎ — فيحمرّ
-    # الحارسُ كذبًا لحظةَ تركيب قصاصة التحويل ويعمى عن `Location`.
+    # ‏`follow=False` لمن يسأل عن التحويل نفسِه: `urlopen` يتبع ‎301‎ افتراضيًّا فيرى ‎200‎
+    # الوجهةِ بدل التحويل — قِيس بخادمٍ محلّيٍّ يردّ ‎301‎ — فيعمى عن `Location`.
     req = urllib.request.Request(url, method=method, headers={"User-Agent": UA})
     _open = urllib.request.urlopen if follow else _NOFOLLOW.open
     try:
@@ -112,21 +111,6 @@ for base in (ORIGIN, APP):
     ours = "محراب" in txt and "<center>nginx</center>" not in txt
     check(s4 == 404, "‏%s: مسارٌ مفقودٌ يردّ %d [LIVE-01]" % (base, s4))
     check(ours, "‏%s: صفحةُ 404 صفحتُنا لا nginx العارية [LIVE-01]" % base)
-
-# ── ٣ب) الفصلُ عن موقع لغة ص [SEP-01] ──
-# بقايا النشر القديم في `sad-lang.org/mihrab/` كانت تردّ ‎200‎ بنسخةٍ كاملةٍ قديمة:
-# أصلان يقدّمان الموقعَ نفسَه وأحدُهما ميّت. المنتظَر ‎301‎ (قصاصةُ التحويل) أو ‎404‎
-# (إزاحةٌ بلا تحويل) — لا ‎200‎ أبدًا.
-for p in ("/mihrab/", "/mihrab/download/", "/mihrab/docs/"):
-    try:
-        s7, h7, _ = get("https://sad-lang.org" + p, "HEAD", follow=False)
-    except OSError as e:
-        notes.append("⏭️  sad-lang.org لا يُجيب (%s) — سؤالُ الفصل متخطًّى [SEP-01]" % e)
-        break
-    check(s7 != 200, "‏sad-lang.org%s ⇒ %d — موقعُ لغة ص لا يخدم محرابَ [SEP-01]" % (p, s7))
-    if s7 in (301, 302, 308):
-        check(str(h7.get("Location", "")).startswith(ORIGIN),
-              "‏sad-lang.org%s يحوّل إلى %s [SEP-01]" % (p, h7.get("Location")))
 
 # ── ٣ج) النطاقاتُ الفرعيّة تصل وجهتَها [SUB-01] ──
 # `dl.mihrab.dev/dl/releases.json` كان يُحوَّل إلى `/dl/dl/…` و`docs.mihrab.dev/start/`

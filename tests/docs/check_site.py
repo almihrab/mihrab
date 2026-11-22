@@ -275,8 +275,7 @@ def main():
             # و`mihrab.dev` معهما: هو **أصلُ** هذا المخرَج الآن، ورابطٌ مطلقٌ إليه من داخله
             # يربط المرآةَ بالأصل ويرسل زوّارَها بعيدًا — وهي العلّةُ نفسُها.
             # (‏`app.mihrab.dev` مستثنًى: أصلٌ آخرُ فعلًا، والرابطُ إليه مقصود.)
-            for host in ("almihrab.github.io", "sad-lang.org/mihrab",
-                         "https://mihrab.dev"):
+            for host in ("almihrab.github.io", "https://mihrab.dev"):
                 if host in url:
                     bad("رابطٌ مطلقٌ إلى مضيفٍ بعينه في %s: %s" % (rel, url))
 
@@ -836,8 +835,7 @@ def main():
     #    ولا يلتقطها تعبيرٌ مقيَّدٌ بسمتين (قِيس: ثلاثُ طفراتٍ مرّت خضراء).
     #    والمقارنةُ **بالمضيف تامًّا لا بالبادئة**: `https://github.com.evil`
     #    يبدأ بـ`https://github.com` ومرّ أخضرَ كذلك.
-    ALLOW = {origin, app, "https://github.com", "https://sad-lang.org",
-             "https://vscodium.com"}
+    ALLOW = {origin, app, "https://github.com", "https://vscodium.com"}
     nf_hosts = {"https://" + m.group(1)
                 for m in re.finditer(r"https?://([A-Za-z0-9._-]+)", nf)}
     assert nf_hosts, "لا أصولَ مطلقةً في 404.html — تغيّرت بنيتُها [W404]"

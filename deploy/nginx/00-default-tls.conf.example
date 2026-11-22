@@ -12,7 +12,7 @@
 # ## وما ليس عطبًا
 #
 # ‏SNI وترويسةُ `Host` مستقلّان: عميلٌ يفتح TLS بـSNI=`mihrab.dev` ثمّ يرسل
-# `Host: sad-lang.org` يُخدَم من كتلة `sad-lang.org`. هذا سلوكُ nginx الطبيعيّ
+# `Host` موقعٍ آخرَ يُخدَم من كتلته هو. هذا سلوكُ nginx الطبيعيّ
 # ولا يُعالَج هنا.
 #
 #   sudo cp 00-default-tls.conf.example /etc/nginx/conf.d/00-default-tls.conf
