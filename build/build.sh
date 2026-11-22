@@ -1369,7 +1369,11 @@ _TUNNEL_NAME="$(node -p "require(process.argv[1]).tunnelApplicationName" "$UP/pr
   || { echo "❌ [BR-05] tunnelApplicationName فارغٌ في product.json" >&2; exit 1; }
 [[ "$_TUNNEL_NAME" == "undefined" ]] \
   && { echo "❌ [BR-05] tunnelApplicationName غيرُ معرَّفٍ في product.json" >&2; exit 1; }
-_TUNNEL="$OUTDIR/bin/$_TUNNEL_NAME"
+# ‏macOS: الـCLI يُنسَخ داخل الحزمة (`<nameLong>.app/Contents/Resources/app/bin/`) لا
+# في جذر المخرَج — فبحثُ `$OUTDIR/bin` أسقط بناءً سليمًا بـ«مفقود» وقد نُسخ الثنائيُّ
+# فعلًا (macOS x64 على `3ec7a34`). و`$APP_DIR` محلولٌ أعلاه من اسم الحزمة العربيّ.
+if [[ "$OS_NAME" == "osx" ]]; then _TUNNEL="$APP_DIR/bin/$_TUNNEL_NAME"
+else _TUNNEL="$OUTDIR/bin/$_TUNNEL_NAME"; fi
 [[ -f "$_TUNNEL" ]] || _TUNNEL="$_TUNNEL.exe"
 # ⚠️ **غيابُ الثنائيّ ليس نجاحًا.** كان الفحصُ كلُّه داخل `if [[ -f … ]]`، والتعليقُ
 #    فوقه يَعِد بتغطية «لو لم يُبنَ الـCLI أصلًا» — وهو بالضبط ما كان يمرّ صامتًا.
