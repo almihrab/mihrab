@@ -169,7 +169,7 @@ export async function interactionAssertions(cdp) {
       `شفافيّة ${w.opacity}، مُقنَّعة، نزّ ${w.bleedPx}px تحت الترويسة (مُذاب بالقناع)`));
   } catch (e) { out.push(skip("ترحيب: الزخرفة النجميّة", "تعذّر: " + e.message, true)); }
 
-  // [القاعدة 32] محاذاة الجولة «ابدأ في ٩٠ ثانية» — **بلاغُ مستخدم لا مسحُ ماسح.**
+  // [القاعدة 32] محاذاة الجولات — **بلاغُ مستخدم لا مسحُ ماسح.**
   // العطبُ الذي أفلت من كلّ تأكيداتنا: الترتيب سليم والمحاذاة يسار. الحكم بالأثر:
   // أوراقُ نصٍّ متفاوتةُ الأطوال تشترك في حافّةٍ يمنى واحدة ⇒ الفقرة تبدأ من اليمين.
   try {
@@ -499,7 +499,7 @@ export async function designAssertions(cdp) {
     }
   } catch (e) { out.push(skip("TY-02: حبر العربيّة داخل سطر المحرّر", "تعذّر: " + e.message, true)); }
 
-  // [TY-03] أحاديّةُ العرض **مقيسةً في المحرّر**: نظيرُ إنذارِ المستخدم، من جهة الحارس.
+  // [TY-03] أحاديّةُ العرض **مقيسةً في المحرّر** — من جهة الحارس.
   try {
     const m = await editorInkMetrics(cdp);
     if (!m || !m.present) out.push(skip("TY-03: أحاديّة عرض العربيّة في المحرّر", "لا سطرَ محرّرٍ ظاهر", true));
@@ -852,14 +852,6 @@ export async function panelAssertions(cdp) {
         await key(cdp, +vk, code, +mods);
       } else if (mode === "scm-diff") {
         if (!(await openDiffFromScm(cdp))) { notOpened.push(label); continue; }
-      } else if (mode === "codelens") {
-        // تنشيطُ تبويب العيّنة ثمّ **انتظارُ البصمة صراحةً**: `activateSadTab` تعود صادقةً
-        // لمجرّد وجود التبويب، وحلُّ العدسات يقع بعده بمهلةٍ غيرِ محدّدة. ومن لم ينتظر
-        // البصمةَ هنا يقيس نطاقًا فارغًا ويُبلِّغ «نظيف» — الفخُّ الموثَّقُ أربعَ مرّاتٍ أعلاه.
-        if (!(await activateFixtureTab(cdp))) { notOpened.push(label); continue; }
-        if (!(await waitFor(cdp, FP(fingerprint), 12000))) {
-          notOpened.push(label + " (لم تُحَلّ عدسةٌ عربيّةٌ في المهلة)"); continue;
-        }
       } else if (mode === "hover") {
         if (!(await editorHover(cdp))) { notOpened.push(label); continue; }
       } else if (mode === "ext-details") {
@@ -1117,7 +1109,7 @@ export async function runAll(cdp) {
   try {
     await cdp.evaluate(`(() => {
       const t = [...document.querySelectorAll(".tabs-container .tab")]
-        .find(x => /\\u0635\\b|\\.\\u0635/.test(x.textContent || ""));
+        .find(x => /rtl_fixture\\.txt/.test(x.textContent || ""));
       if (!t) return 0;
       for (const type of ["mousedown", "mouseup", "click", "dblclick"])
         t.dispatchEvent(new MouseEvent(type, { bubbles: true, detail: type === "dblclick" ? 2 : 1 }));

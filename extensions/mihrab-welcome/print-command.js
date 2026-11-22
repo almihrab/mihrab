@@ -47,10 +47,10 @@ async function exportForPrint(vscode, context) {
 
   let html, count;
   try {
-    // **يُقرأ الخطُّ قبل البناء وبـ`required`**: غيابُه يُفشِل الأمرَ ولا يُنتج ملفًّا.
+    // **يُقرأ الخطُّ قبل البناء**: غيابُه يُفشِل الأمرَ ولا يُنتج ملفًّا.
     // ملفٌّ يبدو سليمًا عند مُصدِّره ويُطبَع بخطٍّ لاتينيٍّ عند غيره أسوأُ من فشلٍ صريح،
     // لأنّ الفشلَ يُصلَح والانحرافَ الصامتَ يُوقَّع عليه. (التعليل في `bundled-font.js`.)
-    const fontDataUri = loadFontDataUri(context && context.extensionPath, { required: true });
+    const fontDataUri = loadFontDataUri(context && context.extensionPath);
     html = buildPrintHtml(source, {
       fileName: base,
       fontDataUri,

@@ -52,7 +52,7 @@ test("سقفُ الزخارف يُحترَم", () => {
 
 test("اسمٌ عربيٌّ سليمٌ يمرّ", () => {
   assert.strictEqual(V.checkName("مرحبا.txt"), null);
-  assert.strictEqual(V.checkName("مشروع-ص_2"), null);
+  assert.strictEqual(V.checkName("مشروع-عربي_2"), null);
 });
 
 test("الانتحالُ يُكشَف **ويُسمّى** (كي يعرف المستخدمُ ما الذي يُزال)", () => {

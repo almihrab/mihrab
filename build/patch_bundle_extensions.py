@@ -314,7 +314,7 @@ _INJECT_TEMPLATE = """
     "${_MIHRAB_PY}" ../.mihrab-patch-walkthrough-dir.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedDetailsRenderer.ts || { echo "محراب: فشلت رُقعة اتّجاه لوح الجولة" >&2; exit 1; }
   fi
   # رُقعة صفحة الترحيب (ب): إسقاط جولات المنبع التعريفيّة (Setup/SetupWeb/Beginner) كي تتصدّر
-  # جولة محراب «ابدأ في ٩٠ ثانية». SetupAccessibility وnotebooks تبقيان عمدًا (انظر المرقِّع).
+  # جولاتُ محراب. SetupAccessibility وnotebooks تبقيان عمدًا (انظر المرقِّع).
   if [ -f ../.mihrab-patch-walkthroughs-drop.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-walkthroughs-drop.py src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStartedService.ts || { echo "محراب: فشلت رُقعة إسقاط جولات المنبع" >&2; exit 1; }
   fi

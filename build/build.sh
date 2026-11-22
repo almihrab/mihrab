@@ -398,12 +398,12 @@ fi
 # وحلقةٌ على مجلّدٍ فارغٍ صارت تمرّ صامتةً بدل أن تُفشِل البناء.
 shopt -u nullglob
 
-# [AR-02] مصدر الخطّ العربيّ المحزوم (Kawkab Mono، OFL). يُستهلَك مرّتين: (١) media/ لوحة الترحيب
-# (AR-01 تُضمّنه data:URI)، (٢) @font-face وثيقة الـworkbench (تجهيز أدناه). MIHRAB_ARABIC_FONT أو الافتراضيّ.
+# [AR-02] مصدر الخطّ العربيّ المحزوم (Kawkab Mono، OFL). يُستهلَك مرّتين: (١) media/ امتداد الترحيب
+# (تصديرُ الطباعة [PR-01] يُضمّنه data:URI)، (٢) @font-face وثيقة الـworkbench (تجهيز أدناه). MIHRAB_ARABIC_FONT أو الافتراضيّ.
 ARABIC_FONT_SRC="${MIHRAB_ARABIC_FONT:-$ROOT/patches/fonts/kawkab-mono.woff2}"
 if [[ -d "$STAGE_EXT/mihrab-welcome" ]]; then
-  # [AR-02] الخطّ العربيّ المحزوم في media/ لوحة الترحيب: تُضمّنه لوحة المخرجات (AR-01) كـdata:URI
-  # كي تعرض المخرجات بالخطّ المحزوم عينه (الـwebview معزول عن @font-face الـworkbench). سقوط رشيق.
+  # [AR-02] الخطّ العربيّ المحزوم في media/ امتداد الترحيب: يُضمّنه تصديرُ الطباعة [PR-01] كـdata:URI
+  # كي تُطبَع الصفحةُ بالخطّ المحزوم عينه. غيابُه هنا لا يُفشِل البناء — يُفشِل أمرَ التصدير نفسَه.
   if [[ -f "$ARABIC_FONT_SRC" ]]; then
     WELCOME_MEDIA="$STAGE_EXT/mihrab-welcome/media"
     mkdir -p "$WELCOME_MEDIA"
