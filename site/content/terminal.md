@@ -1,7 +1,7 @@
 ---
 description: الطرفيّة المدمجة — التقسيم والتهيئة والاتّجاه.
 source_path: docs/terminal/basics.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "7f74349bceb0d87e7df2ceb4493d48bf2e71c85c"
 ---
 

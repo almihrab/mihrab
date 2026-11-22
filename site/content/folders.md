@@ -1,7 +1,7 @@
 ---
 description: المجلّدات ومساحات العمل متعدّدة الجذور، وأين تعيش الإعدادات.
 source_path: docs/editing/workspaces/workspaces.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "8dfa3fd7ea6207ed9062d5606d7846e1901d02d3"
 ---
 

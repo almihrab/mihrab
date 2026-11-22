@@ -1,7 +1,7 @@
 ---
 description: سمات الألوان وأيقونات الملفّات والخطّ العربيّ.
 source_path: docs/configure/themes.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "5fe0a82e191325b2c1ca9a9a26e97252522250e8"
 ---
 

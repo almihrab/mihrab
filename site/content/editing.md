@@ -1,7 +1,7 @@
 ---
 description: التحديد المتعدّد وتحريك الأسطر والطيّ والتنسيق.
 source_path: docs/editing/codebasics.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "45f750191dc0d4821aa6e10feea58eba72a0ea1e"
 ---
 

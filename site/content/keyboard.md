@@ -1,7 +1,7 @@
 ---
 description: بطاقةٌ مرجعيّة عربيّة لاختصارات محراب، قابلةٌ للترشيح والطباعة.
 source_path: docs/reference/default-keybindings.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "fcbb32c11d7ec2f4392fe3617b6bfbb312510c8c"
 ---
 

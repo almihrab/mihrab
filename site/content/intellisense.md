@@ -1,7 +1,7 @@
 ---
 description: الإكمال التلقائيّ والتلميحات والانتقال إلى التعريف.
 source_path: docs/editing/intellisense.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "9205d8bdb257779d1732fc6e78745b19c6643dd1"
 ---
 

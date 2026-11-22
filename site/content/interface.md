@@ -1,7 +1,7 @@
 ---
 description: نواحي شاشة محراب الخمس، وماذا يفعل كلٌّ منها.
 source_path: docs/editing/getting-started/userinterface.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "d541b5c82d5ce86b4f9477c1c22cb4ff0540c13a"
 ---
 

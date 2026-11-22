@@ -1,7 +1,7 @@
 ---
 description: أين تُحفَظ الإعدادات، وكيف تسود طبقةٌ على أخرى.
 source_path: docs/configure/settings.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "6eeac4a2c846815e02a7d58818d2d3ed07874ee0"
 ---
 

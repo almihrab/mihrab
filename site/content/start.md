@@ -1,7 +1,7 @@
 ---
 description: أوّلُ ملفٍّ وأوّلُ تشغيل في محراب — في دقيقة.
 source_path: docs/editing/getting-started/editor-tutorial.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "1c797c7858f6c5df2e68c4bb5a7cff56b471d1ba"
 ---
 

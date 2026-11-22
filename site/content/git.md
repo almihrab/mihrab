@@ -1,7 +1,7 @@
 ---
 description: مصادر التحكّم داخل محراب — المرحلة والالتزام والدمج.
 source_path: docs/sourcecontrol/overview.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "6c96cbc51cfe0f5b34439448c867a38a0c672eab"
 ---
 

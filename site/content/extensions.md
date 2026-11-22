@@ -1,7 +1,7 @@
 ---
 description: تثبيت الامتدادات وإدارتها، وما يأتي مدمجًا في محراب.
 source_path: docs/configure/extensions/extension-marketplace.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "cd60f2802148b8360a4568758bc4504953f0acad"
 ---
 

@@ -1,7 +1,7 @@
 ---
 description: نقاط التوقّف وتهيئة التشغيل ومراقبة القيم.
 source_path: docs/debugtest/debugging.md
-translated_at: 2026-08-01
+translated_at: 2026-11-22
 source_sha: "c6c191ec9ed2a4c5240db4d909c9682ce35e71b2"
 ---
 
