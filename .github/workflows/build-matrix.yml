@@ -104,7 +104,9 @@ jobs:
           # ثلاثَ مرّاتٍ ساعتان ضائعتان ومخاطرةُ اختلافِ ثلاثِ نسخٍ من الشيء نفسِه.
           - { name: لينكس x64,       os: ubuntu-22.04,    arch: x64,   out: VSCode-linux-x64,    jobs: 2,
               assets: linux-x64-tar linux-x64-deb linux-x64-rpm, native: true }
-          - { name: macOS arm64,     os: macos-14,        arch: arm64, out: VSCode-darwin-arm64, jobs: 3,
+          # ‏`macos-14` لم يعد يُسنَد له عدّاء: الوظيفةُ تُلغى في ثانيةٍ بلا خطوةٍ واحدة
+          # (‏`907b437` و`3ec7a34`). و`macos-15` هو عدّاءُ arm64 القياسيّ.
+          - { name: macOS arm64,     os: macos-15,        arch: arm64, out: VSCode-darwin-arm64, jobs: 3,
               assets: mac-arm64, native: true }
           # عدّاءٌ إنتلٌ **أصليّ** لا ترجمةٌ متقاطعة: اختبارُ الإقلاع أدناه هو
           # نصفُ قيمةِ هذه الوظيفة، وثنائيُّ x64 لا يُشغَّل على عدّاءٍ من سيليكون.
@@ -126,9 +128,12 @@ jobs:
       run: { shell: bash }
 
     env:
-      # ‏REH/REH-web: خادمٌ بعيد لا نشحنه — ~١٢ دقيقةً لكلّ منصّة بلا حراسة.
+      # ‏REH: خادمٌ بعيد لا نشحنه — ~١٢ دقيقةً لكلّ منصّة بلا حراسة.
       SHOULD_BUILD_REH: 'no'
-      SHOULD_BUILD_REH_WEB: 'no'
+      # ‏REH-web **يُبنى**: هو محرابُ المتصفّح، و`build.sh` يعرّبه (ط-0د) و[WEB-01] في
+      # L2 يشترطه. كان مطفأً منذ 57b29cf فسقط L2 على كلّ منصّةٍ بلغته (‏`3ec7a34`):
+      # حارسٌ يشترط ما تمنعه المصفوفة. والكلفةُ ~١٢ دقيقةً لكلّ وظيفة، بقرار المالك.
+      SHOULD_BUILD_REH_WEB: 'yes'
       CI_BUILD: 'no'
 
     steps:
