@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """مولّد عائلة أيقونات محراب — مصدر الحقيقة الوحيد لملفّات ‎icons/*.svg‎ المشتقّة والخريطة.
 
-**المشكلة التي يحلّها [AR-06]:** كانت السمة تُخرِّط نوعًا واحدًا فقط (‏ص)، وهي **الافتراضيّة**.
+**المشكلة التي يحلّها [AR-06]:** كانت السمة تُخرِّط نوعًا واحدًا فقط، وهي **الافتراضيّة**.
 فكلّ ما عداه — ‎json، md، py، png، توml… — يقع على أيقونة الصفحة العامّة نفسها. أي أنّ مستكشف
 محراب كان **أقلّ إفادةً من المحرّر القياسيّ** (‏seti يغطّي عشرات الأنواع): الشجرة تصير صفًّا من
 صفحاتٍ متطابقة، ويضيع أسرع مؤشّر بصريّ يملكه المبرمج للتمييز بين ملفّات المشروع.
 
-**المبدأ:** لا نلاحق تغطية seti. نغطّي **ما يقع فعلًا في مشروع ص**: مصدر، بيانات/إعداد،
+**المبدأ:** لا نلاحق تغطية seti. نغطّي **ما يقع فعلًا في مشروعٍ عاديّ**: مصدر، بيانات/إعداد،
 توثيق، صورة، سجلّ/قفل. خمس عائلات، لا أكثر — كلٌّ منها **لونٌ من لوحة السمة نفسها** (لا ألوان
 مخترَعة)، فتقرأ الشجرة كامتدادٍ للسمة لا كطقمٍ غريب عنها.
 
@@ -15,7 +15,6 @@
 ‏+ **علامة** صغيرة داخله تدلّ على العائلة. الإطار يبقى محايد اللون، والعلامة وحدها ملوّنة:
 فيبقى التمييز سريعًا في حجمٍ 16px بلا ضجيج لونيّ.
 
-‏`sad.svg` **ليس** من هذا المولّد: هو علامة الهوية (القوس)، مكتوب يدويًّا ولا يُشتَقّ.
 
 الاستعمال:  python extensions/mihrab-icons/gen_icons.py
 """
@@ -72,7 +71,7 @@ GLYPH = {
              ' stroke-width="1.8"/>',
 }
 
-# الامتدادات لكلّ عائلة — **ما يقع في مشروع ص فعلًا** لا كلّ ما في الوجود.
+# الامتدادات لكلّ عائلة — **ما يقع في مشروعٍ عاديّ فعلًا** لا كلّ ما في الوجود.
 EXTENSIONS = {
     "code":  ["py", "js", "mjs", "cjs", "ts", "mts", "cts", "sh", "bash", "ps1", "c", "h",
               "cpp", "hpp", "rs", "go", "java", "rb", "lua"],
@@ -121,7 +120,7 @@ def main():
     # ولا تبقى مراجع يتيمة لأيقونات لم تعد تُولَّد.
     def build(light):
         sfx = "-light" if light else ""
-        ext = {"ص": f"mihrab-sad{sfx}"}
+        ext = {}
         for family, exts in EXTENSIONS.items():
             for e in exts:
                 ext[e] = f"mihrab-{family}{sfx}"
@@ -133,10 +132,10 @@ def main():
 
     ext, names = build(False)
     theme["fileExtensions"], theme["fileNames"] = ext, names
-    theme["languageIds"] = {"sad": "mihrab-sad"}
+    theme.pop("languageIds", None)
     lext, lnames = build(True)
     theme["light"]["fileExtensions"], theme["light"]["fileNames"] = lext, lnames
-    theme["light"]["languageIds"] = {"sad": "mihrab-sad-light"}
+    theme["light"].pop("languageIds", None)
 
     with open(THEME, "w", encoding="utf-8", newline="\n") as f:
         json.dump(theme, f, ensure_ascii=False, indent=2)

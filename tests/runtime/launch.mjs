@@ -37,7 +37,7 @@ const TOOLCHAIN = NODE_VERSION
   ? join(ROOT, "build", ".toolchain", `node-v${NODE_VERSION}-win-x64`)
   : "";
 const ARTIFACTS = join(HERE, "artifacts");
-const FIXTURE = join(HERE, "fixtures", "rtl_fixture.ص");
+const FIXTURE = join(HERE, "fixtures", "rtl_fixture.txt");
 // عيّنةُ تصيير ملاحظات الإصدار: تُفتَح **دائمًا** في تبويبٍ خلفيّ لأنّ مِجَسَّ
 // `releaseNotesRendering` يحتاجها نشطةً لحظةَ قياسه، وأمرُ «افتح الملفَّ الحاليَّ
 // كملاحظاتِ إصدار» يقرأ المحرّرَ النشط. وفتحُها هنا لا بـ`--tabs` كي يعمل المِجَسّ في

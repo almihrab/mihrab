@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """مولِّد سمتَي محراب (JSON) — مصدر الحقيقة للسمتين (داكنة/فاتحة متوازيتان).
 
-يُخرّط لوحتَي ألوان الرموز على نطاقات نحو ص الفعليّة (sad.tmLanguage.json)
-+ أنواع رموز LSP الدلاليّة (من legend الخادم الفعليّ). أعِد التشغيل عند تعديل اللوحة:
+يُخرّط لوحتَي ألوان الرموز على أساس سمة المنبع المُورَّد ونطاقاتٍ عامّة
++ أنواع رموز LSP الدلاليّة القياسيّة. أعِد التشغيل عند تعديل اللوحة:
     py -3 extensions/mihrab-themes/gen_themes.py
 
 قرارات (مراجعة Amelia):
@@ -14,7 +14,6 @@
   • مؤشّر الإدخال (editorCursor) يبقى ذهبيًّا رغم أنّ الكلمات المفتاحيّة صارت ذهبيّة: الذهب
     هو نبرة «القضيب» في شعار القوس (assets/branding) — والمؤشّر يتمايز بالشكل والوميض
     والحركة لا باللون، فبقاؤه ذهبيًّا اختيارُ هويّة مقصود لا انجرافًا.
-  • لا selfKeyword في الرموز الدلاليّة: خادم ص لا يُصدره (يصنّف «هذا» كـKeyword).
   • meta.interpolation بلا foreground: نلوّن المحتوى الداخليّ لا الحاوية.
 """
 import io
@@ -189,8 +188,8 @@ WB_HC_LIGHT = _wb_hc(HC_LIGHT, "#FFFFFF", "#101418", "#F2F2F2", "#CFE6E0", "#101
 
 
 # ── الأساسُ المُورَّد: قواعدُ سمة المنبع الافتراضيّة لكلّ اللغات ──────────────────
-# لماذا: كانت هذه السماتُ تحمل **سبعَ قواعدَ لا غير**، ستٌّ منها مقيَّدةٌ بلغة ص. فكلُّ
-# ملفٍّ ليس ص — `.md` و`.html` و`.py` و`.json` — يُفتَح **بلونٍ واحد**، وقِيس على
+# لماذا: كانت هذه السماتُ تحمل **سبعَ قواعدَ لا غير**، ستٌّ منها مقيَّدةٌ بلغةٍ واحدة. فكلُّ
+# ملفٍّ غيرِها — `.md` و`.html` و`.py` و`.json` — يُفتَح **بلونٍ واحد**، وقِيس على
 # المشحون: ملفُّ HTML من ‎13‎ شظيّةً كلُّها اللونُ الافتراضيّ. والسمةُ مفروضةٌ افتراضًا
 # (`package.json` ⇐ `workbench.colorTheme`)، فلا يختارها المستخدمُ ليكتشف نقصَها.
 #
@@ -199,7 +198,7 @@ WB_HC_LIGHT = _wb_hc(HC_LIGHT, "#FFFFFF", "#101418", "#F2F2F2", "#CFE6E0", "#101
 # في التزامٍ مرئيّ.
 #
 # وألوانُ الأساس **تُترجَم إلى لوحة محراب** بخريطةِ دور: لولاها لصارت السمةُ لوحتين
-# متجاورتين — أزرقُ المنبع لكلمات بايثون المفتاحيّة وذهبُ محرابٍ لكلمات ص في النافذة
+# متجاورتين — أزرقُ المنبع لكلماتٍ مفتاحيّةٍ وذهبُ محرابٍ لأخرى في النافذة
 # نفسِها. والترجمةُ **شاملة**: لونٌ بلا دورٍ يعني لونًا لم يمرّ على عتبة AA، وقد أمسك
 # ذلك حارسُ التباين فعلًا حين تُرك `#000080` كما هو (‏1.08:1 على الليل).
 TOKENS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tokens")
@@ -318,40 +317,30 @@ def _resolve_upstream(path):
     return list(toks) + list(d.get("tokenColors") or []), chain + [os.path.basename(path)]
 
 
-def sad_token_colors(p):
-    """يُخرّط لوحة الرموز على نطاقات sad.tmLanguage.json الفعليّة."""
+def mihrab_token_colors(p):
+    """قواعدُ محرابٍ فوق الأساس: النطاقاتُ **العامّة** (لكلّ اللغات) بلوحة الهوية.
+
+    كانت هنا قواعدُ مقيَّدةٌ بنحو لغةٍ بعينها أُزيلت معها؛ وبقيت النطاقاتُ العامّةُ
+    التي كانت في القواعد نفسِها بألوانها، فلا يتغيّر لونٌ في أيّ لغةٍ أخرى.
+    """
     return [
-        {"name": "تعليق", "scope": [
-            "comment", "comment.line.number-sign.sad", "comment.block.sad",
-            "comment.line.documentation.sad", "comment.block.documentation.sad"],
+        {"name": "تعليق", "scope": ["comment"],
          "settings": {"foreground": p["cm"], "fontStyle": "italic"}},
-        {"name": "كلمة مفتاحيّة", "scope": [
-            "keyword.control.sad", "keyword.control.directive.sad", "keyword.other.sad",
-            "keyword.operator.word.sad", "storage.modifier.sad",
-            "storage.modifier.lifetime.sad", "constant.language", "constant.language.sad"],
+        {"name": "كلمة مفتاحيّة", "scope": ["constant.language"],
          "settings": {"foreground": p["kw"]}},
-        {"name": "نوع", "scope": ["storage.type.sad", "support.type.sad"],
-         "settings": {"foreground": p["cls"]}},
-        {"name": "عامل", "scope": ["keyword.operator.sad"], "settings": {"foreground": p["op"]}},
-        {"name": "نصّ", "scope": [
-            "string", "string.quoted.double.sad", "string.quoted.raw.sad",
-            "string.quoted.interpolated.sad"], "settings": {"foreground": p["str"]}},
-        {"name": "هروب", "scope": ["constant.character.escape.sad"],
-         "settings": {"foreground": p["esc"]}},
-        {"name": "رقم", "scope": [
-            "constant.numeric", "constant.numeric.decimal.sad", "constant.numeric.hex.sad",
-            "constant.numeric.binary.sad", "constant.numeric.octal.sad"],
+        {"name": "نصّ", "scope": ["string"], "settings": {"foreground": p["str"]}},
+        {"name": "رقم", "scope": ["constant.numeric"],
          "settings": {"foreground": p["num"]}},
     ]
 
 
 def token_colors(p, variant):
-    """الأساسُ المُورَّد أوّلًا ثمّ قواعدُ ص — **الأخيرُ يغلب**، فقواعدُنا فوق المنبع."""
-    return base_tokens(variant, p) + sad_token_colors(p)
+    """الأساسُ المُورَّد أوّلًا ثمّ قواعدُ محراب — **الأخيرُ يغلب**، فقواعدُنا فوق المنبع."""
+    return base_tokens(variant, p) + mihrab_token_colors(p)
 
 
 def semantic(p):
-    """رموز LSP الدلاليّة — أنواع من legend خادم ص الفعليّ فقط (لا selfKeyword: غير مُصدَر)."""
+    """رموز LSP الدلاليّة — الأنواعُ القياسيّة في legend البروتوكول."""
     return {
         "function": p["fn"], "method": p["fn"],
         "class": p["cls"], "struct": p["cls"], "enum": p["cls"], "interface": p["cls"],

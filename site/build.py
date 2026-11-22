@@ -349,7 +349,6 @@ FOOTER_LINKS = [
         ("%s" % SITE["repo"], "المستودع على GitHub"),
         ("%s/issues/new" % SITE["repo"], "أبلِغ عن عطب"),
         ("%s/blob/main/LICENSE" % SITE["repo"], "الرخصة"),
-        ("https://sad-lang.org/", "لغةُ ص"),
     ]),
 ]
 
@@ -536,7 +535,7 @@ def hero_visual():
         with open(shot, "rb") as f:
             w, h = struct.unpack(">II", f.read(24)[16:24])
         inner = ('<img src="../assets/shots/editor.png" width="%d" height="%d" '
-                 'alt="محراب مفتوحٌ على ملفّ لغة ص: شريطُ النشاط والمستكشف يمينًا، '
+                 'alt="محراب مفتوحٌ على ملفٍّ عربيّ: شريطُ النشاط والمستكشف يمينًا، '
                  'والكودُ العربيّ في المحرّر." fetchpriority="high">' % (w, h))
         note = ""
     else:
@@ -544,7 +543,7 @@ def hero_visual():
         note = ('<div class="shot-note">رسمٌ تخطيطيّ للتخطيط — لا لقطةَ شاشة. '
                 'حمّل محرابًا لترى الأصل.</div>')
     return ('<div class="shot"><div class="shot-bar"><i></i><i></i><i></i>'
-            '<span class="t">محراب — مرحبا.ص</span></div>%s%s</div>' % (inner, note))
+            '<span class="t">محراب — مرحبا.md</span></div>%s%s</div>' % (inner, note))
 
 
 def _mock_svg():

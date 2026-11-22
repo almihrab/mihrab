@@ -43,8 +43,7 @@
   "linkProtectionTrustedDomains": [
     "https://open-vsx.org",
     "https://mihrab.dev",
-    "https://app.mihrab.dev",
-    "https://sad-lang.org"
+    "https://app.mihrab.dev"
   ],
 
   "urlProtocol": "mihrab",

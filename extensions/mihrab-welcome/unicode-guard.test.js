@@ -85,7 +85,7 @@ test("قائمةُ المفاتيح تشمل السبعة — نقصانُ وا�
 
 test("قائمةُ اللغات = ما يضبطه محرابٌ فعلًا في قشرته", () => {
   assert.deepStrictEqual(G.LANGS,
-    ["sad", "markdown", "plaintext", "git-commit", "git-rebase"]);
+    ["markdown", "plaintext", "git-commit", "git-rebase"]);
 });
 
 test("‏inspect يعيد undefined ⇒ لا انهيار ولا اكتشافٌ كاذب", () => {
@@ -102,10 +102,10 @@ test("قيمةٌ عامّةٌ بلا نطاقٍ لغويّ لا تُعدّ مُ�
 });
 
 test("قيمةٌ بنطاقِ لغةٍ في إعدادات المستخدم تُعدّ مُظلِّلة — وهي الحالةُ الوحيدة", () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true });
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true });
   const hits = G.shadowing(G.findOverrides(f.vscode));
   assert.strictEqual(hits.length, 1);
-  assert.strictEqual(hits[0].langId, "sad");
+  assert.strictEqual(hits[0].langId, "plaintext");
   assert.strictEqual(hits[0].overrideInLanguage, true);
 });
 
@@ -117,12 +117,12 @@ test("قيمةُ مساحةِ عملٍ بنطاقِ لغة تُكتشَف أيض
 });
 
 test("‏«inUntrustedWorkspace» تُعدّ مُظلِّلة — القيمةُ ثلاثيّةٌ لا بوليانيّة", () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": "inUntrustedWorkspace" });
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": "inUntrustedWorkspace" });
   assert.strictEqual(G.shadowing(G.findOverrides(f.vscode)).length, 1);
 });
 
 test("‏false بنطاقِ لغةٍ ليست مُظلِّلة — توافقُ افتراضِنا لا مخالفتُه", () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": false });
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": false });
   assert.deepStrictEqual(G.shadowing(G.findOverrides(f.vscode)), []);
 });
 
@@ -147,16 +147,14 @@ test("رسالةُ «لا إعداد»: غيرُ الموثوقة تُسمّي �
 test("رسالةُ «لا إعداد»: الموثوقةُ تنسب الباقيَ إلى خلط الكتابتَين ولا تَعِد بإزالته", () => {
   const m = G.COPY.clean("yaml", true);
   assert.match(m, /تخلط كتابتَين/);
-  assert.match(m, /خارجَ إعفاء ملفّات ص/);   // ‏[sad] وحدَها تحمل قائمةَ الإعفاء
   assert.doesNotMatch(m, /غيرُ موثوقة/);      // لا يُقال ما ليس واقعًا
 });
 
 test("رسالةُ «لا إعداد»: لغةٌ مُعفاةٌ لا تُلام على إعفاءٍ لا ينقصها", () => {
-  const m = G.COPY.clean("sad", true);
+  const m = G.COPY.clean("plaintext", true);
   assert.match(m, /تخلط كتابتَين/);
-  assert.doesNotMatch(m, /خارجَ إعفاء/);
-  // وحتّى في مساحةٍ غيرِ موثوقة: `nonBasicASCII: false` مُسهَمٌ لـ«ص» فلا سببَ يُنسَب إليها.
-  assert.doesNotMatch(G.COPY.clean("sad", false), /غيرُ موثوقة/);
+  // وحتّى في مساحةٍ غيرِ موثوقة: `nonBasicASCII: false` مُسهَمٌ للنصّ العاديّ فلا سببَ يُنسَب إليه.
+  assert.doesNotMatch(G.COPY.clean("plaintext", false), /غيرُ موثوقة/);
 });
 
 test("رسالةُ «تمّ» لا تَعِد بما لا يملكه الأمر", () => {
@@ -167,19 +165,19 @@ test("رسالةُ «تمّ» لا تَعِد بما لا يملكه الأمر"
 test("المسحُ يبلغ كلَّ نطاقٍ بهدفه، وبـoverrideInLanguage حين يلزم", async () => {
   const f = fakeVscode({
     "|allowedCharacters|globalValue": { "а": true },
-    "sad|nonBasicASCII|workspaceLanguageValue": true,
+    "plaintext|nonBasicASCII|workspaceLanguageValue": true,
   });
   assert.strictEqual(await G.resetCommand(f.vscode, fakeMemento()), 2);
   // العمودُ الأخير هو **لغةُ كائن الإعداد الذي كُتب منه**: الكتابةُ بنطاقِ لغةٍ من كائنٍ
   // بلا لغةٍ تمرّ بلا أثر (نجاحٌ كاذبٌ أمسكه تشغيلٌ حيّ).
   assert.deepStrictEqual(f.updates, [
     ["editor.unicodeHighlight.allowedCharacters", undefined, T.Global, false, null],
-    ["editor.unicodeHighlight.nonBasicASCII", undefined, T.Workspace, true, "sad"],
+    ["editor.unicodeHighlight.nonBasicASCII", undefined, T.Workspace, true, "plaintext"],
   ]);
 });
 
 test("نجاحٌ بلا أثرٍ يُقال فشلًا — إقرارٌ بإعادة القراءة لا بعدم الرمي", async () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true },
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true },
                        { keepValues: true });
   await G.resetCommand(f.vscode, fakeMemento());
   assert.deepStrictEqual(f.shown.info, []);
@@ -188,11 +186,11 @@ test("نجاحٌ بلا أثرٍ يُقال فشلًا — إقرارٌ بإعا
 });
 
 test("رسالةُ النجاح تسمّي ما أُزيل — لا «تمّ» صامتة", async () => {
-  const f = fakeVscode({ "sad|invisibleCharacters|globalLanguageValue": false });
+  const f = fakeVscode({ "plaintext|invisibleCharacters|globalLanguageValue": false });
   await G.resetCommand(f.vscode, fakeMemento());
   assert.strictEqual(f.shown.info.length, 1);
   assert.ok(f.shown.info[0].includes("invisibleCharacters"));
-  assert.ok(f.shown.info[0].includes("sad"));
+  assert.ok(f.shown.info[0].includes("plaintext"));
 });
 
 test("فشلٌ جزئيّ يُقال جزئيًّا — لا ادّعاءَ نجاحٍ ولا ادّعاءَ فشلٍ تامّ", async () => {
@@ -214,42 +212,42 @@ test("فشلٌ من أوّل مفتاح ⇒ رسالةُ فشلٍ تامّ بط�
 });
 
 test("الإنذار يقع على المُظلِّل، و«أزِل» تعيد true بعد إزالةٍ فعليّة", async () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true }, { answer: 0 });
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true }, { answer: 0 });
   assert.strictEqual(await G.maybeWarn(f.vscode, fakeMemento()), true);
   assert.deepStrictEqual(f.shown.warn, [G.COPY.warn]);
 });
 
 test("«أزِل» مع فشلِ الكتابة ⇒ لا تُعيد true (لا ادّعاءَ إصلاح)", async () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true },
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true },
                        { answer: 0, failAfter: 0 });
   assert.strictEqual(await G.maybeWarn(f.vscode, fakeMemento()), false);
 });
 
 test("«اتركها» يُحفَظ ببصمةٍ مرتّبة فلا يتكرّر الإنذار", async () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true }, { answer: 1 });
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true }, { answer: 1 });
   const m = fakeMemento();
   await G.maybeWarn(f.vscode, m);
-  assert.strictEqual(m.get(G.STATE_KEY), "global:sad:nonBasicASCII");
-  const f2 = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true }, { answer: 1 });
+  assert.strictEqual(m.get(G.STATE_KEY), "global:plaintext:nonBasicASCII");
+  const f2 = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true }, { answer: 1 });
   assert.strictEqual(await G.maybeWarn(f2.vscode, m), false);
   assert.deepStrictEqual(f2.shown.warn, []);
 });
 
 test("البصمةُ التي يحفظها الحارسُ **مرتّبة** — لا ترتيبَ اكتشافٍ عارض", async () => {
-  // ‏`findOverrides` تمرّ على ‏LANGS بترتيبها (sad ثمّ markdown)، فبلا `sort()` تُحفَظ
+  // ‏`findOverrides` تمرّ على ‏LANGS بترتيبها (plaintext ثمّ git-commit)، فبلا `sort()` تُحفَظ
   // بصمةٌ بترتيبِ المرور — وتتغيّر بتغيّر ترتيب اللغات فيعود الإنذارُ بلا سبب.
   const f = fakeVscode({
-    "sad|nonBasicASCII|globalLanguageValue": true,
-    "markdown|nonBasicASCII|globalLanguageValue": true,
+    "plaintext|nonBasicASCII|globalLanguageValue": true,
+    "git-commit|nonBasicASCII|globalLanguageValue": true,
   }, { answer: 1 });
   const m = fakeMemento();
   await G.maybeWarn(f.vscode, m);
   assert.strictEqual(m.get(G.STATE_KEY),
-    "global:markdown:nonBasicASCII,global:sad:nonBasicASCII");
+    "global:git-commit:nonBasicASCII,global:plaintext:nonBasicASCII");
 });
 
 test("حالةٌ جديدةٌ بعد «اتركها» تُعيد الإنذار", async () => {
-  const m = fakeMemento({ [G.STATE_KEY]: "global:sad:nonBasicASCII" });
+  const m = fakeMemento({ [G.STATE_KEY]: "global:plaintext:nonBasicASCII" });
   const f = fakeVscode({ "markdown|nonBasicASCII|workspaceLanguageValue": true },
                        { answer: 1 });
   await G.maybeWarn(f.vscode, m);
@@ -257,14 +255,14 @@ test("حالةٌ جديدةٌ بعد «اتركها» تُعيد الإنذار"
 });
 
 test("تنفيذُ الأمر يدويًّا يمسح «اتركها» — طلبُ الإصلاح إلغاءٌ ضمنيٌّ للتجاهل", async () => {
-  const m = fakeMemento({ [G.STATE_KEY]: "global:sad:nonBasicASCII" });
+  const m = fakeMemento({ [G.STATE_KEY]: "global:plaintext:nonBasicASCII" });
   const f = fakeVscode({});
   await G.resetCommand(f.vscode, m);
   assert.strictEqual(m.get(G.STATE_KEY), undefined);
 });
 
 test("إغلاقُ الإنذار بلا اختيار لا يُحفَظ — فيعود في الإقلاع التالي", async () => {
-  const f = fakeVscode({ "sad|nonBasicASCII|globalLanguageValue": true });
+  const f = fakeVscode({ "plaintext|nonBasicASCII|globalLanguageValue": true });
   const m = fakeMemento();
   await G.maybeWarn(f.vscode, m);
   assert.strictEqual(m.get(G.STATE_KEY), undefined);

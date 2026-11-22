@@ -95,7 +95,7 @@ const SAMPLE = [
 ].join("\n");
 
 const work = mkdtempSync(join(tmpdir(), "mihrab-print-"));
-const html = buildPrintHtml(SAMPLE, { fileName: "نصاب.ص", fontDataUri, exportedAt: "—" });
+const html = buildPrintHtml(SAMPLE, { fileName: "نصاب.txt", fontDataUri, exportedAt: "—" });
 
 /**
  * الذراعُ الضابطة: القاعدةُ التي تفرض الخطَّ على العناصر تُحذَف — لا الخطُّ نفسُه.

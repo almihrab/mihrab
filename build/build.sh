@@ -395,82 +395,14 @@ if [[ -n "${MIHRAB_EXTRA_EXT_DIRS:-}" ]]; then
 fi
 # EXTRA_EXT_DIRS_BLOCK>>
 # استعادةُ nullglob: كتلةُ المعاينة حلّت محلَّ `shopt -u` فبقي مفعَّلًا إلى آخرِ الملفّ،
-# وحلقةٌ على مجلّدٍ فارغٍ صارت تمرّ صامتةً بدل أن تُفشِل البناء (حمولةُ ص أدناه).
+# وحلقةٌ على مجلّدٍ فارغٍ صارت تمرّ صامتةً بدل أن تُفشِل البناء.
 shopt -u nullglob
 
-# ── (ز-2ب-2) حزم سلسلة أدوات ص المدمجة (الخيار ١): احقن sad-run.exe في bin/ داخل
-#         نسخة mihrab-welcome المُجهَّزة كي يعمل «شغّل ملفّ ص» فورًا دون تثبيت. المصدر:
-#         MIHRAB_SAD_RUN إن ضُبط، وإلّا الافتراضيّ المجاور (../sad-engines-dev/sad-run.exe).
-#         **سقوط رشيق لا قاتل** (بخلاف الهوية/RTL): غياب الثنائيّ يعني بناءً بلا تشغيل مدمج،
-#         والامتداد يسقط إلى PATH ويعرض تلميح التثبيت — لا نُفشِل البناء كلّه لأجله.
-#         الهدف المستقبليّ (الخيار ٣، موثَّق في docs/toolchain-delivery.md): أمر «ثبّت أدوات ص»
-#         يُنزّل أحدث إصدار عند الطلب فوق هذا المدمج. (راجع resolveSadRun في extension.js.)
-#
-# ── الأسبقيّة: بيئةٌ صريحة ⇐ **المجلوبُ الرسميّ** ⇐ المجاورُ التطويريّ ──
-# كان المجاورُ التطويريُّ يسبق المجلوبَ الرسميَّ، فالجالبُ لا يُثمِر إلّا لمن تذكّر أن
-# يُصدّر `.upstream/.sad-tools/env.sh`. وأثرُه مقيسٌ لا مفترَض: هذا البناءُ حزم ثنائيّات
-# `../sad-engines-dev` بينما المانيفستُ يشهد بجلبِ `v1.0.0` — فأمسكه حارسُ البصمة
-# («‏ما جُلب وصل الحزمةَ ببصمته») بحقّ. وضمانٌ رهنُ ذاكرةٍ ليس ضمانًا: الجالبُ إن عمل
-# فناتجُه هو المقصود، والمجاورُ التطويريُّ احتياطٌ لمن لا جالبَ عنده — لا العكس.
-SAD_FETCHED_BIN="$ROOT/.upstream/.sad-tools/bin"
-_sad_src() {  # $1 = اسمُ الأداة بلا لاحقة · $2 = التجاوزُ الصريح (قد يكون فارغًا)
-  if [[ -n "${2:-}" ]]; then printf '%s' "$2"; return; fi
-  local fetched="$SAD_FETCHED_BIN/$1$EXE_SUFFIX"
-  if [[ -f "$fetched" ]]; then printf '%s' "$fetched"; return; fi
-  printf '%s' "$ROOT/../sad-engines-dev/$1$EXE_SUFFIX"
-}
-SAD_RUN_SRC="$(_sad_src sad-run "${MIHRAB_SAD_RUN:-}")"
-# [SAD-02] مصدر أداة الفحص المدمجة (تشخيص عند الحفظ عبر sad-check --json). نفس اصطلاح sad-run.
-SAD_CHECK_SRC="$(_sad_src sad-check "${MIHRAB_SAD_CHECK:-}")"
-# [SAD-04] مصدر أداة البناء المدمجة (أمر «ابنِ» عبر sad-build). نفس اصطلاح sad-run/sad-check.
-SAD_BUILD_SRC="$(_sad_src sad-build "${MIHRAB_SAD_BUILD:-}")"
-# [SAD-01] مصدر خادم ص اللغويّ المدمج (LSP: تشخيص/إكمال/تحويم/تعريف). نفس اصطلاح الأدوات؛
-# يُحزَم في bin/ داخل نسخة sad-lang المُجهَّزة (لا mihrab-welcome — العميل يسكن في sad-lang).
-SAD_LSP_SRC="$(_sad_src sad-lsp "${MIHRAB_SAD_LSP:-}")"
-# [AR-02] مصدر خطّ ص العربيّ المحزوم (Kawkab Mono، OFL). يُستهلَك مرّتين: (١) media/ لوحة الترحيب
+# [AR-02] مصدر الخطّ العربيّ المحزوم (Kawkab Mono، OFL). يُستهلَك مرّتين: (١) media/ لوحة الترحيب
 # (AR-01 تُضمّنه data:URI)، (٢) @font-face وثيقة الـworkbench (تجهيز أدناه). MIHRAB_ARABIC_FONT أو الافتراضيّ.
 ARABIC_FONT_SRC="${MIHRAB_ARABIC_FONT:-$ROOT/patches/fonts/kawkab-mono.woff2}"
 if [[ -d "$STAGE_EXT/mihrab-welcome" ]]; then
-  WELCOME_BIN="$STAGE_EXT/mihrab-welcome/bin"
-  # نظّف أيّ bin/ منسوخ من الشجرة المصدريّة (قد يوجد على جهاز مطوّر رغم تجاهله في git):
-  # لا نشحن إلّا الثنائيّات من المصدر المعتمَد، أو لا شيء — فلا نسخة بائتة تُشحن صامتًا. [H1]
-  rm -rf "$WELCOME_BIN"
-  mkdir -p "$WELCOME_BIN"
-  # (أ) sad-run — «شغّل ملفّ ص» المدمج.
-  if [[ -f "$SAD_RUN_SRC" ]]; then
-    cp -f "$SAD_RUN_SRC" "$WELCOME_BIN/sad-run$EXE_SUFFIX"
-    log "حُزِمت أداة ص المدمجة: sad-run.exe ($(du -h "$WELCOME_BIN/sad-run$EXE_SUFFIX" 2>/dev/null | cut -f1 || echo '؟')) من $SAD_RUN_SRC"
-  else
-    log "⚠️ لا sad-run.exe في $SAD_RUN_SRC — بناء بلا تشغيل مدمج (يسقط الامتداد إلى PATH). اضبط MIHRAB_SAD_RUN للحزم."
-  fi
-  # (ب) sad-check — جسر التشخيص عند الحفظ [SAD-02]. سقوط رشيق كذلك: غيابه ⇒ الجسر يسقط إلى PATH.
-  if [[ -f "$SAD_CHECK_SRC" ]]; then
-    cp -f "$SAD_CHECK_SRC" "$WELCOME_BIN/sad-check$EXE_SUFFIX"
-    log "حُزِمت أداة الفحص المدمجة: sad-check.exe ($(du -h "$WELCOME_BIN/sad-check$EXE_SUFFIX" 2>/dev/null | cut -f1 || echo '؟')) من $SAD_CHECK_SRC"
-  else
-    log "⚠️ لا sad-check.exe في $SAD_CHECK_SRC — تشخيص الحفظ يسقط إلى PATH. اضبط MIHRAB_SAD_CHECK للحزم."
-  fi
-  # (ج) sad-build — أمر «ابنِ» [SAD-04]. سقوط رشيق كذلك: غيابه ⇒ أمر البناء يسقط إلى PATH.
-  if [[ -f "$SAD_BUILD_SRC" ]]; then
-    cp -f "$SAD_BUILD_SRC" "$WELCOME_BIN/sad-build$EXE_SUFFIX"
-    log "حُزِمت أداة البناء المدمجة: sad-build.exe ($(du -h "$WELCOME_BIN/sad-build$EXE_SUFFIX" 2>/dev/null | cut -f1 || echo '؟')) من $SAD_BUILD_SRC"
-  else
-    log "⚠️ لا sad-build.exe في $SAD_BUILD_SRC — أمر البناء يسقط إلى PATH. اضبط MIHRAB_SAD_BUILD للحزم."
-  fi
-  # (ج-2) حمولةٌ مجاورةٌ للأدوات (`MIHRAB_SAD_PAYLOAD`): المكتبةُ القياسيّة ومكتباتُ
-  #        التشغيل التي تأتي في الإصدار الرسميّ. برنامجٌ نصّيٌّ يعمل بلا هذه (قِسناه)،
-  #        لكنّ استيرادَ المكتبة القياسيّة يحتاجها — فشحنُ الثنائيّ وحدَه يُنتج «يعمل
-  #        في مثال الترحيب ويسقط في أوّل استيراد»، وهو أسوأُ من غيابٍ صريح.
-  if [[ -n "${MIHRAB_SAD_PAYLOAD:-}" && -d "$MIHRAB_SAD_PAYLOAD" && -d "$WELCOME_BIN" ]]; then
-    for item in "$MIHRAB_SAD_PAYLOAD"/*; do
-      base="$(basename "$item")"
-      case "$base" in sad-run*|sad-build*|sad-check*|sad-lsp*) continue ;; esac
-      cp -rf "$item" "$WELCOME_BIN/" && log "حمولةُ ص المجاورة: $base"
-    done
-  fi
-  # لا تشحن دليلًا فارغًا إن غابت كلّ الأدوات (يُبقي السلوك كما لو لم يُنشأ bin/).
-  rmdir "$WELCOME_BIN" 2>/dev/null || true
-  # (د) [AR-02] الخطّ العربيّ المحزوم في media/ لوحة الترحيب: تُضمّنه لوحة المخرجات (AR-01) كـdata:URI
+  # [AR-02] الخطّ العربيّ المحزوم في media/ لوحة الترحيب: تُضمّنه لوحة المخرجات (AR-01) كـdata:URI
   # كي تعرض المخرجات بالخطّ المحزوم عينه (الـwebview معزول عن @font-face الـworkbench). سقوط رشيق.
   if [[ -f "$ARABIC_FONT_SRC" ]]; then
     WELCOME_MEDIA="$STAGE_EXT/mihrab-welcome/media"
@@ -478,25 +410,6 @@ if [[ -d "$STAGE_EXT/mihrab-welcome" ]]; then
     cp -f "$ARABIC_FONT_SRC" "$WELCOME_MEDIA/kawkab-mono.woff2"
     log "حُزِم الخطّ العربيّ في لوحة الترحيب: media/kawkab-mono.woff2 من $ARABIC_FONT_SRC"
   fi
-fi
-
-# ── (ز-2ب-3) [SAD-01] حزم خادم ص اللغويّ المدمج: احقن sad-lsp.exe في bin/ داخل نسخة sad-lang
-#         المُجهَّزة كي يعمل الذكاء اللغويّ (تشخيص/إكمال/تحويم/تعريف) فورًا دون تثبيت. **سقوط رشيق
-#         لا قاتل**: غياب الثنائيّ ⇒ العميل يسقط إلى PATH ويعرض تلميح تثبيت (LSP تحسينيّ لا شرط صحّة).
-if [[ -d "$STAGE_EXT/sad-lang" ]]; then
-  SADLANG_BIN="$STAGE_EXT/sad-lang/bin"
-  # نظّف أيّ bin/ منسوخ من الشجرة المصدريّة (قد يوجد على جهاز مطوّر رغم تجاهله في git):
-  # لا نشحن إلّا الثنائيّ من المصدر المعتمَد، أو لا شيء — فلا نسخة بائتة تُشحن صامتًا.
-  rm -rf "$SADLANG_BIN"
-  mkdir -p "$SADLANG_BIN"
-  if [[ -f "$SAD_LSP_SRC" ]]; then
-    cp -f "$SAD_LSP_SRC" "$SADLANG_BIN/sad-lsp$EXE_SUFFIX"
-    log "حُزِم خادم ص اللغويّ المدمج: sad-lsp.exe ($(du -h "$SADLANG_BIN/sad-lsp$EXE_SUFFIX" 2>/dev/null | cut -f1 || echo '؟')) من $SAD_LSP_SRC"
-  else
-    log "⚠️ لا sad-lsp.exe في $SAD_LSP_SRC — الذكاء اللغويّ يسقط إلى PATH. اضبط MIHRAB_SAD_LSP للحزم."
-  fi
-  # لا تشحن دليلًا فارغًا إن غاب الخادم (يُبقي السلوك كما لو لم يُنشأ bin/).
-  rmdir "$SADLANG_BIN" 2>/dev/null || true
 fi
 
 # جهّز رُقَع النواة + أصولها (تُطبَّق داخل build.sh المنبع بعد cd vscode، فتنجو من reset).
@@ -538,7 +451,7 @@ fi
 [[ -f "$ROOT/patches/core/032-scm-input-live-options.patch" ]] && cp -f "$ROOT/patches/core/032-scm-input-live-options.patch" "$UP/.mihrab-scm-input-live-options.patch"
 # خلطُ الكتابتَين في إبراز يونيكود [AR-05 · م-١٣/ب]: المنبع يسأل «أفي الكلمة محرفُ
 # ASCII؟» ويقصد «أتخلط كتابتَين؟» — والشَرطةُ السفليّةُ والأرقامُ ليست كتابةً بل غِراءُ
-# معرّفاتٍ في كلّ كتابة. فمعرّفُ ص `حقل_اسم` كان يُقرأ خلطًا فتُصنَّد كلُّ ألفٍ فيه:
+# معرّفاتٍ في كلّ كتابة. فمعرّفٌ عربيٌّ مثل `حقل_اسم` كان يُقرأ خلطًا فتُصنَّد كلُّ ألفٍ فيه:
 # ‏622 إبرازًا مرسومًا في ملفٍّ واحد، ولا واحدَ منها انتحال. تعديلٌ منبعيٌّ لا رقعةُ
 # هويّة: يسقط يومَ يُدمَج م-١٣/ب. فشلٌ قاتلٌ كسابقاتها.
 [[ -f "$ROOT/patches/core/033-unicode-word-script-mixing.patch" ]] && cp -f "$ROOT/patches/core/033-unicode-word-script-mixing.patch" "$UP/.mihrab-unicode-word-script-mixing.patch"
@@ -593,7 +506,7 @@ for _sheet in mihrab-rtl mihrab-identity; do
     exit 1
   fi
 done
-# [AR-02] جهّز خطّ ص العربيّ المحزوم لوثيقة الـworkbench: patch_bundle يشتقّ منه base64 ويحقن
+# [AR-02] جهّز الخطّ العربيّ المحزوم لوثيقة الـworkbench: patch_bundle يشتقّ منه base64 ويحقن
 # @font-face بمصدر data: URI في نسخة media من mihrab-rtl.css (لا url() نسبيّ: يكسر بناء esbuild —
 # لا loader لـ.woff2). المصدر ARABIC_FONT_SRC معرَّف أعلى الملفّ. سقوط رشيق: غيابه ⇒ لا حقن.
 [[ -f "$ARABIC_FONT_SRC" ]] && cp -f "$ARABIC_FONT_SRC" "$UP/.mihrab-kawkab-mono.woff2"

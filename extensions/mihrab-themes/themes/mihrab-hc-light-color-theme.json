@@ -672,11 +672,7 @@
     {
       "name": "تعليق",
       "scope": [
-        "comment",
-        "comment.line.number-sign.sad",
-        "comment.block.sad",
-        "comment.line.documentation.sad",
-        "comment.block.documentation.sad"
+        "comment"
       ],
       "settings": {
         "foreground": "#4A5560",
@@ -686,67 +682,25 @@
     {
       "name": "كلمة مفتاحيّة",
       "scope": [
-        "keyword.control.sad",
-        "keyword.control.directive.sad",
-        "keyword.other.sad",
-        "keyword.operator.word.sad",
-        "storage.modifier.sad",
-        "storage.modifier.lifetime.sad",
-        "constant.language",
-        "constant.language.sad"
+        "constant.language"
       ],
       "settings": {
         "foreground": "#6B4400"
       }
     },
     {
-      "name": "نوع",
-      "scope": [
-        "storage.type.sad",
-        "support.type.sad"
-      ],
-      "settings": {
-        "foreground": "#00457A"
-      }
-    },
-    {
-      "name": "عامل",
-      "scope": [
-        "keyword.operator.sad"
-      ],
-      "settings": {
-        "foreground": "#37474F"
-      }
-    },
-    {
       "name": "نصّ",
       "scope": [
-        "string",
-        "string.quoted.double.sad",
-        "string.quoted.raw.sad",
-        "string.quoted.interpolated.sad"
+        "string"
       ],
       "settings": {
         "foreground": "#33520C"
       }
     },
     {
-      "name": "هروب",
-      "scope": [
-        "constant.character.escape.sad"
-      ],
-      "settings": {
-        "foreground": "#99270A"
-      }
-    },
-    {
       "name": "رقم",
       "scope": [
-        "constant.numeric",
-        "constant.numeric.decimal.sad",
-        "constant.numeric.hex.sad",
-        "constant.numeric.binary.sad",
-        "constant.numeric.octal.sad"
+        "constant.numeric"
       ],
       "settings": {
         "foreground": "#99270A"

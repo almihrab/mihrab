@@ -67,7 +67,7 @@ function fakeVscode(opts = {}) {
 }
 
 /** مستندٌ زائفٌ يحاكي `TextDocument` بما نستعمله (نصٌّ متغيّرٌ كي يُقاس أثرُ التحرير فعلًا). */
-function fakeDoc(text, { scheme = "file", languageId = "sad", path = "/a.ص" } = {}) {
+function fakeDoc(text, { scheme = "file", languageId = "plaintext", path = "/a.txt" } = {}) {
   const doc = {
     languageId,
     uri: { scheme, path, toString: () => scheme + "://" + path },

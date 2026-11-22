@@ -73,7 +73,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CDP, sleep, activateSadTab } from "./harness.mjs";
+import { CDP, sleep, activateFixtureTab } from "./harness.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..");
@@ -142,7 +142,7 @@ mkdirSync(join(userData, "User"), { recursive: true });
 mkdirSync(ws, { recursive: true });
 const CASE = val("--case", "mixed");
 if (!["pure", "marks", "mixed", "canary"].includes(CASE)) { console.error(`❌ --case غير معروف: ${CASE} (pure|marks|mixed|canary)`); process.exit(2); }
-const file = join(ws, "طويل.ص");
+const file = join(ws, "طويل.txt");
 writeFileSync(file, fixtureText(LINES, CASE), "utf8");
 const settingsPath = join(userData, "User", "settings.json");
 
@@ -280,7 +280,7 @@ const CONTENT_H = `(() => {
 log("تنشيطُ تبويب العيّنة (صفحةُ الترحيب تسبقنا إلى النشاط)");
 let rendered = 0;
 for (let attempt = 1; attempt <= 6 && rendered === 0; attempt++) {
-  await activateSadTab(cdp).catch(() => { });
+  await activateFixtureTab(cdp).catch(() => { });
   await sleep(900);
   rendered = (await evalJs(`document.querySelectorAll('.monaco-editor .view-line').length`)) || 0;
 }

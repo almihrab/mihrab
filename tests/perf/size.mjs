@@ -1,16 +1,16 @@
 // [PF-01] ميزانيّةُ حجمِ التوزيعة — **حارسٌ** يُفشِل، لا قياسٌ يُبلِّغ.
 //
-// لماذا وُجد: البناءُ يحقن أربعةَ امتداداتٍ مضمَّنة، وأربعةَ تنفيذيَّاتٍ للغة ص، وخطًّا،
+// لماذا وُجد: البناءُ يحقن امتداداتٍ مضمَّنة، وخطًّا،
 // وحزمةَ تعريبٍ كاملة — ولا شيءَ في المستودع كلِّه يزن ما شُحن. فانتفاخُ مئةِ ميغابايتٍ
 // وسقوطُ تنفيذيٍّ كامل **يمرّان بالصمت نفسِه**.
 //
 // ── ثلاثةُ فخاخِ نجاحٍ كاذبٍ صُمِّم هذا الملفُّ ضدَّها بالاسم ────────────────────────
 //
-// (١) **الصفرُ صغيرٌ فهو تحت السقف.** كلُّ تنفيذيَّات ص والخطِّ سقوطُها رشيقٌ **بالتصميم**:
-//     build.sh يُسجّل تحذيرًا ويمضي (‏`build.sh:302,309,316,354`). فبسقفٍ أحاديٍّ يكون
+// (١) **الصفرُ صغيرٌ فهو تحت السقف.** الخطُّ المحزوم سقوطُه رشيقٌ **بالتصميم**:
+//     build.sh ينسخه داخل شرطٍ ويمضي. فبسقفٍ أحاديٍّ يكون
 //     **البناءُ الذي لم يشحن شيئًا هو الأخضرَ الأنصع**. ولذلك لكلِّ مكوّنٍ **أرضيّةٌ كما له
 //     سقف**، ولكلِّ اختياريٍّ **شاهدُ ملفٍّ** يجب أن يوجد ويتجاوز حدًّا أدنى. والبناءُ
-//     الهزيلُ (بلا سلسلة أدوات ص) مسموحٌ به **إعلانًا صريحًا** — `MIHRAB_PERF_PROFILE=lean` —
+//     الهزيلُ (بلا المكوّنات الاختياريّة) مسموحٌ به **إعلانًا صريحًا** — `MIHRAB_PERF_PROFILE=lean` —
 //     لا سقوطًا صامتًا: أن تختار الهزالَ شيء، وأن يقع بك فلا تدري شيءٌ آخر.
 //
 // (٢) **التخطّي يُحسَب نجاحًا.** `tests/bundle/check_injected.py` يُرجع 0 حين لا بناء،
@@ -40,7 +40,7 @@
 //   node tests/perf/size.mjs --json           # أخرِج القياسَ خامًا (لا حكم)
 //   node tests/perf/size.mjs --establish      # أعِد تأسيسَ الميزانيّة (يكتب budget.json)
 //   node tests/perf/size.mjs --require-measured   # اعتبر «لا بناء» فشلًا (بوّابةُ إصدار)
-//   MIHRAB_PERF_PROFILE=lean node tests/perf/size.mjs   # بناءٌ بلا سلسلة أدوات ص (إعلانٌ صريح)
+//   MIHRAB_PERF_PROFILE=lean node tests/perf/size.mjs   # بناءٌ بلا المكوّنات الاختياريّة (إعلانٌ صريح)
 //
 // الخروج: 0 نجاح/تخطٍّ معلَن · 1 تجاوزُ ميزانيّة أو مكوّنٌ دون أرضيّته · 2 بناءٌ ناقص/غائب.
 
@@ -70,7 +70,6 @@ const ANCHORS = [
   "resources/app/product.json",
   "resources/app/out/nls.messages.json",
   "resources/app/extensions/mihrab-welcome/package.json",
-  "resources/app/extensions/sad-lang/package.json",
 ];
 
 /**
@@ -79,11 +78,7 @@ const ANCHORS = [
  * `exclude` مساراتٌ نسبيّةٌ تُقتطع من الدلو وتُحسَب في دلوها هي.
  */
 const COMPONENTS = {
-  "sad_toolchain_bin":  { path: "resources/app/extensions/mihrab-welcome/bin", optional: true },
-  "sad_lsp_bin":        { path: "resources/app/extensions/sad-lang/bin", optional: true },
-  "ext_mihrab_welcome": { path: "resources/app/extensions/mihrab-welcome", exclude: ["bin"] },
-  "ext_sad_lang":       { path: "resources/app/extensions/sad-lang", exclude: ["bin"] },
-  "ext_mihrab_nebras":  { path: "resources/app/extensions/mihrab-nebras" },
+  "ext_mihrab_welcome": { path: "resources/app/extensions/mihrab-welcome" },
   "ext_mihrab_shell":   { path: "resources/app/extensions/mihrab-shell" },
   "ext_mihrab_icons":   { path: "resources/app/extensions/mihrab-icons" },
   "ext_mihrab_themes":  { path: "resources/app/extensions/mihrab-themes" },
@@ -99,10 +94,6 @@ const COMPONENTS = {
  * `min` بالبايت — حدٌّ أدنى فضفاضٌ عمدًا (يمسك «صفرٌ/كعبٌ/فشلُ نسخ»، لا يمسك انجرافَ إصدار).
  */
 const WITNESSES = [
-  { path: "resources/app/extensions/mihrab-welcome/bin/sad-run.exe",    min: 1_000_000, optional: true },
-  { path: "resources/app/extensions/mihrab-welcome/bin/sad-check.exe",  min: 1_000_000, optional: true },
-  { path: "resources/app/extensions/mihrab-welcome/bin/sad-build.exe",  min: 1_000_000, optional: true },
-  { path: "resources/app/extensions/sad-lang/bin/sad-lsp.exe",          min: 1_000_000, optional: true },
   // الخطُّ **إلزاميّ**: `build.sh` ينسخه داخل `if [[ -f … ]]` **بلا فرعِ else وبلا تحذير**
   // — وحدَه بين الأصول الاختياريّة — فغيابُه صامتٌ في البناء؛ وغيابُه يُعطِّل أمرَ التصدير
   // للطباعة [PR-01] كلّيًّا لأنّ `bundled-font.js` يرمي عليه بـ`required`.
@@ -125,7 +116,7 @@ const FORBIDDEN = [
   { label: "‏__pycache__",                    test: p => p.split(/[\\/]/).includes("__pycache__") },
 ];
 // نطاقُ المنع: امتداداتُنا وحدَها. امتداداتُ المنبع المضمَّنة ليست لنا ولا نُحاسَب عليها.
-const FORBIDDEN_SCOPE = ["mihrab-welcome", "mihrab-nebras", "mihrab-shell", "mihrab-themes", "mihrab-icons", "sad-lang"]
+const FORBIDDEN_SCOPE = ["mihrab-welcome", "mihrab-shell", "mihrab-themes", "mihrab-icons"]
   .map(n => join("resources", "app", "extensions", n));
 
 // ── العبور ────────────────────────────────────────────────────────────────────────
@@ -196,7 +187,7 @@ const forbiddenHits = [];
  * يمرّ صامتًا كما مرّت هي. فالقاعدةُ هنا: كلُّ ما تحت `extensions/` باسمٍ نملكه **يجب أن
  * يقع في دلو**. والاسمُ يُكتشَف من الشجرة المشحونة، فلا قائمةَ تنجرف.
  */
-const OWNED_EXT = /^(mihrab-|sad-lang$|language-pack-ar$)/;
+const OWNED_EXT = /^(mihrab-|language-pack-ar$)/;
 const EXT_PREFIX = join("resources", "app", "extensions") + sep;
 /** @type {Map<string, {bytes:number, files:number}>} */
 const orphanOwned = new Map();
@@ -250,8 +241,8 @@ if (has("--establish")) {
     _description: "[PF-01] ميزانيّةُ حجمِ محراب. **لا تُحرَّر يدويًّا برفعِ سقف**: أعِد التأسيس "
       + "بـ`node tests/perf/size.mjs --establish` والتزِم الفرقَ مرئيًّا. الأساسُ مقرونٌ بوسم "
       + "المنبع أدناه — ترقيةُ المنبع تُبطِله عمدًا.",
-    _bounds: "لكلِّ مكوّنٍ سقفٌ (+15%) **وأرضيّةٌ** (−40%). الأرضيّةُ ليست تجميلًا: تنفيذيّاتُ ص "
-      + "سقوطُها رشيقٌ في build.sh، فبسقفٍ وحدَه يكون البناءُ الفارغ أخضرَ.",
+    _bounds: "لكلِّ مكوّنٍ سقفٌ (+15%) **وأرضيّةٌ** (−40%). الأرضيّةُ ليست تجميلًا: "
+      + "بسقفٍ وحدَه يكون البناءُ الفارغ أخضرَ.",
     established_at: new Date().toISOString().slice(0, 10),
     upstream_vscodium_tag: up.vscodium.tag,
     product_version: measured.product_version,
@@ -262,7 +253,7 @@ if (has("--establish")) {
     ...(prev._version_note ? { _version_note: prev._version_note } : {}),
     known_absent: prev.known_absent || [],
     // هامشُ المجموع ضيّقٌ (±10%) لأنّ المنبعَ مثبَّتُ الوسم فحجمُه شبهُ ثابت؛ وهامشُ
-    // المكوّنات أوسعُ (‏+15%/−40%) لأنّ تنفيذيّات ص تنمو وتنكمش مع مصرّفها.
+    // المكوّنات أوسعُ (‏+15%/−40%) لأنّها تنمو وتنكمش مع المنبع.
     max_total_bytes: Math.round(all.bytes * 1.10),
     min_total_bytes: Math.round(all.bytes * 0.90),
     components: Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, { min: floor(v.bytes), max: ceil(v.bytes) }])),
@@ -313,7 +304,7 @@ if (budget.upstream_vscodium_tag !== up.vscodium.tag)
   console.log(`⚠️ وسمُ المنبع تغيّر (${budget.upstream_vscodium_tag} ⇐ ${up.vscodium.tag}) — الأساسُ عتيقٌ، أعِد التأسيس.`);
 
 console.log(`\nالمجموع: ${MB(all.bytes)} في ${all.files} ملفًّا  ·  منها خرائطُ مصدر: ${MB(maps.bytes)} (${maps.files})`);
-console.log(`الطراز: ${measured._profile}${LEAN ? "  (‏MIHRAB_PERF_PROFILE=lean — سلسلةُ أدوات ص غيرُ مطلوبة)" : ""}`);
+console.log(`الطراز: ${measured._profile}${LEAN ? "  (‏MIHRAB_PERF_PROFILE=lean — المكوّناتُ الاختياريّة غيرُ مطلوبة)" : ""}`);
 
 // (أ) المجموع
 if (all.bytes > budget.max_total_bytes) bad(`المجموعُ ${MB(all.bytes)} > السقف ${MB(budget.max_total_bytes)}`);
@@ -377,7 +368,7 @@ for (const w of WITNESSES) {
       console.log(`  ⚠ ${name} — غيابٌ مُعلَن: ${why}`);
       continue;
     }
-    bad(`الشاهدُ غائب: ${name}` + (w.optional ? "  (‏سقوطٌ رشيقٌ في build.sh — اضبط MIHRAB_SAD_* أو أعلِن lean)" : ""));
+    bad(`الشاهدُ غائب: ${name}` + (w.optional ? "  (‏سقوطٌ رشيقٌ في build.sh — أو أعلِن lean)" : ""));
     continue;
   }
   if (declaredAbsent.has(w.path))

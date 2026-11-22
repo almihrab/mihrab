@@ -2,7 +2,7 @@
 //
 // **لماذا حيًّا:** اختباراتُ الوحدة تقيس المنطقَ ببديلِ vscode؛ وهي لا تُثبت أنّ
 // `getConfiguration(undefined, {languageId})` يملأ `globalLanguageValue` فعلًا، ولا أنّ
-// `update(..., overrideInLanguage)` يمسح كتلةَ `"[sad]"`، ولا أنّ الأمرَ مُسجَّلٌ ويظهر في
+// `update(..., overrideInLanguage)` يمسح كتلةَ `"[plaintext]"`، ولا أنّ الأمرَ مُسجَّلٌ ويظهر في
 // لوحة الأوامر بعنوانه العربيّ. هذه أربعةُ ادّعاءاتٍ عن **المنبع** لا عن شيفرتنا.
 //
 // **العزل:** يُطلَق بـ`--user-data-dir` مؤقّت. إعداداتُ المستخدم الحقيقيّة لا تُمسّ —
@@ -40,7 +40,7 @@ const wsDir = join(tmp, "مشروع");
 const userSettings = join(userData, "User", "settings.json");
 mkdirSync(join(userData, "User"), { recursive: true });
 mkdirSync(wsDir, { recursive: true });
-writeFileSync(join(wsDir, "مثال.ص"), "دالة رئيسية()\n  اطبع(\"نصاب_الفضة\")\n", "utf8");
+writeFileSync(join(wsDir, "مثال.txt"), "دالة رئيسية()\n  اطبع(\"نصاب_الفضة\")\n", "utf8");
 
 /**
  * ⚠️ نفسُ الفخّ الموثَّق في `launch.mjs`: حين يعمل هذا السكربت داخل طرفيّةٍ مدمجةٍ في
@@ -157,9 +157,9 @@ try {
   // ═══ (٢) إعدادٌ **بنطاق لغة** يُظلِّل افتراضَنا ⇒ إنذارٌ ثمّ إزالةٌ فعليّة ═══
   writeUserSettings({
     "window.restoreWindows": "none",
-    "[sad]": { [SETTING]: true },
+    "[plaintext]": { [SETTING]: true },
   });
-  log("إعدادٌ بنطاق [sad] يُظلِّل الافتراض: إعادة الإطلاق");
+  log("إعدادٌ بنطاق [plaintext] يُظلِّل الافتراض: إعادة الإطلاق");
   launch();
   cdp = await attach();
   await sleep(9000);   // الإنذارُ يقع بعد onStartupFinished
@@ -171,8 +171,8 @@ try {
   ok(clicked, "زرُّ «أزِل الإطارات» موجودٌ في الإنذار");
   await sleep(2500);
   const after = readUserSettings();
-  ok(after && (!after["[sad]"] || after["[sad]"][SETTING] === undefined),
-    "الإزالةُ تمسح المفتاحَ **داخل** كتلة [sad] (overrideInLanguage يعمل)",
+  ok(after && (!after["[plaintext]"] || after["[plaintext]"][SETTING] === undefined),
+    "الإزالةُ تمسح المفتاحَ **داخل** كتلة [plaintext] (overrideInLanguage يعمل)",
     JSON.stringify(after));
   ok(after && after["window.restoreWindows"] === "none",
     "لا تمسّ الإزالةُ إعداداتٍ أخرى", JSON.stringify(after));

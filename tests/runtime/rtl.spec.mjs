@@ -1,5 +1,5 @@
 // تأكيدات RTL الوقتيّة (L3) — مشتقّة من docs/rtl/rtl-inventory.md، هندسيّة حتميّة بسماحية.
-import { editorGeometry, suggestGap, findWidget, welcomeHeader, explorerSadIcon, titlebarAppicon, editorLetterpress, editorBidi, tabsDropRtl, chromeTypography, arabicInkMetrics, welcomePattern, langRuleProof, bidiLabels, bidiAudit, directionalGlyphs, unicodeHighlight, activateSadTab, activateWelcomeTab,
+import { editorGeometry, suggestGap, findWidget, welcomeHeader, titlebarAppicon, editorLetterpress, editorBidi, tabsDropRtl, chromeTypography, arabicInkMetrics, welcomePattern, langRuleProof, bidiLabels, bidiAudit, directionalGlyphs, unicodeHighlight, activateFixtureTab, activateWelcomeTab,
          bidiPanels, glyphOrder, breadcrumbsBar, key, MOD, escape, sleep, insertText, focusEditor,
 openDiffFromScm, confirmDialog, walkthroughAlign, waitFor, resetWorkbench, editorHover,
 openExtensionDetails, dialogButtons, statusbarOrder, discardUntitled, pinActiveTab, recoverWelcomeTab,
@@ -233,18 +233,6 @@ export async function interactionAssertions(cdp) {
     }
   } catch (e) { out.push(skip("مقابض حقل البحث لا تركب النصّ", "تعذّر: " + e.message, true)); }
 
-  // أيقونة ملفّ ص في المستكشف تحمل القوس (best-effort — يحتاج مجلّدًا فيه ملفّ .ص مفتوحًا).
-  try {
-    const e = await explorerSadIcon(cdp);
-    if (!e || !e.present) {
-      out.push(skip("أيقونة ملفّ ص (المستكشف)", "لا ملفّ .ص ظاهر (افتح مجلّدًا فيه ملفّ ص)", true));
-    } else {
-      out.push(e.isSad
-        ? pass("أيقونة ملفّ ص (المستكشف)", "القوس مطبَّق على .ص")
-        : fail("أيقونة ملفّ ص (المستكشف)", `خلفيّة «${(e.bg || "").slice(0, 40)}» ليست أيقونة القوس`));
-    }
-  } catch (e) { out.push(skip("أيقونة ملفّ ص (المستكشف)", "تعذّر: " + e.message, true)); }
-
   // رأس التطبيق: أيقونة شريط العنوان تحمل شعار القوس (code-icon). حاضرة دائمًا مع شريط عنوان مخصّص.
   try {
     const a = await titlebarAppicon(cdp);
@@ -265,7 +253,7 @@ export async function interactionAssertions(cdp) {
   // bidi المحرّر (#24): النصّ العربيّ في السطر مُحاذًى يمينًا (اتّجاه RTL فعليّ) — يحتاج الـfixture.
   try {
     const b = await editorBidi(cdp);
-    if (!b || !b.present) out.push(skip("bidi: النصّ العربيّ يمينًا", "لا سطر عربيّ (افتح rtl_fixture.ص)", true));
+    if (!b || !b.present) out.push(skip("bidi: النصّ العربيّ يمينًا", "لا سطر عربيّ (افتح rtl_fixture.txt)", true));
     else if (!b.hasText) out.push(skip("bidi: النصّ العربيّ يمينًا", "السطر بلا نصّ قابل للقياس", true));
     else {
       // مقارنة الفجوتين (مستقلّة عن حجم النافذة/التمرير/الخطّ، بلا ثابت سحريّ — مراجعة Amelia):
@@ -660,14 +648,14 @@ export async function designAssertions(cdp) {
     }
   } catch (e) { out.push(skip("الرموز الاتّجاهيّة (القاعدة 22)", "تعذّر: " + e.message, true)); }
 
-  // [AR-04] إبراز يونيكود: صفرُ علامات في ملفّ ص. يُقاس **بالأثر** (عقد .unicode-highlight)
+  // [AR-04] إبراز يونيكود: صفرُ علامات على نصٍّ عربيّ. يُقاس **بالأثر** (عقد .unicode-highlight)
   // لا بقراءة الإعداد. في مساحةٍ موثوقة لا يُثبت الصفرُ شيئًا (الإبراز مُعطَّل أصلًا) ⇒ نُصرّح.
   try {
     const u = await unicodeHighlight(cdp);
     if (!u || !u.present) out.push(skip("إبراز يونيكود [AR-04]", "لا محرّر مفتوح", true));
     else if (!u.arabic) out.push(skip("إبراز يونيكود [AR-04]", "لا سطر عربيّ في المحرّر", true));
     else if (u.marks) out.push(fail("إبراز يونيكود [AR-04]",
-      `${u.marks} علامة إبراز على محارف عربيّة — إعفاء [sad] لم يصل`));
+      `${u.marks} علامة إبراز على محارف عربيّة — إعفاء [plaintext] لم يصل`));
     else out.push(pass("إبراز يونيكود [AR-04]",
       `0 علامة على نصّ عربيّ${u.restricted ? " (مساحة مقيَّدة — القياس حاسم)" : " (مساحة موثوقة — القياس مؤيِّد لا حاسم)"}`));
   } catch (e) { out.push(skip("إبراز يونيكود [AR-04]", "تعذّر: " + e.message, true)); }
@@ -686,7 +674,7 @@ export async function designAssertions(cdp) {
   } catch (e) { out.push(skip("مسح bidi شامل", "تعذّر: " + e.message, true)); }
 
   // أعِد تبويب العيّنة العربيّة نشطًا: قسمُ الترحيب قد يكون بدّله، وما بعده يقيس نصًّا عربيًّا.
-  try { await activateSadTab(cdp); } catch { /* */ }
+  try { await activateFixtureTab(cdp); } catch { /* */ }
 
   // فتات المسار: **يُطالَب بأن يكون مأهولًا** لا بأن يكون نظيفًا. سطحٌ بلا بندٍ واحد
   // يُبلِّغ «‎0 معرَّضة» زورًا — وهو بالضبط ما خدعَنا فيه أوّل قياس (الترحيب كان نشطًا،
@@ -763,21 +751,6 @@ const PANELS = [
   ["المخرجات", [[85, "KeyU", MOD.CTRL | MOD.SHIFT]], null, `ID("workbench.panel.output")`],
   ["وحدة التصحيح", [[89, "KeyY", MOD.CTRL | MOD.SHIFT]], null, `ID("workbench.panel.repl")`],
   ["الطرفيّة", [[192, "Backquote", MOD.CTRL]], null, `V(".terminal-outer-container")`],
-  // **جزءُ التنقيح بلا جلسة — سطحُنا نحن لا سطحُ المنبع** ‏[DG-01]. `workbench.view.debug`
-  // كان خارجَ القائمة كلَّها، وفيه **كتلةُ `viewsWelcome` التي كتبناها بأنفسنا** («شغّل ملفّ
-  // ص المفتوح بلا إعدادٍ ولا ملفّ launch.json») — نصٌّ عربيٌّ فيه اسمُ ملفٍّ لاتينيٌّ محايدُ
-  // الطرفين، أي عائلةُ القاعدة 30 حرفيًّا. أن يبقى نصُّنا نحن غيرَ ممسوحٍ أسوأُ من بقاء
-  // نصِّ المنبع.
-  //
-  // **والبصمةُ مقترنةٌ لا مجرّدةٌ من الحاوية:** الكتلةُ مشروطةٌ بـ`editorLangId == sad`،
-  // فحاويةٌ حاضرةٌ بلا نصِّنا تعني أنّ الشرطَ لم يتحقّق — والمسحُ حينها يمسح فراغًا ويُبلّغ
-  // «نظيف». فنشترط عربيّةً داخل ورقةِ الترحيب نفسِها.
-  //
-  // وما **لا** يبلغه هذا المدخل: لوحاتُ المتغيّرات وكومةِ الاستدعاء والمراقبة — لا تُصيَّر
-  // إلّا في **جلسةِ تنقيحٍ حيّة**، ولا جلسةَ في مسحِ اللوحات. موضعُها `debug_panes.live.mjs`
-  // الذي يبني مساحتَه ويطلق جلستَه بنفسِه. (النطاقُ بلا محتوًى يُبلِّغ «نظيف» بلا أن يمسح.)
-  ["جزء التنقيح (ترحيبُنا)", [[68, "KeyD", MOD.CTRL | MOD.SHIFT]], null,
-   `[...document.querySelectorAll("#workbench\\\\.view\\\\.debug .welcome-view-content, #workbench\\\\.view\\\\.debug .monaco-list-row")].some(e => /[\\u0600-\\u06ff]/.test(e.textContent || ""))`],
   // التحكّم بالمصادر وترٌ في الإصدارات الحديثة (‏Ctrl+Shift+G ثمّ G) لا ضغطةٌ واحدة.
   ["التحكّم بالمصادر", [[71, "KeyG", MOD.CTRL | MOD.SHIFT], [71, "KeyG", 0]], null, `ID("workbench.view.scm")`],
   // **قائمة السياق بالمفتاح لا بالفأرة.** ‏Shift+F10 يفتحها على العنصر المركَّز عليه، فلا
@@ -809,21 +782,6 @@ const PANELS = [
   ["اقتراحات المحرّر", [], "editor:32,Space,2", `V(".suggest-widget.visible")`],
   ["إجراءات الكود", [], "editor:190,Period,2", `V(".action-widget")`],
   ["نظرة المشاكل", [], "editor:119,F8,0", `V(".zone-widget")`],
-  // ── عدساتُ الكود [LN-01]: سطحٌ **نصنعه بأنفسنا** ولم يُقَس قطّ ─────────────────────
-  // ‏`SadMainCodeLensProvider` يضع «▶ شغّل» و«🔨 ابنِ» فوق دالّة البداية في كلّ ملفّ ص،
-  // وامتدادُ `merge-conflict` المحزوم يضع عدساتِه العربيّة فوق كتلة التعارض. وهو الفردُ
-  // الخامسُ من عائلة «القاعدة 30» (عربيٌّ في حاوية LTR) التي قِيست فوُجدت مكسورةً في
-  // أربعة أسطحٍ متتالية — ولم يُفتَح هذا الخامسُ ولا مرّة.
-  //
-  // **أرخصُ محفِّزٍ في القائمة كلِّها:** لا وترَ ولا نقرة — تنشيطُ تبويب العيّنة وحده يكفي،
-  // فالعدسةُ تظهر تلقائيًّا فوق `دالة رئيسية()` في العيّنة القائمة. لكنّ التنشيطَ **شرطٌ
-  // لا زينة**: التبويبُ غير النشط لا يُصيَّر أصلًا (الدرسُ نفسُه المدفوعُ في صفحة الترحيب).
-  //
-  // **والبصمةُ تشترط عربيّةً في ورقةٍ لا مجرّدَ وجودِ الحاوية:** المنبعُ يصيّر
-  // `'no commands'` حين تُحلّ الرموزُ بلا أوامر، فحاويةٌ حاضرةٌ ليست عدسةً مأهولة.
-  // وحلُّ العدسات **غيرُ متزامنٍ** وتالٍ لتنشيط الامتداد، فالبصمةُ تُنتظَر لا تُفترَض.
-  ["عدسات الكود", [], "codelens",
-   `[...document.querySelectorAll(".codelens-decoration a")].some(a => /[\\u0600-\\u06ff]/.test(a.textContent || ""))`],
   // ── محرّرُ المقارنة: سطحُ محرّرٍ كاملٌ لم يبلغه مِجَسّ ──────────────────────────
   // يُفتَح بنقر مَورِدٍ متغيّر في جزء التحكّم بالمصادر — لا اسمَ أمرٍ مترجَمًا في الطريق.
   // نمسح **أوراقَ واجهته وحدها** (شريطُ الأسطر المطويّة ومراجعةُ المقارنة) لا سطورَه:
@@ -898,7 +856,7 @@ export async function panelAssertions(cdp) {
         // تنشيطُ تبويب العيّنة ثمّ **انتظارُ البصمة صراحةً**: `activateSadTab` تعود صادقةً
         // لمجرّد وجود التبويب، وحلُّ العدسات يقع بعده بمهلةٍ غيرِ محدّدة. ومن لم ينتظر
         // البصمةَ هنا يقيس نطاقًا فارغًا ويُبلِّغ «نظيف» — الفخُّ الموثَّقُ أربعَ مرّاتٍ أعلاه.
-        if (!(await activateSadTab(cdp))) { notOpened.push(label); continue; }
+        if (!(await activateFixtureTab(cdp))) { notOpened.push(label); continue; }
         if (!(await waitFor(cdp, FP(fingerprint), 12000))) {
           notOpened.push(label + " (لم تُحَلّ عدسةٌ عربيّةٌ في المهلة)"); continue;
         }
@@ -1003,7 +961,7 @@ export async function panelAssertions(cdp) {
   await escape(cdp); await sleep(400);
   // وسطحُ الترحيب يترك **تبويبَه** نشطًا لا مجرّدَ لوحةٍ مفتوحة، فنعيد تبويبَ العيّنة
   // قبل أيّ تأكيدٍ تالٍ: محرّرٌ نشطٌ ليس محرّرَ نصّ يُسقِط مِجَسّاتٍ لا علاقةَ لها بالترحيب.
-  try { await activateSadTab(cdp); await sleep(600); } catch { /* */ }
+  try { await activateFixtureTab(cdp); await sleep(600); } catch { /* */ }
   if (!opened) out.push(skip("محايدات اللوحات (القاعدة 24)", "لم يُفتَح أيّ سطح", true));
   // **الفشلُ يذكر ما لم ينفتح أيضًا.** كانت الرسالةُ تذكر المعرَّضَ وحده، فتُخفي أنّ
   // سطحًا لم يُفتَح أصلًا خلف رقمٍ في البسط — أي تُخفي ثغرةَ تغطيةٍ خلف عطبٍ آخر.
@@ -1092,7 +1050,7 @@ export async function panelAssertions(cdp) {
 
   // أعِد المستكشف وتبويب العيّنة: تركُ لوحةٍ مفتوحة يغيّر ما تقيسه أيّ تشغيلة تالية.
   try { await escape(cdp); await key(cdp, 69, "KeyE", MOD.CTRL | MOD.SHIFT); await sleep(800);
-        await activateSadTab(cdp); } catch { /* */ }
+        await activateFixtureTab(cdp); } catch { /* */ }
   return out;
 }
 
@@ -1138,7 +1096,7 @@ export async function rtlOrderAssertions(cdp) {
       await discardUntitled(cdp);
     }
   } catch (e) { out.push(skip("ترتيب أزرار الحوار (RTL)", e.message, true)); }
-  try { await escape(cdp); await activateSadTab(cdp); } catch { /* */ }
+  try { await escape(cdp); await activateFixtureTab(cdp); } catch { /* */ }
   return out;
 }
 
@@ -1146,7 +1104,7 @@ export async function runAll(cdp) {
   // نُنشِّط تبويب العيّنة العربيّة أوّلًا: محراب يستعيد المحرّر النشط من الحالة المحفوظة،
   // فقد يكون ملفًّا لاتينيًّا مهما كان ترتيب الوسائط (مقيس) — وحينها تُبلَّغ مِجَسّات
   // ‏bidi و[AR-04] «لا سطر عربيّ» زورًا. النقر حتميّ ومستقلّ عن الحالة.
-  try { await activateSadTab(cdp); } catch { /* لا تبويب عيّنة — المِجَسّات تتخطّى بنفسها */ }
+  try { await activateFixtureTab(cdp); } catch { /* لا تبويب عيّنة — المِجَسّات تتخطّى بنفسها */ }
   // **ثبِّت تبويب العيّنة (`Ctrl+K Enter` = keepEditor).** الملفّات التي تُمرَّر في سطر
   // الأوامر تُفتَح في وضع **المعاينة**، ووضعُ المعاينة تبويبٌ واحدٌ يُستبدَل بأيّ محرّرٍ
   // جديد. ومِجَسّاتنا تفتح **الإعداداتِ والاختصاراتِ وهما محرّران لا لوحتان**، فكانتا
@@ -1181,7 +1139,7 @@ export async function runAll(cdp) {
       const pin = await pinActiveTab(cdp);
       if (!pin.pinnedAfter) console.log(`  [تنبيه] تثبيتُ الترحيب لم يُثبَّت: ${JSON.stringify(pin)}`);
     }
-    await activateSadTab(cdp); await sleep(400);
+    await activateFixtureTab(cdp); await sleep(400);
   } catch { /* */ }
   const geo = await editorGeometry(cdp);
   const results = geometryAssertions(geo);

@@ -18,11 +18,11 @@ const imp = require("./import-settings.js");
 test("mihrabOwnedKeys يلتقط المفاتيحَ داخلَ كتلِ نطاقات اللغات — لا الكتلةَ وحدَها", () => {
   const owned = imp.mihrabOwnedKeys({
     "editor.fontSize": 15,
-    "[sad]": { "editor.wordWrap": "on", "editor.fontLigatures": true },
+    "[python]": { "editor.wordWrap": "on", "editor.fontLigatures": true },
   });
   assert.strictEqual(owned.get("editor.fontSize"), 15);
   // الكتلةُ نفسُها مملوكة…
-  assert.ok(owned.has("[sad]"));
+  assert.ok(owned.has("[python]"));
   // …ومعها كلُّ مفتاحٍ فيها: قيمةُ المستخدم **العالميّة** تغلب نطاقَنا اللغويّ.
   assert.strictEqual(owned.get("editor.wordWrap"), "on");
   assert.strictEqual(owned.get("editor.fontLigatures"), true);
@@ -32,10 +32,10 @@ test("mihrabOwnedKeys يستبعد مفاتيحَ التعليق — توثيق�
   const owned = imp.mihrabOwnedKeys({
     _comment_fontSize: "لماذا ‎15‎",
     "editor.fontSize": 15,
-    "[sad]": { _comment_wrap: "لماذا", "editor.wordWrap": "on" },
+    "[python]": { _comment_wrap: "لماذا", "editor.wordWrap": "on" },
   });
   assert.deepStrictEqual([...owned.keys()].sort(),
-    ["[sad]", "editor.fontSize", "editor.wordWrap"]);
+    ["[python]", "editor.fontSize", "editor.wordWrap"]);
 });
 
 test("mihrabOwnedKeys يحتمل الغياب — لا يرمي على غير كائن", () => {

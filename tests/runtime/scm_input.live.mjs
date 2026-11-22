@@ -89,18 +89,18 @@ function buildRepo() {
   git("config", "user.email", "probe@mihrab.test");
   git("config", "user.name", "مِجَسّ");
   git("config", "commit.gpgsign", "false");
-  writeFileSync(join(ws, "مثال.ص"), "دالة رئيسية()\n  اطبع(\"الأساس\")\n", "utf8");
+  writeFileSync(join(ws, "مثال.txt"), "دالة رئيسية()\n  اطبع(\"الأساس\")\n", "utf8");
   git("add", "-A"); git("commit", "-m", "أساس");
   // فرعٌ يعدّل السطرَ نفسَه ⇒ تعارضٌ حتميٌّ عند الدمج (‏SC-02).
   git("checkout", "-b", "فرع");
-  writeFileSync(join(ws, "مثال.ص"), "دالة رئيسية()\n  اطبع(\"لهم — نصاب_الفضة\")\n", "utf8");
+  writeFileSync(join(ws, "مثال.txt"), "دالة رئيسية()\n  اطبع(\"لهم — نصاب_الفضة\")\n", "utf8");
   git("add", "-A"); git("commit", "-m", "تعديل الفرع");
   git("checkout", "main");
-  writeFileSync(join(ws, "مثال.ص"), "دالة رئيسية()\n  اطبع(\"لك — نصاب_الذهب\")\n", "utf8");
+  writeFileSync(join(ws, "مثال.txt"), "دالة رئيسية()\n  اطبع(\"لك — نصاب_الذهب\")\n", "utf8");
   git("add", "-A"); git("commit", "-m", "تعديل الأصل");
   const merged = git("merge", "فرع");
   // ملفٌّ متغيّرٌ **غيرُ متعارض** كي يبقى في القائمة موردٌ عاديٌّ أيضًا.
-  writeFileSync(join(ws, "ثانٍ.ص"), "دالة ثانية()\n  اطبع(\"نصّ عربيّ للقياس\")\n", "utf8");
+  writeFileSync(join(ws, "ثانٍ.txt"), "دالة ثانية()\n  اطبع(\"نصّ عربيّ للقياس\")\n", "utf8");
   return (merged.stdout || "") + (merged.stderr || "");
 }
 
@@ -135,7 +135,7 @@ const launch = () => {
     // الملفُّ **ضابطٌ لا زينة**: قياسُ الأشكال السياقيّة في الصندوق بلا مقارنةٍ بالمحرّر
     // الرئيس حكمٌ بلا ضابط. وبلا ملفٍّ مفتوحٍ لا سطرَ محرّرٍ يُقاس، فتُبلَّغ الفجوةُ معلَنةً
     // بلا سبب. فنفتح الملفَّ مع المجلّد.
-    "--disable-workspace-trust", "--new-window", ws, join(ws, "ثانٍ.ص"),
+    "--disable-workspace-trust", "--new-window", ws, join(ws, "ثانٍ.txt"),
   ], { detached: false, stdio: "ignore", env: cleanEnv() });
 };
 const kill = () => { try { proc && proc.kill(); } catch { /* */ } };
@@ -501,7 +501,7 @@ try {
       //       ‏`affectsConfiguration(<إعداد>)` لا عددَ المفاتيح المكتوبة، وهو لا يُخرَق هنا:
       //       المُرشِّحُ يرى الإعدادَ نفسَه من الكتابتين. وسببُ لزومِهما أنّ الجذرَ لم يعد
       //       يبلغ أيًّا من السطحين: الصندوقُ يقرأ بمعرِّف `scminput`، والضابطُ ملفُّ
-      //       ‏`ثانٍ.ص` يقرأ بمعرِّف `sad` — وكلٌّ منهما له كتلةُ `rtl` في القشرة تغلب
+      //       ‏`ثانٍ.txt` يقرأ بمعرِّف `sad` — وكلٌّ منهما له كتلةُ `rtl` في القشرة تغلب
       //       جذرَ إعدادات المستخدم (تجاوزُ اللغة يُطبَّق فوق المدمَج، لا تحته).
       //   (ب) **ضابطُ وصول.** بعد كلّ كتابةٍ يُقاس المحرّرُ الرئيس: هو يقرأ المفاتيحَ الثلاثةَ
       //       اليوم بلا رقعة. فإن لم يتحرّك، فالكتابةُ لم تبلغ التطبيقَ ⇒ فجوةٌ معلَنةٌ لا فشل.
@@ -530,7 +530,7 @@ try {
           name: "الاتّجاه",
           patch: {
             "[scminput]": { "editor.textDirection": "ltr" },
-            "[sad]": { "editor.textDirection": "ltr" },
+            "[plaintext]": { "editor.textDirection": "ltr" },
           },
           read: (x) => x.dirAttr, control: (x) => x.editorDirAttr,
           // الأساسُ `rtl` من كتلتَي `[scminput]` و`[sad]` في `configurationDefaults`،

@@ -14,7 +14,7 @@
   1. ورقة الأنماط  patches/mihrab-rtl.css → src/vs/workbench/browser/media/
   2. أصول الهوية   (SVG الأسطح + sessions) → وجهاتها في src/
   3. المرقِّعات      كلّ مرقِّع في PATCHERS على أهدافه
-  4. الامتدادات    extensions/mihrab-* + sad-lang + language-pack-ar → <منبع>/extensions/
+  4. الامتدادات    extensions/mihrab-* + language-pack-ar → <منبع>/extensions/
   5. الهوية        product-overrides/product.json مدموجًا فوق product.json المنبع
 
 الاستعمال:  python build/dev_sync.py [--upstream .upstream/vscode] [--revert]
@@ -40,7 +40,7 @@ import patch_manifest as M  # noqa: E402
 BUILD = os.path.join(ROOT, "build")
 # الامتدادات المحزومة (الطبقة 1) التي تُنسَخ إلى شجرة المنبع كامتدادات مدمجة.
 BUNDLED_EXTENSIONS = ("mihrab-shell", "mihrab-themes", "mihrab-icons", "mihrab-welcome",
-                      "mihrab-nebras", "sad-lang", "language-pack-ar")
+                      "language-pack-ar")
 PRODUCT_BACKUP = "product.json.mihrab-orig"
 
 

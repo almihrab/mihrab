@@ -70,36 +70,16 @@ jobs:
         run: python tests/apply/check_anchors.py
 
   extension-checks:
-    name: امتدادات محراب (حارس عقد السلك + اختبارات الوحدة)
+    name: امتدادات محراب (اختبارات الوحدة)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: تثبيت PyYAML (تبعيّة مولِّد عقد السلك)
-        run: pip install pyyaml
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-
-      # F1 — حارس: وحدة عقد السلك المولَّدة مطابقة لمصدر الحقيقة (يمنع التباعد الصامت).
-      - name: حارس تطابق عقد سلك نِبراس
-        run: python extensions/mihrab-nebras/contract/gen_contract.py --check
-
-      # F2 — اختبارات وحدة نِبراس (تأطير RPC/توجيه/dispose + تفاوض isCompatible).
-      - name: اختبارات وحدة نِبراس
-        working-directory: extensions/mihrab-nebras
-        run: node --test
 
       # اختبارات وحدة الترحيب (تحقّق اسم المشروع، تطبيع البحث، كاشف قلب الاتّجاه، شارة
       # الطرفيّة — وحداتٌ نقيّةٌ وأغلفةٌ ببديل vscode).
       - name: اختبارات وحدة الترحيب
         working-directory: extensions/mihrab-welcome
-        run: node --test
-
-      # اختبارات وحدة لغة ص (نقل LSP، محوّلات النتائج، وترشيح الإكمال المطبَّع [DX-01]).
-      # كانت `tests/run.sh` وحدَها تغطّيها، فبقي وصلُ التطبيع الجديد **بلا بوّابةٍ في CI**.
-      - name: اختبارات وحدة لغة ص
-        working-directory: extensions/sad-lang
         run: node --test

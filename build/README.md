@@ -142,7 +142,7 @@ build/.toolchain/jq: cannot execute binary file: Exec format error
 ## ما الذي ننتجه في م0؟
 
 - بناء VSCodium **بلا تعديل هويّة** (هويّة محراب تأتي في م1 عبر `product-overrides/`).
-- بلا حزم سلسلة أدوات ص (م2) وبلا رُقَع RTL نواة (م3).
+- بلا رُقَع RTL نواة (م3).
 - الهدف الوحيد: **إثبات بناء نظيف قابل للتكرار** + توثيق دقيق للبيئة.
 
 ## مخاطر م0
@@ -156,4 +156,3 @@ build/.toolchain/jq: cannot execute binary file: Exec format error
 ## المدخلات للمراحل التالية
 
 - **م1:** يبني على هذا الأساس بإضافة `product-overrides/` (الهويّة، `.mihrab`، Open VSX).
-- **م2:** يحزم الإضافة + LSP + `sad-build`/`sad-run`.

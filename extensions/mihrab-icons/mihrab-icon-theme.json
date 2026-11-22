@@ -1,8 +1,5 @@
 {
   "iconDefinitions": {
-    "mihrab-sad": {
-      "iconPath": "./icons/sad.svg"
-    },
     "mihrab-file": {
       "iconPath": "./icons/file.svg"
     },
@@ -11,9 +8,6 @@
     },
     "mihrab-folder-open": {
       "iconPath": "./icons/folder-open.svg"
-    },
-    "mihrab-sad-light": {
-      "iconPath": "./icons/sad-light.svg"
     },
     "mihrab-file-light": {
       "iconPath": "./icons/file-light.svg"
@@ -59,7 +53,6 @@
   "folder": "mihrab-folder",
   "folderExpanded": "mihrab-folder-open",
   "fileExtensions": {
-    "ص": "mihrab-sad",
     "py": "mihrab-code",
     "js": "mihrab-code",
     "mjs": "mihrab-code",
@@ -116,15 +109,11 @@
     "editorconfig": "mihrab-meta",
     "map": "mihrab-meta"
   },
-  "languageIds": {
-    "sad": "mihrab-sad"
-  },
   "light": {
     "file": "mihrab-file-light",
     "folder": "mihrab-folder-light",
     "folderExpanded": "mihrab-folder-open-light",
     "fileExtensions": {
-      "ص": "mihrab-sad-light",
       "py": "mihrab-code-light",
       "js": "mihrab-code-light",
       "mjs": "mihrab-code-light",
@@ -180,9 +169,6 @@
       "gitattributes": "mihrab-meta-light",
       "editorconfig": "mihrab-meta-light",
       "map": "mihrab-meta-light"
-    },
-    "languageIds": {
-      "sad": "mihrab-sad-light"
     },
     "fileNames": {
       "README.md": "mihrab-doc-light",

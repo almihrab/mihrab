@@ -52,7 +52,7 @@ const SHOW_DIFF_NOTICE_CMD = diffNotice.SHOW_AGAIN_CMD;
 const SHOW_PROBLEMS_CMD = "workbench.actions.view.problems";
 const OPEN_WALKTHROUGH_CMD = "workbench.action.openWalkthrough";
 
-/** جولةُ المتصفّح — نظيرةُ `mihrab.gettingStarted` حيث لا تشغيلَ ولا قرص. */
+/** جولةُ المتصفّح — حيث لا تشغيلَ ولا قرص. */
 const WEB_WALKTHROUGH_LOCAL_ID = "mihrab.web";
 const WALKTHROUGH_ID_SEP = "#";
 const DEFAULT_EXTENSION_ID = "mihrab.mihrab-welcome";
@@ -65,9 +65,6 @@ const DOWNLOAD_URL = "https://mihrab.dev/download/";
  * سادسةٌ تُضاف يومًا بصياغةٍ أخرى تجعل المنتَجَ يقول الشيءَ نفسَه بلسانَين.
  */
 const COPY = {
-  needsProcess: (what) =>
-    `${what} يحتاج مُشغِّلًا على جهازك، ومحرابٌ هنا يعمل في متصفّحك بلا خادم — ` +
-    "لا عمليّةَ خلف هذه الصفحة تُنفّذ شيئًا. نسخةُ المكتب تفعل ذلك.",
   needsDisk:
     "الاستيرادُ يقرأ ملفَّ إعداداتك على جهازك، ولا سبيلَ لصفحةٍ في المتصفّح إلى " +
     "مجلّدات نظامك. افعلها في نسخة المكتب — ثمّ انقل النتيجةَ إن شئت.",
@@ -81,15 +78,6 @@ const COPY = {
   noImportHere:
     "لا استيرادَ في نسخة المتصفّح، فلا شيءَ يُتراجَع عنه هنا — إعداداتُك في هذه " +
     "الصفحة تخصُّ متصفّحك وحدَه.",
-  // ‏**والقالبُ لا يحتاج مُشغِّلًا** — قِيس: `newSadProject` في `extension.js` يستعمل
-  // `workspace.fs` وحدَها، بلا `spawn` ولا `fs` عُقديّة. فسببُ «يحتاج مُشغِّلًا» كان
-  // غيرَ صحيح، وسببٌ خاطئٌ أسوأُ من الصمت: من يعرف أنّ إنشاءَ مجلّدٍ لا يحتاج
-  // مُشغِّلًا يستنتج أنّ المنتَجَ لا يعرف نفسَه. والمانعُ الحقيقيُّ ما **بداخل**
-  // القالب: مَهمّةُ تشغيلٍ تنادي `sad-run`، وREADME يَعِد بـF5.
-  templateNeedsRunner:
-    "قالبُ مشروع ص يكتب مجلّدًا وملفًّا ومَهمّةَ تشغيل — والمَهمّةُ تحتاج مُشغِّلًا " +
-    "على جهازك. فلا يُنشئه محرابٌ هنا: كان سيسلّمك مشروعًا لا يعمل. أنشئ ملفَّ " +
-    "«.ص» جديدًا وابدأ الكتابة، أو خذ القالبَ كاملًا من نسخة المكتب.",
   // ‏**ولا طرفيّةَ**: كان نصًّا حرفيًّا عند موضع الاستدعاء، والملفُّ نفسُه يقول إنّ
   // نصَّ الحدّ «موضعٌ واحد». استثناءٌ بلا تعليلٍ يُغري بالثاني.
   noTerminal:
@@ -200,10 +188,6 @@ function activate(context) {
 
   // ── وما لا يعمل: يُسجَّل ليقول لماذا، لا ليُترَك يقول «أمرٌ غيرُ معروف» ──────
   context.subscriptions.push(
-    unavailable("mihrab.runSadFile", COPY.needsProcess("تشغيلُ ملفّ ص"), true),
-    unavailable("mihrab.buildSadFile", COPY.needsProcess("بناءُ ملفّ ص"), true),
-    unavailable("mihrab.checkSadFile", COPY.needsProcess("فحصُ ملفّ ص"), true),
-    unavailable("mihrab.newSadProject", COPY.templateNeedsRunner, true),
     unavailable("mihrab.importVSCodeSettings", COPY.needsDisk, true),
     unavailable("mihrab.undoVSCodeImport", COPY.noImportHere, false),
     unavailable("mihrab.exportForPrint", COPY.needsBundledFont, true),

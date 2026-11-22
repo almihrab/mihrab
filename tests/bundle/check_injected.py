@@ -590,7 +590,7 @@ def _icons_shipped():
     assert os.path.isfile(tj), "ملفّ سمة الأيقونات مفقود في الحزمة"
     # الأصول اليدويّة + **عائلة [AR-06] المولَّدة**: `cp -r` في build.sh يجرّد `*.py`
     # (المولّد) ويُبقي الـSVG. سقوطها يعيد المستكشف إلى صفحاتٍ متطابقة بلا أن يُفشِل L0.
-    for svg in ("sad.svg", "file.svg", "folder.svg", "folder-open.svg",
+    for svg in ("file.svg", "folder.svg", "folder-open.svg",
                 "code.svg", "data.svg", "doc.svg", "image.svg", "meta.svg"):
         assert os.path.isfile(os.path.join(d, "icons", svg)), f"أيقونة SVG مفقودة في الحزمة: {svg}"
     assert not os.path.isfile(os.path.join(d, "gen_icons.py")), \
@@ -598,8 +598,8 @@ def _icons_shipped():
     # افحص **محتوى** الـJSON المشحون لا وجوده فقط (بناء يشحن JSON بائتًا/فارغًا يمرّ وإلّا):
     td = json.load(open(tj, encoding="utf-8"))
     defs = td.get("iconDefinitions", {})
-    sad_ref = td.get("fileExtensions", {}).get("ص") or td.get("languageIds", {}).get("sad")
-    assert sad_ref in defs, "خريطة ملفّ ص مفقودة/مكسورة في سمة الأيقونات المشحونة"
+    _file = td.get("file")
+    assert _file in defs, "أيقونة الملفّ العامّ مفقودة/مكسورة في سمة الأيقونات المشحونة"
     pkg = json.load(open(os.path.join(d, "package.json"), encoding="utf-8"))
     default = pkg.get("contributes", {}).get("configurationDefaults", {}).get("workbench.iconTheme")
     ids = {i.get("id") for i in pkg.get("contributes", {}).get("iconThemes", [])}
@@ -638,16 +638,6 @@ def _no_ms_telemetry_endpoint_shipped():
         "لا `//0.0.0.0/` في الحزمة — الاستبدالُ لم يجرِ أصلًا، وغيابُ العنوان لا يُثبت شيئًا [UNDO-01]")
 
 
-@check("أدواتُ ص: ما جُلب من الإصدار الرسميّ وصل الحزمةَ ببصمته")
-def _sad_tools_shipped():
-    """البوّابةُ نفسُها التي يشغّلها CI، كي لا يكون النشرُ أوّلَ من يكتشف. تنفيذُها
-    مشتركٌ في `check_sad_tools.py` — نسخةٌ ثانيةٌ من المنطق تتباعد صامتةً."""
-    sys.path.insert(0, HERE)
-    from check_sad_tools import verify  # noqa: E402
-    code, lines = verify(DIST)
-    assert code == 0, "\n       " + "\n       ".join(lines)
-
-
 @check("قشرة محراب [AR-04]: افتراضاتُ الإعداد في الحزمة = المصدر (إعفاءُ يونيكود وصل فعلًا)")
 def _shell_defaults_shipped():
     """‏L0 يحرس المصدر، وهذا يحرس **ما وصل**. الفرقُ ليس نظريًّا: العطبُ الذي أبلغه
@@ -666,7 +656,7 @@ def _shell_defaults_shipped():
     got = json.load(open(shipped, encoding="utf-8")).get("contributes", {}).get(
         "configurationDefaults", {})
     # التشخيصُ يشير إلى **أوّل مسارٍ مختلف** لا إلى مفاتيح المستوى الأعلى وحدها: انجرافُ
-    # محرفٍ داخل `[sad]` كان يُنتج «مفاتيحُ ناقصة/زائدة: []» — رسالةً تقرأ كأنّ الفحصَ
+    # محرفٍ داخل مفتاحٍ لغويٍّ (`[markdown]`) كان يُنتج «مفاتيحُ ناقصة/زائدة: []» — رسالةً تقرأ كأنّ الفحصَ
     # معطوبٌ لا كأنّ الحزمةَ بائتة. (رصدَته مراجعةٌ هندسيّة بأربع طفرات.)
     if got != want:
         def _first_diff(a, b, path=""):
@@ -1002,9 +992,9 @@ def _static_arabized():
 
 # ── [WEB-06] الامتدادان اللذان سقطا من بناء المتصفّح صامتَين ──
 # ‏`main` بلا `browser` ⇒ المضيفُ لا يُحمِّل الامتدادَ ولا يقرأ مساهماتِه التصريحيّة.
-# فخرجت الشجرةُ المنشورةُ حيًّا بلا قواعد لغة ص ولا مقتطفاتِها ولا جولات ترحيبها —
+# فخرجت الشجرةُ المنشورةُ حيًّا بلا جولات ترحيبها —
 # ولا سطرَ في سجلٍّ يقول ذلك. وحارسُ L0 يقيس المانيفستَ والمصدر؛ وهذا يقيس **ما خرج**.
-@check("امتدادا ص والترحيب في الشجرة الثابتة، وحزمتُهما تُقلِع [WEB-06]")
+@check("امتدادُ الترحيب في الشجرة الثابتة، وحزمتُه تُقلِع [WEB-06]")
 def _static_web_extensions():
     web = _static_dir()
     if web is None:
@@ -1015,7 +1005,7 @@ def _static_web_extensions():
 
     exts = os.path.join(web, "extensions")
     assert os.path.isdir(exts), "لا مجلّدَ امتداداتٍ في الشجرة الثابتة"
-    for name in ("sad-lang", "mihrab-welcome"):
+    for name in ("mihrab-welcome",):
         base = os.path.join(exts, name)
         assert os.path.isdir(base), (
             f"‏{name} غائبٌ عن الشجرة الثابتة — وهذا ما يفعله `main` بلا `browser`: "
@@ -1030,17 +1020,6 @@ def _static_web_extensions():
         # ولا مصدرَ غيرَ محزومٍ يُشحَن معها: نسختان من الشيفرة، والثانيةُ لا تُحمَّل.
         assert not os.path.isfile(os.path.join(base, "extension.web.js")), (
             f"‏{name}: مصدرُ المدخل مشحونٌ مع حزمته — نسخةٌ ميّتةٌ في المنتَج [WEB-06]")
-
-    # وما سقوطُ `sad-lang` كان يُسقِطه فعلًا: القواعدُ والمقتطفات.
-    sad = os.path.join(exts, "sad-lang")
-    pkg = json.loads(_readtext(os.path.join(sad, "package.json")))
-    contrib = pkg.get("contributes", {})
-    grammars = contrib.get("grammars", [])
-    assert grammars, "‏sad-lang في الشجرة الثابتة بلا قواعد — الملفُّ نصٌّ رماديّ [WEB-06]"
-    for g in grammars:
-        gp = os.path.join(sad, *g["path"].lstrip("./").split("/"))
-        assert os.path.isfile(gp), f"قواعدُ ص مُعلَنةٌ ومفقودةٌ من الشجرة: {g['path']}"
-    assert pkg.get("browser"), "‏sad-lang في الشجرة الثابتة بلا `browser` [WEB-06]"
 
     # وجولاتُ الترحيب: الشرطُ `isWeb` هو ما يملأ العمودَ الذي كان خاويًا.
     wpkg = json.loads(_readtext(os.path.join(exts, "mihrab-welcome", "package.json")))

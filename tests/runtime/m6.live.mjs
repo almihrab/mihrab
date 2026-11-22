@@ -6,7 +6,7 @@
 //
 //   • ‏[VA-04] وجودُ `editor.fontSize: 15` في package.json لا يثبت أنّ المحرّرَ يُصيَّر
 //     بخمسة عشر. المنبعُ يدمج الافتراضيّاتِ بأسبقيّةٍ لها مفاجآت، وإعدادُ مستخدمٍ أو
-//     ‏`[sad]` قد يُبطلها. القياسُ الوحيدُ الصادق هو `getComputedStyle` على سطرِ نصٍّ حقيقيّ.
+//     ‏`[plaintext]` قد يُبطلها. القياسُ الوحيدُ الصادق هو `getComputedStyle` على سطرِ نصٍّ حقيقيّ.
 //   • ‏[VA-05] وجودُ الأصنافِ في ملفّ CSS لا يثبت أنّ **ورقةَ الهويّة الثانية** استُوردت:
 //     لو سقط استيرادُها لَبَقيت الحزمةُ تُبنى، ولَبَقي الصنفُ في الـDOM بلا نمطٍ واحد.
 //     فنقيس **الخاصّيّةَ المحسوبة** لا وجودَ الصنف.
@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CDP, sleep, activateSadTab } from "./harness.mjs";
+import { CDP, sleep, activateFixtureTab } from "./harness.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..");
@@ -97,7 +97,7 @@ mkdirSync(wsDir, { recursive: true });
 // عيّنةٌ مختلطة: عربيٌّ وأقواسٌ وأرقامٌ لاتينيّة — أي أنّ لها **ترتيبَ عرضٍ يُقلَب**
 // خارج محرّرٍ يحميه. لو كانت عربيّةً صرفًا لَما أثبت النسخُ للمشاركة شيئًا.
 const SAMPLE = 'دالة رئيسية()\n  اطبع("عدد = 42 * (3 + 1)")\n';
-const SAMPLE_FILE = join(wsDir, "مثال.ص");
+const SAMPLE_FILE = join(wsDir, "مثال.txt");
 writeFileSync(SAMPLE_FILE, SAMPLE, "utf8");
 
 /** نفسُ فخّ البيئة الموثَّق في launch.mjs وunicode_guard.live.mjs. */
@@ -280,7 +280,7 @@ async function checkClipboard(cdp) {
 
 /** يُحدِّد كلَّ المستند وينفّذ «أزِل عزلَ النشر»، ويعيد أسطرَ الملفّ بعده. */
 async function runStripIsolates(cdp) {
-  await activateSadTab(cdp);
+  await activateFixtureTab(cdp);
   await sleep(500);
   const box = await editorPoint(cdp);
   if (!box) return "لا محرّرَ مُصيَّر";
@@ -304,7 +304,7 @@ async function runStripIsolates(cdp) {
 async function checkPasteLoop(cdp) {
   await sleep(3000);   // مهلةُ التشخيص (‏debounce عند تغيّر المستند)
   // **الخطُّ الأحمرُ وحدَه لا يكفي شاهدًا**: لصقُ نسخةٍ ثانيةٍ من الدالّة يُنتج تشخيصًا
-  // مشروعًا من خادم ص («تعريفٌ مكرَّر»)، فعدُّ ‎.squiggly-error‎ يُحمِّر على صوابٍ ويُخفي
+  // مشروعًا من خادم اللغة («تعريفٌ مكرَّر»)، فعدُّ ‎.squiggly-error‎ يُحمِّر على صوابٍ ويُخفي
   // خطأً حقيقيًّا تحت الضجيج. فنقرأ **لوحةَ المشاكل** ونسأل عن مصدرِ حارسِنا وحده.
   await keyPress(cdp, 77, "KeyM", "m", 10);   // Ctrl+Shift+M — لوحةُ المشاكل
   await sleep(2000);
@@ -373,10 +373,10 @@ async function pressEscape(cdp) {
  * ما لُصِق كما صُيِّرت. ثمّ يقيس الحلقةَ (لا خطًّا أحمرَ). يعيد null إن تعذّر.
  */
 async function copyThenPasteBack(cdp) {
-  // **إعادةُ تبويب ص إلى الواجهة أوّلًا.** فحصُ لوحة الأوامر قبلَه يُبدِّل المحرّرَ النشط
+  // **إعادةُ تبويب العيّنة إلى الواجهة أوّلًا.** فحصُ لوحة الأوامر قبلَه يُبدِّل المحرّرَ النشط
   // (‏تبويبُ الترحيب مفتوحٌ في نفس النافذة)، فيختفي `.view-lines` ويُقرأ ذلك «لا محرّر».
   // قِيس: الفحصُ نفسُه مرّ حين سبقه قياسُ حجم الخطّ، وسقط حين سبقته اللوحة.
-  await activateSadTab(cdp);
+  await activateFixtureTab(cdp);
   await sleep(600);
 
   // تركيزُ المحرّر بنقرةٍ حقيقيّة: `.focus()` لا يُسلِّم التركيزَ لـMonaco دائمًا.

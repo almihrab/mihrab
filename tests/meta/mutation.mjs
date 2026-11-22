@@ -58,8 +58,8 @@ const guardsInRun = new Set();
 // المسارُ في `run.sh` مكتوبٌ بمتغيّرَي صدفة، فيُحلَّان هنا. و**تُستثنى الطبقةُ الحيّة**
 // (`*.live.mjs` و`launch.mjs` و`run.mjs`): تشترط نسخةً مشحونةً وإطلاقَ تطبيق، فزرعُ عطبٍ
 // لها يعني بناءً كاملًا لكلّ مُصاب — والمُصابُ الذي لا يُشغَّل ليس تغطية.
-const RESOLVE = { "$HERE": "tests", "$NEBRAS": "extensions/mihrab-nebras" };
-for (const m of runSh.matchAll(/"(\$HERE|\$NEBRAS)\/([\w./-]+\.(?:py|mjs|cjs|js))"/g)) {
+const RESOLVE = { "$HERE": "tests" };
+for (const m of runSh.matchAll(/"(\$HERE)\/([\w./-]+\.(?:py|mjs|cjs|js))"/g)) {
   const rel = `${RESOLVE[m[1]]}/${m[2]}`;
   if (/\.live\.mjs$|\/(launch|run)\.mjs$/.test(rel)) continue;
   if (rel.includes("/..")) continue;
@@ -74,7 +74,6 @@ const extDirs = [];
 for (const m of runSh.matchAll(/for _ext in (.+); do/g)) {
   for (const tok of m[1].matchAll(/"([^"]+)"/g)) {
     const rel = tok[1]
-      .replace("$NEBRAS", "extensions/mihrab-nebras")
       .replace("$HERE/../", "")
       .replace("$HERE/", "tests/");
     if (rel.startsWith("extensions/")) extDirs.push(rel);

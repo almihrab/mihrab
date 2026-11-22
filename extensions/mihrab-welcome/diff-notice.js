@@ -17,7 +17,7 @@
  * لقيدٍ منبعيٍّ آخر. فالتوصيةُ تُنفَّذ بلا رقعةٍ ولا يبقى الحدُّ صامتًا.
  *
  * ## شرطُ اللحظة
- * لا تقع الرسالةُ إلّا حين يُفتَح فرقٌ **وأحدُ لوحيه ملفُّ ص** — لا عند فرقِ
+ * لا تقع الرسالةُ إلّا حين يُفتَح فرقٌ **وأحدُ لوحيه فيه نصٌّ عربيّ** — لا عند فرقِ
  * ‏`package.json`. الفرصةُ واحدةٌ للأبد فلا تُحرَق في غير سياقها، وهو الدرسُ المستفاد
  * حرفيًّا من رسالة الطرفيّة.
  */
@@ -26,8 +26,7 @@
 const STATE_KEY = "mihrab.diff.directionNoticeShown";
 /** أمرُ الإعادة — مخرَجٌ لمن أخفاها، فالإخفاءُ قرارٌ لا بابٌ مغلَق. */
 const SHOW_AGAIN_CMD = "mihrab.showDiffDirectionNotice";
-/** معرّفُ لغة ص (مرآةٌ لِما في `extension.js`؛ يحرس تطابقَهما فحصُ `_lang_identity`). */
-const SAD_LANG_ID = "sad";
+const { hasArabic } = require("./arabic-context.js");
 
 const COPY = {
   // **القيدُ مسمًّى بمصدره وبحدِّه**: «لوحان جنبًا لجنب» لا «محراب لا يدعم العربيّة».
@@ -42,19 +41,23 @@ const COPY = {
   shownAgain: "أُعيدت رسالةُ اتّجاه المقارنة.",
 };
 
-/** أهو محرّرُ فرقٍ أحدُ لوحيه ملفُّ ص؟ */
-function isSadDiff(editor) {
-  if (!editor) return false;
+/**
+ * أهو محرّرُ فرقٍ أحدُ لوحيه فيه نصٌّ عربيّ؟ يُقرأ النصُّ من المستندات المفتوحة (لوحا الفرق
+ * مفتوحان مستندَين متى عُرِضا)؛ ومستندٌ لم يُحمَّل بعدُ لا يُحسَب — والتبويبُ التالي يعيد السؤال.
+ *
+ * @param {*} input مُدخَلُ التبويب (`TabInputTextDiff` يحمل `original`/`modified`).
+ * @param {ReadonlyArray<*>} docs المستنداتُ المفتوحة (`workspace.textDocuments`).
+ */
+function isArabicDiff(input, docs) {
+  if (!input) return false;
   // ‏`TextEditor` العاديّ لا يحمل `original`/`modified`؛ وحدَه `TabInputTextDiff` يحملهما.
-  const a = editor.original;
-  const b = editor.modified;
-  if (!a && !b) return false;
-  const isSad = u => !!u && (/\.ص$/.test(u.path || "") || /\.sad$/.test(u.path || ""));
-  return isSad(a) || isSad(b);
+  const uris = [input.original, input.modified].filter(Boolean).map(u => String(u));
+  if (!uris.length) return false;
+  return (docs || []).some(d => d && d.uri && uris.includes(String(d.uri)) && hasArabic(d.getText()));
 }
 
 /**
- * يراقب تبويباتِ المحرّر: أوّلُ فرقٍ لملفّ ص يستدعي الرسالة، مرّةً واحدةً للأبد.
+ * يراقب تبويباتِ المحرّر: أوّلُ فرقٍ فيه نصٌّ عربيّ يستدعي الرسالة، مرّةً واحدةً للأبد.
  *
  * @param {*} vscode واجهةُ المحرّر (محقونةٌ للاختبار).
  * @param {*} memento ذاكرةُ الحالة العامّة (`context.globalState`).
@@ -63,7 +66,8 @@ function activateDiffNotice(vscode, memento) {
   const maybeNotice = async () => {
     if (!memento || memento.get(STATE_KEY)) return false;
     const groups = (vscode.window.tabGroups && vscode.window.tabGroups.all) || [];
-    const hit = groups.some(g => (g.tabs || []).some(t => isSadDiff(t && t.input)));
+    const docs = (vscode.workspace && vscode.workspace.textDocuments) || [];
+    const hit = groups.some(g => (g.tabs || []).some(t => isArabicDiff(t && t.input, docs)));
     if (!hit) return false;
     // نسِم «عُرِضت» **قبل** الانتظار: فرقان يُفتحان معًا لا يعطيان رسالتين.
     await memento.update(STATE_KEY, true);
@@ -92,7 +96,7 @@ function activateDiffNotice(vscode, memento) {
 
   return {
     initial,
-    /** أمرُ الإعادة: يمسح الوسمَ فتعود الرسالةُ عند أوّل فرقِ ص تالٍ. */
+    /** أمرُ الإعادة: يمسح الوسمَ فتعود الرسالةُ عند أوّل فرقٍ عربيٍّ تالٍ. */
     async showAgain() {
       if (memento) await memento.update(STATE_KEY, undefined);
       vscode.window.showInformationMessage(COPY.shownAgain);
@@ -111,9 +115,8 @@ function activateDiffNotice(vscode, memento) {
 
 module.exports = {
   activateDiffNotice,
-  isSadDiff,
+  isArabicDiff,
   STATE_KEY,
   SHOW_AGAIN_CMD,
-  SAD_LANG_ID,
   COPY,
 };

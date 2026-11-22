@@ -51,7 +51,7 @@ test("سقفُ الزخارف يُحترَم", () => {
 // ───────────────────── [BS-03] حارسُ الأسماء ─────────────────────
 
 test("اسمٌ عربيٌّ سليمٌ يمرّ", () => {
-  assert.strictEqual(V.checkName("مرحبا.ص"), null);
+  assert.strictEqual(V.checkName("مرحبا.txt"), null);
   assert.strictEqual(V.checkName("مشروع-ص_2"), null);
 });
 
@@ -77,16 +77,16 @@ test("بقيّةُ الأسباب تبقى كما كانت (لا انحدارَ 
 
 test("الإزالةُ تمسّ محارفَ الانتحال وحدَها", () => {
   assert.strictEqual(V.stripSpoofChars("ملف" + RLO + "x"), "ملفx");
-  assert.strictEqual(V.stripSpoofChars("ملف-عاديّ.ص"), "ملف-عاديّ.ص");
+  assert.strictEqual(V.stripSpoofChars("ملف-عاديّ.txt"), "ملف-عاديّ.txt");
   assert.strictEqual(V.stripSpoofChars(null), "");
 });
 
 test("‏basenameOf يستخرج الاسمَ من مسار URI، وspoofCharsIn يحكم عليه", () => {
-  assert.strictEqual(NG.basenameOf({ path: "/a/b/مرحبا.ص" }), "مرحبا.ص");
+  assert.strictEqual(NG.basenameOf({ path: "/a/b/مرحبا.txt" }), "مرحبا.txt");
   assert.strictEqual(NG.basenameOf({ path: "بلا-فاصل" }), "بلا-فاصل");
   assert.strictEqual(NG.basenameOf(null), "");
   assert.deepStrictEqual(NG.spoofCharsIn("x" + RLO + "y"), ["U+202E"]);
-  assert.strictEqual(NG.spoofCharsIn("مرحبا.ص"), null);
+  assert.strictEqual(NG.spoofCharsIn("مرحبا.txt"), null);
   // اسمٌ ممنوعٌ لسببٍ آخرَ ليس شأنَ هذا الحارس: نظامُ الملفّات يرفضه ويعرض خطأه.
   assert.strictEqual(NG.spoofCharsIn("CON.txt"), null);
 });
@@ -129,11 +129,10 @@ test("المسردُ يُقرأ ويُفرَز عربيًّا", () => {
 test("الاختصاراتُ تُسطَّح بحفظ ترتيب المجموعات (ترتيبٌ تعليميٌّ مقصود)", () => {
   const rows = H.keybindingRows(H.readData(READ, H.KEYBINDINGS_FILE));
   assert.ok(rows.length >= 50, String(rows.length));
-  // [DX-03] مجموعةُ «لغة ص» أوّلًا عمدًا: هي ما يخصّ محرابًا، ويجب أن تُرى قبل عموميّات
-  // المنبع — وقد كانت غائبةً كلَّها، فكانت اللوحةُ تناقض الجولةَ حول F5.
-  assert.strictEqual(rows[0].group, "لغة ص", "المجموعةُ الأولى كما كُتِبت لا مفروزةً");
-  assert.ok(rows.some((r) => r.win === "F5" && r.ar.includes("شغّل ملفّ ص")),
-    "لوحةُ المساعدة تعرف اختصاراتِ ص التي تعلّمها الجولة");
+  // [DX-03] المجموعاتُ بترتيبها المكتوب (تعليميٌّ: الأساسيّاتُ أوّلًا) لا مفروزةً أبجديًّا.
+  assert.strictEqual(rows[0].group, "أساسيّات", "المجموعةُ الأولى كما كُتِبت لا مفروزةً");
+  assert.ok(rows.some((r) => r.win === "F5" && r.ar.includes("التنقيح")),
+    "لوحةُ المساعدة تعرف F5 بمعناه في محراب");
   assert.ok(rows.every((r) => r.ar && r.win));
 });
 

@@ -36,7 +36,7 @@ node tests/runtime/launch.mjs --welcome --spec        # تشغيلة صفحة ا
 #   ‏--folder لازم لأسطح الشجرة (المستكشف/الإعدادات/Git)، و--tabs لمِجَسّ إفلات التبويبات.
 
 # L3 الوقتيّ — (ب) نسخة مُطلَقة يدويًّا (كما كان):
-Mihrab.exe --remote-debugging-port=9222 --remote-allow-origins=* tests/runtime/fixtures/rtl_fixture.ص
+Mihrab.exe --remote-debugging-port=9222 --remote-allow-origins=* tests/runtime/fixtures/rtl_fixture.txt
 node tests/runtime/run.mjs                   # Node ≥ 22
 MIHRAB_L3_STRICT=1 node tests/runtime/run.mjs  # صارم: التخطّي = فشل (للحجب)
 ```
@@ -128,7 +128,7 @@ python tests/apply/check_anchors.py       # يكشف أيّ مرقِّع انج�
 
 ```bash
 rm -rf ud && mkdir ud
-env -u ELECTRON_RUN_AS_NODE ./VSCode-win32-x64/Mihrab.exe   --remote-debugging-port=9333 --remote-allow-origins='*'   --user-data-dir=$PWD/ud --extensions-dir=$PWD/ext   <ملفّ لاتينيّ> <…>/rtl_fixture.ص --folder-uri file:///c:/s_lang/mihrab-ide
+env -u ELECTRON_RUN_AS_NODE ./VSCode-win32-x64/Mihrab.exe   --remote-debugging-port=9333 --remote-allow-origins='*'   --user-data-dir=$PWD/ud --extensions-dir=$PWD/ext   <ملفّ لاتينيّ> <…>/rtl_fixture.txt --folder-uri file:///c:/s_lang/mihrab-ide
 node tests/runtime/run.mjs 9333
 ```
 

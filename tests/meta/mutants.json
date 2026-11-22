@@ -26,11 +26,11 @@
       "id": "richness-poor-sample",
       "guardFile": "tests/meta/richness.mjs",
       "guard": "node tests/meta/richness.mjs",
-      "file": "extensions/mihrab-welcome/diff-notice.test.js",
-      "old": "  assert.ok(isSadDiff(sadLatinDiff.input), \"الامتدادُ اللاتينيُّ .sad مسنودٌ في الشيفرة فيُختبَر\");\n",
-      "new": "",
+      "file": "extensions/mihrab-welcome/import-settings.test.js",
+      "old": "    \"b\": [1, 2,],\n  }`;",
+      "new": "    \"b\": [1, 2]\n  }`;",
       "expect": "طُبِّقت ولم تُطابِق",
-      "why": "نزعُ العيّنة التي تُشغِّل `\\.sad$` — وهو **الشكلُ الحرفيُّ** الذي نجا منه عطبُ `escapeSrc`: تأكيدٌ صحيحٌ فوق عيّنةٍ فقيرة."
+      "why": "عيّنةٌ تفقد حالتَها الموجبةَ الوحيدة: نمطُ الفاصلة الزائدة في `parseJsonc` (‏`/,(\\s*[}\\]])/g`) يُطبَّق ثلاثًا ولا يطابق إلّا هنا. حذفُ الفاصلتين يُبقي الاختبارَ أخضرَ — فالحارسُ المقصودُ ثراءُ العيّنة لا الاختبار: نمطٌ طُبِّق ولم يُطابِق."
     },
     {
       "id": "anchors-drifted-snapshot",
@@ -51,56 +51,6 @@
       "new": "no-csp-fouNd",
       "expect": "بصمة",
       "why": "مِحرفٌ واحدٌ داخل البرنامج المضمَّن يُبطِل بصمة CSP في الترويسة، فيحجب المتصفّح البرنامج وتنطفئ كلُّ لوحات الـwebview صامتةً. وهذا هو العطبُ بعينِه الذي تُحدِثُه أيُّ رقعةٍ تلمس ذلك الملفّ."
-    },
-    {
-      "id": "output-panel-partial-line-never-flushed",
-      "guardFile": "extensions/mihrab-welcome/output-panel.test.js",
-      "guard": "node --test extensions/mihrab-welcome/output-panel.test.js",
-      "file": "extensions/mihrab-welcome/output-panel.js",
-      "old": "const IDLE_FLUSH_MS = ",
-      "new": "const IDLE_FLUSH_MS = 3600000, _IDLE_MUTANT_ORIGINAL = ",
-      "expect": "طردةُ سطرٍ حيّ",
-      "why": "المُصابُ يُصيب **المفتاحَ لا القيمة** كي لا يبطل عند أوّل معايرةٍ للمهلة (درسُ `size-total-floor`). وبمهلةٍ لا تنتهي عمليًّا يعود السلوكُ إلى ما كان: المفسّرُ يطبع رسالةَ «اقرأ» بلا فاصلِ سطر، فتُحتجَز في `rest` حتّى `close` — والمستخدمُ يرى لوحةً فارغةً بينما البرنامجُ ينتظره. حارسٌ بلا هذا المُصابِ يقيس صياغتَنا لا سلوكَ الأنبوب."
-    },
-    {
-      "id": "lsp-byte-ranges-not-repaired",
-      "guardFile": "extensions/sad-lang/extension.test.js",
-      "guard": "node --test extensions/sad-lang/extension.test.js",
-      "file": "extensions/sad-lang/position-encoding.js",
-      "old": "const REPAIR_MEASURED_BYTE_RANGES = ",
-      "new": "const REPAIR_MEASURED_BYTE_RANGES = false, _REPAIR_MUTANT_ORIGINAL = ",
-      "expect": "يرمّم مدى التحويم",
-      "why": "المُصابُ يُطفئ الترميمَ فيعود السلوكُ إلى ما هو مشحونٌ اليوم: خادمُ ص يرسل المديات **بالبايتات** (‏`positionEncoding` عنده `undefined` فهو يدّعي ضمنًا `utf-16`)، فيردّ `definition` مدًى `11..21` على سطرٍ طولُه ‎20‎ وحدة — أي **يقفز إلى ما بعد نهاية السطر** على كلّ سطرٍ عربيّ. والوسمُ **مفتاحٌ لا قيمة** (درسُ `size-total-floor`) فلا يبطل عند أوّل تعديلِ منطق. وحمولاتُ الاختبار **مسجَّلةٌ من الخادم المشحون** لا مصنوعة: خادمٌ زائفٌ كان سيقيس زيفَنا — `toLspPosition` دالّةُ هُويّة، فلا حسابَ مدًى في شجرتنا أصلًا."
-    },
-    {
-      "id": "lsp-folded-degenerate-symbol-kept",
-      "guardFile": "extensions/sad-lang/extension.test.js",
-      "guard": "node --test extensions/sad-lang/extension.test.js",
-      "file": "extensions/sad-lang/position-encoding.js",
-      "old": "const DROP_DEGENERATE_SYMBOLS = ",
-      "new": "const DROP_DEGENERATE_SYMBOLS = false, _DEGEN_MUTANT_ORIGINAL = ",
-      "expect": "الرمزين الزائفين",
-      "why": "الخادمُ **يطوي** «مُعلِّم» إلى «معلم» فيُصدِر لكلٍّ مدخلًا زائفًا **صفريَّ العرض** — أحدُهما على سطر «مُعلِّم». وهو نقضُ القاعدة المكتوبة في `mihrab-welcome/validate-name.js`، والطيُّ يتسرّب من الخادم إلى مخطَّط المستخدم. بإبقاء الزائف يظهر اسمان لمعرِّفٍ واحد. **وهذا المُصابُ هو ما يجعل القيدَ العربيَّ مُختبَرًا لا مذكورًا** — وعلى حمولةٍ حقيقيّةٍ من خادمٍ حقيقيّ، لا على زائفٍ نكتبه بأيدينا."
-    },
-    {
-      "id": "dap-fake-debugger-contribution",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "extensions/sad-lang/package.json",
-      "old": "  \"contributes\": {",
-      "new": "  \"contributes\": {\n    \"debuggers\": [{ \"type\": \"sad\", \"label\": \"مُصابٌ مزروع\" }],",
-      "expect": "يبدو تنقيحًا ولا يقف عند سطر",
-      "why": "‏[DAP-01] الخطرُ الحقيقيُّ ليس أن يُصلَح المنبع، بل أن يشحن أحدُنا مُهايئًا **يبدو** تنقيحًا: `setBreakpoints` يردّ `verified:true` ولا يُصدِر `stopped` قطّ، فيرى المستخدمُ نقطةَ توقّفٍ حمراءَ «مؤكَّدة» يمرّ البرنامجُ من فوقها — أخضرُ كاذبٌ في الواجهة. والحارسُ **لا يستطيع أن يحمرَّ كذبًا**: لا يُشغِّل `sad.exe` ولا يشترط بناءً، ويقرأ وجودَ ملفّ الحكم `docs/dap-01-تنقيح-ص.md` — فرفعُ الحكم يبدأ بحذفه."
-    },
-    {
-      "id": "nebras-frame-length-not-utf8",
-      "guardFile": "extensions/mihrab-nebras/rpc-client.test.js",
-      "guard": "node --test extensions/mihrab-nebras/rpc-client.test.js",
-      "file": "extensions/mihrab-nebras/rpc-client.js",
-      "old": "const ENC = ",
-      "new": "const ENC = \"latin1\", _ENC_MUTANT_ORIGINAL = ",
-      "expect": "جولة تأطير",
-      "why": "سويّةُ وحدات نِبراس كانت **خارج** حارس الحرّاس كلَّها: قاعدةُ التغطية تستخرج الحرّاسَ من `run.sh` بشكل `\"$HERE/…\"`، وحلقةُ `cd \"$_ext\" && node --test` لا يلتقطها ذلك الشكل. والمُصابُ يُصيب **ترميزَ حساب طول الإطار**: `Content-Length` عقدُه **بايتاتُ UTF-8**، فبـ`latin1` يصير طولُ الرسالة العربيّة أقصرَ من جسمها فيُقتطَع الإطارُ ويسقط الفكّ. وهو من صنف عطب هذه الجولة نفسِه — الخلطُ بين عدّ البايتات وعدّ المحارف."
     },
     {
       "id": "patchers-undocumented-core-diff",
@@ -127,8 +77,8 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "docs/milestones.md",
-      "old": "lsp-byte-ranges-not-repaired",
-      "new": "lsp-byte-ranges-not-repaired-drift",
+      "old": "download-url-drifts",
+      "new": "download-url-drifts-drift",
       "expect": "بلا شاهد",
       "why": "لوحُ الحالة يسمّي حرّاسًا «شُوهدوا وهم يحمرّون». ومعرّفٌ يُعاد تسميتُه في `mutants.json` يُبقي على اللوح **دعوى مشاهدةٍ لا شاهدَ لها** — والقارئُ يصدّقها لأنّها مكتوبةٌ بصيغة المقيس. يُصيب اللوحَ لا الحارس: هذا هو الاتّجاهُ الذي ينجرف فعلًا [DR-01]."
     },
@@ -151,16 +101,6 @@
       "new": "HINGE_SUFFIXES = (\".orig.jsonx\",)",
       "expect": "الأصل",
       "why": "‏`check_brand.py` كان مُعلَنًا «بلا مُصاب» بحجّة «كسابقه — يقرأ الحزمةَ المشحونة». **والقياس: صفرُ قراءةٍ للحزمة** — يشهد لسلوك قاعدة التطبيع على شجرةٍ مصنوعة، ويعمل بلا بناء. فالإعفاءُ كان يُشترى بحجّةٍ لا تنطبق، وذاك أخطرُ من إعلانٍ صريح. والمُصابُ يُفسِد لاحقةَ ملفّات الأصل، فتُعَدُّ ملفّاتُ الإنجليزيّة تسرّبًا للهويّة — ويسقط تمييزُ «ما نُعيد منه البناء» عن «ما يُصيَّر»."
-    },
-    {
-      "id": "nebras-contract-source-drift",
-      "guardFile": "extensions/mihrab-nebras/contract/gen_contract.py",
-      "guard": "python extensions/mihrab-nebras/contract/gen_contract.py --check",
-      "file": "extensions/mihrab-nebras/contract/protocol-contract.yaml",
-      "old": "const: PROTOCOL_VERSION,",
-      "new": "const: PROTOCOL_VERSION_MUTANT,",
-      "expect": "عقد السلك منحرف",
-      "why": "كان مُعلَنًا «بلا مُصابٍ لأنّ له حارسًا مكافئًا: `git diff` يُظهر الانجراف». والإعلانُ يشترط أن يُعاد التوليدُ قبل الالتزام — وهو ما لا يفرضه شيء. المُصابُ يزرع في **مصدر الحقيقة** لا في المولَّد، فيقيس ما يدّعيه الحارسُ فعلًا: أنّ الاثنين متطابقان."
     },
     {
       "id": "editor-root-direction-conditional",
@@ -293,12 +233,12 @@
       "why": "حذفُ المفتاح لا يعني «لا رأيَ لنا» بل تسليمًا لافتراض المنبع. والحارسُ القديم كان **يخضرّ فراغًا** عليه: `defaults.get(...) != \"rtl\" ⇒ return`. فالتوكيدُ يسبق الشرطَ عمدًا [DR-02]."
     },
     {
-      "id": "editor-direction-sad-loses-rtl",
+      "id": "editor-direction-markdown-loses-rtl",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "extensions/mihrab-shell/package.json",
-      "old": "\"[sad]\": {\n        \"editor.textDirection\": \"rtl\",",
-      "new": "\"[sad]\": {\n        \"editor.textDirection\": \"ltr\",",
+      "old": "\"[markdown]\": {\n        \"editor.unicodeHighlight.nonBasicASCII\": false,\n        \"editor.textDirection\": \"rtl\"",
+      "new": "\"[markdown]\": {\n        \"editor.unicodeHighlight.nonBasicASCII\": false,\n        \"editor.textDirection\": \"ltr\"",
       "expect": "لغاتُ المضمون العربيّ بلا",
       "why": "قلبُ الافتراض بلا منحٍ صريحٍ يسلب العربيّةَ اتّجاهَها — وهو الانحدارُ الذي يقابل العطبَ الأصليّ. سقوطُ كتلةٍ واحدةٍ من القائمة المغلقة يجب أن يحمرّ [DR-02]."
     },
@@ -576,7 +516,7 @@
       "id": "web-ext-browser-field-dropped",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
-      "file": "extensions/sad-lang/package.json",
+      "file": "extensions/mihrab-welcome/package.json",
       "old": "  \"browser\": \"./dist/web/extension.js\",\n",
       "new": "",
       "expect": "`browser` = None",
@@ -653,14 +593,14 @@
       "why": "‏**المُصابُ هو الخطأُ الذي أسقط بناءَين.** المرقِّعُ يُنادى مباشرةً بدل أن يُنسَخ ويُحقَن، فيعمل **قبل** `git add . ; git reset --hard` الذي يُجريه `dev/build.sh` — ويزول أثرُه. والعطبُ صامتٌ مضاعَف: وجد الملفَّ مُرقَّعًا من تجربةٍ يدويّةٍ سابقة فطبع «مُرقَّعٌ سلفًا» في السطر 18 من السجلّ، والملفُّ غيرُ مُرقَّعٍ في السطر 22 — **شهادةُ نجاحٍ لملفٍّ يُمحى بعد سطور**، ثمّ سقط `vscode-web-min` بالعطب نفسِه بعد 6.7 دقيقة. والتعليقُ في `build/build.sh` يصف هذا الفخَّ حرفيًّا: قُرِئ ثمّ وقع. فصار بنيويًّا: من كانت `FILES` له في شجرة vscode فطريقُه `.mihrab-patch-*`، ولا يُنادى مباشرةً."
     },
     {
-      "id": "web-exit-copy-drifts",
+      "id": "download-url-drifts",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
-      "file": "extensions/sad-lang/extension.web.js",
-      "old": "  download: \"افتح صفحةَ التنزيل\",",
-      "new": "  downloadLabel: \"افتح صفحةَ التنزيل\",",
-      "expect": "غائبٌ عن",
-      "why": "‏**المُصابُ هو الفرعُ الذي أفلت من الصياغة الأولى.** الحارسُ كان يجمع القيمَ الموجودةَ ثمّ يسأل «أهي واحدة؟» — فمرّت منه ثلاثُ طفراتٍ من أربع: حذفُ الثابت من الاثنين، وحذفُه من واحد، وإعادةُ تسميته في واحد. وهي ما يقع فعلًا أثناء إعادة صياغة، لا «قيمتان مختلفتان» التي كان يمسكها وحدَها. والامتدادان لا يستورد أحدُهما الآخر (يُحزَم مدخلُ كلٍّ منهما بـesbuild وحدَه)، فالغيابُ لا يُكشَف إلّا هنا: يبقى نصفُ المنتَج يعرض المخرجَ ونصفُه لا يعرضه."
+      "file": "extensions/mihrab-welcome/extension.web.js",
+      "old": "const DOWNLOAD_URL = \"https://mihrab.dev/download/\";",
+      "new": "const DOWNLOAD_URL = \"https://mihrab.dev/downloads/\";",
+      "expect": "رابطُ التنزيل يختلف",
+      "why": "رابطُ التنزيل مكتوبٌ في ثلاثة مواضعَ لا يستورد أحدُها الآخر. يتغيّر في واحدٍ ويُنسى الباقي فيشير جزءٌ من المنتَج إلى صفحةٍ زائلة [UX-02]."
     },
     {
       "id": "csp-script-src-unsafe-inline",

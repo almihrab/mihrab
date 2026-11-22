@@ -1189,114 +1189,37 @@ def _identity_css_wired():
             f"مِجَسُّ «{cls}» سقط من توكيدات L2 — لا دليلَ على وصول ورقة الهويّة [VA-05]")
 
 
-@check("إبراز يونيكود [AR-04]: إعفاء ص من nonBasicASCII — مقصورًا على اللغة لا عالميًّا")
-def _unicode_highlight():
-    """‏[AR-04] يحرس إعفاءً **مقيسًا** من `editor.unicodeHighlight` — وحدَّه في آن.
+@check("إبراز يونيكود [AR-04]: إطفاء nonBasicASCII للنصوص العربيّة — مقصورًا على اللغة لا عالميًّا")
+def _unicode_highlight_scoped():
+    """‏`editor.unicodeHighlight.nonBasicASCII` افتراضُه `inUntrustedWorkspace`: في مساحةِ عملٍ
+    غير موثوقة — وهي حالُ أيّ مشروعٍ مُنزَّل — يُبرِز **كلَّ** محرفٍ خارج ‎U+0020–U+007E‎، فيغرق
+    ملفُّ README عربيٌّ كلُّه في مستطيلاتٍ صفراء.
 
-    **العطب:** `editor.unicodeHighlight.nonBasicASCII` افتراضُه `inUntrustedWorkspace`، وهو
-    يُبرِز **كلّ** محرف خارج ‎U+0020–U+007E‎. وقياسنا على مِلفّ ص واقعيّ: **62% من محارفه
-    غير-ASCII**. أي أنّ فتح مجلّد ص غير موثوق — وهي الحالة الافتراضيّة لأيّ مشروع مُنزَّل —
-    يُغرِق الملفّ كلَّه في إبرازات تحذير. وهذا مسارٌ قاطع لا احتماليّ: في
-    `unicodeTextModelHighlighter.ts` يعود `shouldHighlightNonBasicASCII` بـNonBasicASCII
-    **قبل** استدلال سياق الكلمة، فلا شيء يُنقِذ منه.
+    **ولماذا مقصورًا على نطاقات اللغة:** خيارات المحرّر `LANGUAGE_OVERRIDABLE`
+    (‏editorConfigurationSchema.ts:19)، فالإطفاءُ ينحصر في اللغات التي غير-ASCII هو متنُها.
+    إسقاطه عالميًّا يُطفئ حمايةً حقيقيّة في كلّ لغةٍ أخرى — ولذا يمنعه هذا الفحص صراحةً.
 
-    **ولماذا اقتصر الإصلاح على هذا المفتاح وحده — قياسٌ لا حَدْس:**
-      • ‏`ambiguousCharacters` **تبقى مفعَّلة**، والعربيّةُ المُلتبِسة تُعفى **بالاسم** عبر
-        `allowedCharacters` داخل `[sad]` وحدها. وهذا **تصحيحُ قياسٍ سابقٍ كان يكذب**:
-        قلنا «كلمة واحدة من 1238» اعتمادًا على استدلال سياق الكلمة (يُعفي الكلمة التي لا
-        ASCII فيها وفيها محرفٌ غير-مُلتبِس). والشرطُ في المنبع هو **`!hasBasicASCIICharacters`**
-        — أي **محرفُ ASCII واحدٌ يُبطِل الإعفاء كلَّه** — ومعرّفاتُ ص تُكتب `نصاب_الفضة`،
-        والشرطةُ السفليّة ASCII. فأعدنا القياس بمحاكاة قاعدة المنبع حرفيًّا، **والمجموعةُ
-        مسمّاةٌ لأنّ النسبة بلا مجموعةٍ ادّعاء**:
-            نواة نهلة (‏c:\\s_lang\\nahla، 174 ملفّ ص):  77690 من 607018 كلمة = **12.8%**
-            أمثلة مستودع اللغة (6 ملفّات):              59 من 843 = 7.0%
-            هذا المستودع (ملفّ تجهيزٍ واحد):             0 من 107 = 0.0%
-        (وقلنا أوّلًا «59 من 950 على مصادر ص في المستودع» — والمجموعةُ كانت أمثلةَ
-        مستودع اللغة لا هذا المستودع. صحّحته مراجعةٌ هندسيّة، والرقمُ الحاكم هو نهلة:
-        أكبرُ شيفرةِ ص حقيقيّة عندنا.) وكلُّ المُعلَّم معرّفاتُ snake_case عربيّة.
-        (ورصده المستخدم على نسخةٍ حيّة: «مستطيلٌ أصفر حول كلّ حرف ا».)
-
-        فالإعفاء لـ17 نقطة كودٍ من كتل العربيّة (‏0600–06FF · 0750–077F · 08A0–08FF —
-        اليومَ كلُّها في الأولى) وردت في `_common`، وللقوسين
-        المزخرفين ﴾﴿ **بالاسم** (يُكتبان عمدًا لاقتباس آية). ونُبقي بقيّةَ **صور العرض**
-        (‏FB50+/FE70+) مُعلَّمةً عمدًا: لا تُنتجها لوحةُ مفاتيحَ عربيّة، فوجودُها إشارةٌ
-        تستحقّ التنبيه لا ضجيجًا. والحمايةُ من trojan-source باقيةٌ لكلّ ما عداها —
-        وأهمُّها للعربيّة `invisibleCharacters` (‏RLM/LRO وأخواتُها تقلب ترتيبَ السطر
-        بصريًّا) ولم تُمسّ.
-
-        **وفخٌّ ظنَنّاه قائمًا فلم يكن — مُثبَتُ النفي بالقراءة، ومكتوبٌ هنا كي لا يُبعَث:**
-        الإصلاحُ السريع «استثنِ هذا المحرف» (`excludeCharFromBeingHighlighted`) يكتب فعلًا
-        في إعدادات المستخدم **عالميًّا** بلا `overrideIdentifier` — وهذا صحيح. واستنتجنا
-        منه أنّ نقرةً واحدةً في md تُبطِل إعفاءَنا المحصورَ في `[sad]` **ذرّيًّا**، فبنينا
-        عليه توسيعًا للنطاقات وبندًا رابعًا في م-13. **والاستنتاجُ خطأ:** الدمجُ بين
-        المصادر وبين تجاوزات اللغة **عميقٌ لا ذرّيّ** — `ConfigurationModel.merge` (‏:156)
-        و`createOverrideConfigurationModel` (‏:203) كلاهما يمرّ بـ`mergeContents` (‏:219)
-        وهي تعاود النزول في كلّ قيمةٍ كائنًا. فقيمةُ المستخدم `{«а»: true}` **تتّحد**
-        بمحارفنا التسعةَ عشرَ ولا تحلّ محلَّها. والمفاتيحُ الذرّيّةُ حقًّا هي البوليانيّة،
-        ولا مسارَ في الواجهة يكتب `nonBasicASCII: true` (أوامرُ التعطيل تكتب `false` فقط).
-        فلا فخَّ هنا. (رصدَته مراجعةٌ هندسيّة، وتحقّقناه بقراءة الملفّ لا بالثقة.)
-
-        **وأسبقيّةُ النطاق اللغويّ أقوى ممّا ظنَنّا مرّتين:** `getConsolidatedConfigurationModel`
-        (‏:990) يدمج المصادرَ كلَّها **ثمّ** يستدعي `.override(id)`، فمحتوى النطاق اللغويّ
-        يُطبَّق فوق المتن أيًّا كان مصدرُه. أي أنّ افتراضَنا `[sad]` يغلب **قيمةَ المستخدم
-        العامّة** لا العكس. والحالةُ الوحيدةُ التي تغلبنا: قيمةٌ بنطاقِ لغةٍ في إعدادات
-        المستخدم/المشروع — وعليها وحدَها يُنذر حارسُ `unicode-guard.js`.
-
-        **ما بقي من التوسيع، بحيثيّةٍ أخرى:** `[markdown]` و`[plaintext]` و`[git-commit]`
-        و`[git-rebase]` تأخذ `nonBasicASCII: false` **وحدَه** — لا إعفاءً بالاسم. السببُ
-        ليس الفخّ بل أنّ المفتاح افتراضُه `inUntrustedWorkspace`، وأيُّ مشروعٍ مُنزَّلٍ غيرُ
-        موثوقٍ ابتداءً، فيغرق README عربيٌّ كلُّه بالمستطيلات. والنثرُ لا يُنفَّذ. ورسالةُ
-        الالتزام تُحرَّر داخل المحرّر وتخلط عربيًّا بلاتينيٍّ ملتصق — وهو النمطُ الذي
-        يتجاوز إعفاءَ سياق الكلمة. أمّا `[json]`/`[jsonc]` فتُركتا عمدًا: `tasks.json`
-        و`devcontainer.json` هما ما يقرؤه المراجعُ **قبل** منحِ الثقة، وإسكاتُهما يُسقِط
-        الإشارةَ في موضع القرار.
-
-        **والضجيجُ خارجَ هذه النطاقات مقيسٌ لا مُقدَّر:** ‏md ‏0.05% · ts ‏0.25% ·
-        json ‏0.07% من الكلمات — النثرُ العربيُّ بلا snake_case، ونمطُ «الـHTML» وحده
-        يُبطِل إعفاءَ سياق الكلمة بحرفٍ لاتينيٍّ ملتصق.
-
-        **وإبقاءُ `invisibleCharacters` مفعَّلةً مقيسٌ أيضًا** (كان ادّعاءً يُكرَّر): في
-        ‏174 ملفّ ص من نواة نهلة (‏4.88 مليون محرف) وُجدت ‏312 علامةً خفيّةً فقط —
-        ‏192 LRM و120 RLM، أي ‏0.006% من المحارف ونحوُ علامتين في الملفّ. فالكلفةُ على
-        المستخدم لا تُذكَر، والفائدةُ حقيقيّة: هذه العلاماتُ تقلب ترتيبَ السطر بصريًّا.
-      • ‏`allowedLocales: {ar: true}` **عديم الأثر** لا حلّ: بيانات المحليّات في
-        `strings.ts` لا تحوي `ar` أصلًا (‏cs/de/es/fr/it/ja/ko/pl/pt-BR/ru/tr/zh…)،
-        والمُرشِّح `Object.hasOwn(data, l)` يُسقِط أيّ محليّة غير موجودة. أثبتناه بالقراءة.
-
-    **ولماذا مقصورًا على `[sad]`:** خيارات المحرّر `LANGUAGE_OVERRIDABLE`
-    (‏editorConfigurationSchema.ts:19)، فالإعفاء ينحصر في اللغة التي **غير-ASCII هي متنُها**.
-    إسقاطه عالميًّا يُطفئ حمايةً حقيقيّة في كلّ لغة أخرى — ولذا يمنعه هذا الفحص صراحةً.
+    ولا إعفاءَ بالاسم (`allowedCharacters`) في أيّ نطاق: `shouldHighlightNonBasicASCII` يفحص
+    `allowedCodePoints` **أوّلًا ويعود None** (unicodeTextModelHighlighter.ts:190) — أي قبل
+    الملتبِس والخفيّ معًا — فكلُّ محرفٍ يُعفى يفقد حمايتَه كاملةً في نطاقه. كان الإعفاءُ قائمًا
+    لِلُغةٍ واحدةٍ معرّفاتُها عربيّة، وأُزيل معها؛ والنثرُ العربيّ لا يُبرَز بالملتبِس أصلًا.
     """
     shell = os.path.join(ROOT, "extensions", "mihrab-shell", "package.json")
-    sad_pkg = os.path.join(ROOT, "extensions", "sad-lang", "package.json")
-    if not (os.path.isfile(shell) and os.path.isfile(sad_pkg)):
-        return
-    # مُعرّف اللغة من مصدره الوحيد (مساهمة sad-lang) لا من سلسلة مُختلَقة — كما في _lang_identity.
-    lang_id = json.load(open(sad_pkg, encoding="utf-8"))["contributes"]["languages"][0]["id"]
+    assert os.path.isfile(shell), "لا mihrab-shell/package.json — لا شيءَ يُقاس [AR-04]"
     defaults = json.load(open(shell, encoding="utf-8")).get("contributes", {}).get("configurationDefaults", {})
     KEY = "editor.unicodeHighlight.nonBasicASCII"
-    # نطاقان لا واحد، وبصلاحيّتين مختلفتين:
-    #   • `[sad]`: الإطفاءُ الشامل **والإعفاءُ بالاسم** — متنُ الملفّ عربيّ، ومعرّفاتُه
-    #     snake_case عربيّةٌ تُبرَز بالملتبِس (قياسُ نهلة: 12.8% من الكلمات).
-    #   • `[markdown]`/`[plaintext]`: الإطفاءُ الشامل **وحدَه**. النثرُ العربيّ لا يُبرَز
-    #     بالملتبِس أصلًا (قاعدةُ سياق الكلمة تُعفيه)، لكنّ `nonBasicASCII` يُبرِز كلَّ
-    #     غير-ASCII في مساحةِ عملٍ **غير موثوقة** — وهي حالُ أيّ مشروعٍ مُنزَّل — فيغرق
-    #     ملفُّ README عربيٌّ كلُّه. والإعفاءُ بالاسم هناك ممنوع، انظر أدناه.
-    # ‏`git-commit`/`git-rebase`: رسالةُ الالتزام تُحرَّر **داخل** المحرّر، ورسائلُ هذا
-    # المشروع نفسِه عربيّةٌ مخلوطةٌ بلاتينيّ ملتصق (`macOS`، أسماءُ ملفّات) — وهو النمطُ
-    # الذي يتجاوز إعفاءَ سياق الكلمة. واللغتان مشحونتان في `git-base`. (اقتراحُ مراجعةِ
-    # تجربةِ المستخدم، وهو الوحيدُ من قائمتها الذي رجّحته بالاحتمال لا بالإمكان.)
-    PROSE_SCOPES = ("markdown", "plaintext", "git-commit", "git-rebase")
-    SCOPES = (lang_id,) + PROSE_SCOPES
+    # ‏`markdown`/`plaintext`: توثيقُ محرابٍ ونصوصُه عربيّة. و`git-commit`/`git-rebase`: رسالةُ
+    # الالتزام تُحرَّر **داخل** المحرّر، ورسائلُ هذا المشروع نفسِه عربيّةٌ مخلوطةٌ بلاتينيّ ملتصق
+    # (`macOS`، أسماءُ ملفّات). واللغتان مشحونتان في `git-base`.
+    SCOPES = ("markdown", "plaintext", "git-commit", "git-rebase")
     scoped_all = {sc: defaults.get(f"[{sc}]", {}) for sc in SCOPES}
-    scoped = scoped_all[lang_id]
-    for sc, s in scoped_all.items():
-        assert s.get(KEY) is False, (
-            f"لا إعفاء `{KEY}: false` داخل `[{sc}]` في mihrab-shell — فتح مجلّدٍ "
-            f"غير موثوق يُبرِز 62% من محارف الملفّ كتحذير يونيكود [AR-04]")
+    for sc, sv in scoped_all.items():
+        assert sv.get(KEY) is False, (
+            f"لا إطفاء `{KEY}: false` داخل `[{sc}]` في mihrab-shell — فتحُ مجلّدٍ "
+            f"غير موثوق يُبرِز كلَّ حرفٍ عربيٍّ كتحذير يونيكود [AR-04]")
     assert KEY not in defaults, (
         f"‏`{KEY}` مضبوط **عالميًّا** — هذا يُطفئ حماية التماثل البصريّ في كلّ لغة. "
-        f"احصره في `[{lang_id}]` وأخواتها [AR-04]")
+        f"احصره في نطاقات اللغة [AR-04]")
     # مجموعةٌ **مغلقة**: نطاقٌ لغويٌّ جديدٌ يحمل مفاتيحَ إبراز يونيكود يجب أن يُخفق حتّى
     # يُقرَّر عمدًا. بلا هذا كان يمرّ `"[yaml]": {nonBasicASCII: false}` أخضرَ — أي توسّعٌ
     # صامتٌ في إسقاط الحماية بلا قرارٍ ولا حيثيّة. (رصدَته مراجعةٌ هندسيّة بطفرةٍ مرّت.)
@@ -1311,103 +1234,28 @@ def _unicode_highlight():
     # يُضاف هنا ولا يُضاف هناك يبقى بلا تشخيصٍ ولا إصلاح: يرى المستخدمُ الإطاراتِ ويقول له
     # الأمرُ «لم أجد شيئًا». فالقائمتان مصدرٌ واحدٌ يُفحَص تطابقُه.
     guard_js = os.path.join(ROOT, "extensions", "mihrab-welcome", "unicode-guard.js")
-    if os.path.isfile(guard_js):
-        m = re.search(r"const LANGS = \[([^\]]*)\]", _read(guard_js))
-        assert m, "لا `LANGS` في unicode-guard.js — انجرف شكلُها فعمِيَ فحصُ التطابق [AR-04]"
-        guard_langs = set(re.findall(r'"([^"]+)"', m.group(1)))
-        assert guard_langs == set(SCOPES), (
-            "نطاقاتُ القشرة ≠ نطاقاتُ حارس التعافي — نطاقٌ بلا تشخيص: "
-            f"{sorted(set(SCOPES) ^ guard_langs)} [AR-04]")
+    assert os.path.isfile(guard_js), "لا unicode-guard.js — حارسُ التعافي غائب [AR-04]"
+    m = re.search(r"const LANGS = \[([^\]]*)\]", _read(guard_js))
+    assert m, "لا `LANGS` في unicode-guard.js — انجرف شكلُها فعمِيَ فحصُ التطابق [AR-04]"
+    guard_langs = set(re.findall(r'"([^"]+)"', m.group(1)))
+    assert guard_langs == set(SCOPES), (
+        "نطاقاتُ القشرة ≠ نطاقاتُ حارس التعافي — نطاقٌ بلا تشخيص: "
+        f"{sorted(set(SCOPES) ^ guard_langs)} [AR-04]")
 
-    # الحماية التي نُبقيها عمدًا: لا نُطفئ الملتبِس ولا الخفيّ، لا عالميًّا ولا في نطاق.
+    # الحمايةُ التي نُبقيها عمدًا: لا نُطفئ الملتبِس ولا الخفيّ، ولا نُعفي محرفًا بالاسم —
+    # لا عالميًّا ولا في نطاق.
     for keep in ("editor.unicodeHighlight.ambiguousCharacters",
-                 "editor.unicodeHighlight.invisibleCharacters"):
+                 "editor.unicodeHighlight.invisibleCharacters",
+                 "editor.unicodeHighlight.allowedCharacters"):
         assert keep not in defaults, (
-            f"‏`{keep}` مُعطَّل — الإعفاء بالاسم (allowedCharacters) يكفي لإسكات الضجيج، "
-            f"والإطفاء يُسقِط حماية التماثل البصريّ/المحارف الخفيّة كلَّها [AR-04]")
-        for sc, s in scoped_all.items():
-            assert keep not in s, (
-                f"‏`{keep}` مُعطَّل في `[{sc}]` — الإعفاء بالاسم يكفي، والإطفاء يُسقِط "
-                f"حماية التماثل البصريّ/المحارف الخفيّة كلَّها [AR-04]")
-
-    # ── الإعفاء بالاسم: مشتقٌّ من جدول المنبع لا مكتوبٌ بالحدس ──
-    # لو أضاف المنبع نقطةَ كودٍ عربيّةً جديدةً إلى `_common` لبقيت قائمتُنا ناقصةً **بصمت**،
-    # وعاد المستطيلُ الأصفر إلى حرفٍ بعينه دون أن يُخفق شيء. فنشتقّ المتوقَّع من مصدره.
-    ALLOWED_KEY = "editor.unicodeHighlight.allowedCharacters"
-    assert ALLOWED_KEY not in defaults, (
-        f"‏`{ALLOWED_KEY}` مضبوط **عالميًّا** — يُسقِط الحماية في كلّ لغة. "
-        f"احصره في `[{lang_id}]` [AR-04]")
-    # الغيابُ إخفاقٌ لا تخطٍّ: لولا هذا التوكيد لمرّ حذفُ الإعفاء كلِّه أخضرَ — وهي نفسُ
-    # الفجوة الصامتة التي وُجد هذا الفحص ليسدّها.
-    allowed = scoped.get(ALLOWED_KEY)
-    assert allowed, (
-        f"لا `{ALLOWED_KEY}` داخل `[{lang_id}]` — يعود المستطيلُ الأصفر حول كلّ ألفٍ "
-        f"وهاءٍ في معرّفات ص [AR-04]")
-    # **والإعفاءُ بالاسم محصورٌ في ص وحدها.** `shouldHighlightNonBasicASCII` يفحص
-    # `allowedCodePoints` **أوّلًا ويعود None** (unicodeTextModelHighlighter.ts:190) — أي
-    # قبل الملتبِس والخفيّ معًا. فكلُّ محرفٍ نُعفيه يفقد حمايتَه كاملةً في ذلك النطاق،
-    # وقائمتُنا فيها ما يشبه l و o و 0 و 1 و 5 و 7 و * و , و / و . — أدواتُ الانتحال في
-    # أمرِ مهمّةٍ أو مسارِ صورة. في ص المقايضةُ مقصودةٌ ومقيسة؛ خارجَها لا مقابلَ لها.
-    # (رصدَته مراجعةٌ هندسيّة بقراءة ترتيب الفحص في المنبع.)
-    named = sorted(sc for sc in PROSE_SCOPES if ALLOWED_KEY in scoped_all[sc])
-    assert not named, (
-        f"‏`{ALLOWED_KEY}` في نطاقٍ غير `[{lang_id}]` — الإعفاءُ بالاسم يتخطّى الملتبِسَ "
-        "والخفيَّ معًا، فيُسقِط الحمايةَ حيث لا ضجيجَ يبرّرها: "
-        + " ".join(f"[{sc}]" for sc in named) + " [AR-04]")
-    # القيمةُ تُفحَص لا المفتاح وحده: `validateBooleanMap` في المنبع تقبل `=== true` فقط
-    # وتُسقِط ما عداه، فـ`"ا": false` إعفاءٌ **مُبطَل** بمفتاحٍ حاضر — أي مستطيلٌ أصفرُ عائد
-    # وحارسٌ أخضر. رصدَته مراجعةٌ هندسيّة بطفرةٍ مرّت.
-    falsy = sorted(c for c, v in allowed.items() if v is not True)
-    assert not falsy, (
-        "مفاتيحُ إعفاءٍ قيمتُها ليست `true` — يُسقِطها المنبع فيعود الإبراز: "
-        + " ".join(f"U+{ord(c):04X} «{c}»" for c in falsy) + " [AR-04]")
-
-    # الأقواسُ المزخرفة ﴾﴿ استثناءٌ **بالاسم**: هي في كتلة صور العرض (‏FD3E/FD3F) التي
-    # نُبقيها مُعلَّمةً كقاعدة، لكنّ هذين يكتبهما عربيٌّ **عمدًا** لاقتباس آية، بخلاف صور
-    # عرض الحروف التي لا تنتجها لوحةُ مفاتيح. فالقاعدةُ بالكتلة والاستثناءُ بالاسم.
-    NAMED_EXTRA = {"﴾", "﴿"}
-
-    # مصدرُ الاشتقاق: المنبعُ المثبَّت إن وُجد، وإلّا **لقطةُ L1** المُلتزَمة في المستودع.
-    # الارتدادُ ليس ترفًا: `.upstream/` مُتجاهَلٌ في git، فبلا اللقطة يكون لُبُّ هذا الفحص
-    # معطَّلًا في CI — يمرّ إعفاءٌ فارغٌ أو سيريليٌّ أخضرَ. (رصدَته مراجعةٌ هندسيّة بطفرة.)
-    REL = os.path.join("src", "vs", "base", "common", "strings.ts")
-    strings_ts = os.path.join(ROOT, ".upstream", "vscode", REL)
-    if not os.path.isfile(strings_ts):
-        strings_ts = os.path.join(os.path.dirname(HERE), "apply", "snapshot", REL)
-    assert os.path.isfile(strings_ts), (
-        "لا `strings.ts` — لا في المنبع المثبَّت ولا في لقطة L1. شغّل "
-        "`python tests/apply/refresh_snapshot.py` والتزِم اللقطة [AR-04]")
-    # المرساة على **تعريف الحقل** لا على `_common` وحدها: كتلةُ المحارف الخفيّة في الملفّ
-    # نفسِه تبدأ ببادئةٍ مشابهة، فمرساةٌ فضفاضة كانت ستطابق الجدولَ الخطأ بلا إخفاق.
-    src = open(strings_ts, encoding="utf-8").read()
-    m = re.search(r"ambiguousCharacterData\s*=\s*new Lazy[\s\S]*?"
-                  r"JSON\.parse\(\s*'(\{.*?\})'\s*\)", src)
-    assert m, "تعذّر إيجاد جدول المحارف الملتبِسة في المنبع — تغيّر شكلُه؟ [AR-04]"
-    common = json.loads(m.group(1).replace('\\"', '"'))["_common"]
-    ambiguous_cps = {common[i] for i in range(0, len(common), 2)}
-    # تحقّقٌ من أنّنا أمسكنا الجدولَ الصحيح لا جدولًا آخر بالبنية نفسها.
-    assert 0x0627 in ambiguous_cps, "الجدول المُلتقَط لا يحوي الألف — مرساةٌ أمسكت غيرَه [AR-04]"
-
-    # نطاقُ الحروف العربيّة **الثلاثة** لا الكتلة الأساسيّة وحدها: الملحق (0750–077F)
-    # والموسَّع-A (08A0–08FF) حروفُ كتابةٍ عربيّةٍ حقيقيّة تُنتجها لوحاتُ مفاتيحَ إقليميّة،
-    # فحصرُ الاشتقاق في 0600–06FF كان يَعِد بما لا يفي: إضافةُ المنبع لحرفٍ منهما تمرّ
-    # صامتةً. (رصدَته مراجعةٌ هندسيّة بحقن U+0751 في الجدول فمرّ أخضرَ.)
-    ARABIC_BLOCKS = ((0x0600, 0x06FF), (0x0750, 0x077F), (0x08A0, 0x08FF))
-    expected = {chr(cp) for cp in ambiguous_cps
-                if any(lo <= cp <= hi for lo, hi in ARABIC_BLOCKS)} | NAMED_EXTRA
-    missing = expected - set(allowed)
-    assert not missing, (
-        "محارفُ عربيّةٌ ملتبِسةٌ في جدول المنبع وليست في الإعفاء ⇒ مستطيلٌ أصفر حولها: "
-        + " ".join(f"U+{ord(c):04X} «{c}»" for c in sorted(missing)) + " [AR-04]")
-    # الزيادةُ تُقاس على **المتوقَّع** لا على الجدول كلِّه: مقارنةٌ بالجدول كانت ستُمرِّر
-    # إعفاءَ «а» السيريليّة أو صورةِ عرضٍ للألف — أي إسقاطَ حمايةٍ في اتّجاهٍ آخر.
-    extra = set(allowed) - expected
-    assert not extra, (
-        "إعفاءٌ لمحارفَ خارج نطاق القرار (إسقاطُ حمايةٍ بلا سبب): "
-        + " ".join(f"U+{ord(c):04X} «{c}»" for c in sorted(extra)) + " [AR-04]")
+            f"‏`{keep}` مضبوطٌ عالميًّا — يُسقِط حماية التماثل البصريّ/المحارف الخفيّة [AR-04]")
+        for sc, sv in scoped_all.items():
+            assert keep not in sv, (
+                f"‏`{keep}` مضبوطٌ في `[{sc}]` — يُسقِط حماية التماثل البصريّ/المحارف "
+                f"الخفيّة في نطاقه [AR-04]")
 
 
-@check("خطّ ص العربيّ المحزوم [AR-02]: config ↔ حقن data:URI ↔ لا url() كاسر للبناء")
+@check("الخطّ العربيّ المحزوم [AR-02]: config ↔ حقن data:URI ↔ لا url() كاسر للبناء")
 def _arabic_font():
     # قيم متوقَّعة (بيانات فحص تطابق مصدر الإعداد؛ استثناء literal مقبول للاختبارات).
     BUNDLED_FONT_FAMILY = "Kawkab Mono"  # الخطّ المحزوم (OFL)، أوّل المكدّس
@@ -1448,8 +1296,8 @@ def _arabic_font():
         assert needle in bundle_py, \
             f"patch_bundle_extensions لا يحقن @font-face بـdata:URI base64 (ينقص «{needle}») — قد يعود url() الكاسر [AR-02]"
 
-    # [AR-01↔AR-02] لوحة المخرجات (webview معزول) تُضمِّن الخطّ المحزوم data:URI من media/ لتعرض
-    # به عينه لا بخطّ نظاميّ: build.sh ينسخه إلى welcome/media، وoutput-panel.js يقرؤه ويبنيه.
+    # [PR-01↔AR-02] التصديرُ للطباعة يُضمِّن الخطّ المحزوم data:URI من media/ ليطبع به عينه
+    # لا بخطٍّ نظاميّ: build.sh ينسخه إلى welcome/media، وprint-command.js يقرؤه ويبنيه.
     welcome = os.path.join(ROOT, "extensions", "mihrab-welcome")
     if os.path.isdir(welcome):
         # نفحص أمر cp **الفعليّ** لا مجرّد ظهور «media/kawkab-mono.woff2» نصًّا (يظهر في سطر
@@ -1457,18 +1305,18 @@ def _arabic_font():
         # أصول الهوية التي تجرّد غير-الكود وتفحص سطر cp حقيقيًّا).
         bsh_code = [ln for ln in build_sh.splitlines() if not ln.lstrip().startswith("#")]
         assert 'WELCOME_MEDIA="$STAGE_EXT/mihrab-welcome/media"' in "\n".join(bsh_code), \
-            "build.sh لا يعرّف WELCOME_MEDIA لمجلّد media لوحة الترحيب [AR-01↔AR-02]"
+            "build.sh لا يعرّف WELCOME_MEDIA لمجلّد media لوحة الترحيب [PR-01↔AR-02]"
         assert any("cp -f" in ln and "WELCOME_MEDIA/kawkab-mono.woff2" in ln for ln in bsh_code), \
-            "build.sh لا ينسخ الخطّ فعلًا إلى media/ لوحة الترحيب (سطر cp لا سطر log) [AR-01↔AR-02]"
-        # السلسلةُ صارت من حلقتين بعد [PR-01]: اللوحةُ تفوّض، والوحدةُ المشتركةُ تبني الـURI.
-        # ويُفحَص **الطرفان** لا أحدُهما: فحصُ اللوحة وحدَها يمرّ أخضرَ لو صار التفويضُ إلى
-        # دالّةٍ لا تبني شيئًا، وفحصُ الوحدة وحدَها يمرّ أخضرَ لو كفّت اللوحةُ عن ندائها.
-        panel_js = _read(os.path.join(welcome, "output-panel.js"))
+            "build.sh لا ينسخ الخطّ فعلًا إلى media/ لوحة الترحيب (سطر cp لا سطر log) [PR-01↔AR-02]"
+        # السلسلةُ من حلقتين: أمرُ الطباعة يفوّض، والوحدةُ المشتركةُ تبني الـURI.
+        # ويُفحَص **الطرفان** لا أحدُهما: فحصُ الأمر وحدَه يمرّ أخضرَ لو صار التفويضُ إلى
+        # دالّةٍ لا تبني شيئًا، وفحصُ الوحدة وحدَها يمرّ أخضرَ لو كفّ الأمرُ عن ندائها.
+        print_js = _read(os.path.join(welcome, "print-command.js"))
         font_js = _read(os.path.join(welcome, "bundled-font.js"))
-        assert "loadFontDataUri" in panel_js, \
-            "output-panel.js لا ينادي مُحمِّلَ الخطّ المشترك [AR-01↔AR-02]"
+        assert "loadFontDataUri" in print_js, \
+            "print-command.js لا ينادي مُحمِّلَ الخطّ المشترك [PR-01↔AR-02]"
         assert "data:font/woff2" in font_js and "base64" in font_js, \
-            "bundled-font.js لا يبني data:URI للخطّ المحزوم [AR-01↔AR-02]"
+            "bundled-font.js لا يبني data:URI للخطّ المحزوم [PR-01↔AR-02]"
         # وبصمةُ الصيغة: `readFileSync` ينجح على ملفٍّ مقتطعٍ وعلى كعبٍ فارغ، و«الحمولةُ
         # موجودة» تأكيدٌ ينجح عليهما معًا — فالحارسُ يشترط أن يبقى فحصُ البصمة قائمًا.
         assert "wOF2" in font_js, \
@@ -2296,19 +2144,12 @@ def _line_height_and_gpu():
         ") — الرقمُ بلا سندِه يصير ذوقًا [TY-02]")
 
     # **الاشتقاقُ يسري على كلّ سطحٍ يعرض عربيّةً بالوجه نفسِه، لا على المحرّر وحدَه.**
-    # الطرفيّةُ افتراضُها المنبعيّ ‎1‎ (نصفُ ما يحتاجه الحبر)، ولوحةُ مخرجات ص هي **أشدُّ**
-    # أسطحنا امتلاءً بالتشكيل — فسطرٌ ضيّقٌ فيهما يقصّ العربيّةَ في السطح الذي بُني لعرضها.
+    # الطرفيّةُ افتراضُها المنبعيّ ‎1‎ (نصفُ ما يحتاجه الحبر) — فسطرٌ ضيّقٌ فيها يقصّ
+    # العربيّةَ في مخرجات البرامج.
     tlh = defaults.get("terminal.integrated.lineHeight")
     assert isinstance(tlh, (int, float)) and tlh >= MIN_LINE_HEIGHT, (
         f"‏`terminal.integrated.lineHeight` = {tlh!r} دون الأرضيّة المشتقّة {MIN_LINE_HEIGHT} "
         f"— يُقصّ التشكيلُ في مخرجات الطرفيّة [TY-02]")
-    _panel_src = _read(os.path.join(ROOT, "extensions", "mihrab-welcome", "output-panel.js"))
-    _m = re.search(r"ARABIC_LINE_HEIGHT\s*=\s*([\d.]+)", _panel_src)
-    assert _m and float(_m.group(1)) >= MIN_LINE_HEIGHT, (
-        "لوحةُ مخرجات ص بلا `ARABIC_LINE_HEIGHT` ≥ الأرضيّة المشتقّة — يُقصّ التشكيلُ في "
-        "أشدّ أسطحنا امتلاءً به [TY-02]")
-    assert "line-height: ${ARABIC_LINE_HEIGHT}" in _panel_src, (
-        "ارتفاعُ سطر لوحة المخرجات مكتوبٌ حرفيًّا لا مشتقٌّ من الثابت — خطرُ انجرافٍ صامت [TY-02]")
 
     gpu = defaults.get("editor.experimentalGpuAcceleration")
     assert gpu == "off", (
@@ -2440,7 +2281,7 @@ def _editor_direction_defaults_to_ltr():
         "فتساوي 'rtl' في واجهةٍ عربيّة — وهي أخطرُ من rtl لأنّها تبدو حيادًا [DR-02]")
 
     # (٣) و`rtl` تُمنَح صراحةً — قائمةٌ **مغلقةٌ** لسطوحِ المضمون العربيّ في هذا المشروع.
-    RTL_CONTENT = ("sad", "markdown", "plaintext", "git-commit", "git-rebase", "scminput")
+    RTL_CONTENT = ("markdown", "plaintext", "git-commit", "git-rebase", "scminput")
     missing = [lang for lang in RTL_CONTENT
                if (defaults.get(f"[{lang}]") or {}).get("editor.textDirection") != "rtl"]
     assert not missing, (
@@ -2465,8 +2306,8 @@ def _editor_direction_defaults_to_ltr():
     ext_dir = os.path.join(up, "extensions")
     if os.path.isdir(ext_dir):
         shipped = set()
-        # **ومن مصدرَين لا مصدرٍ واحد.** كان المسحُ يقرأ امتداداتِ المنبع وحدَها، و`sad`
-        # لغةُ امتدادٍ من امتداداتنا نحن — لا يظهر هناك إلّا بعد أن ينسخه البناء إلى
+        # **ومن مصدرَين لا مصدرٍ واحد.** كان المسحُ يقرأ امتداداتِ المنبع وحدَها، ولغةُ
+        # امتدادٍ من امتداداتنا نحن لا تظهر هناك إلّا بعد أن ينسخه البناء إلى
         # شجرة المنبع. فالحارسُ كان يقيس **حالةَ بناءٍ سابق** لا حقيقةَ الشحن: يحمرّ على
         # شجرةٍ نظيفةٍ أو أثناء بناءٍ يجري، ويخضرّ لأنّ بناءً قديمًا خلّف نسخةً — والاثنان
         # لا علاقةَ لهما بصحّة القائمة. وامتداداتُ محرابٍ **مشحونةٌ بالتعريف**: تُقرأ من
@@ -2621,9 +2462,8 @@ def _milestones_claims_are_anchored():
         head = _read(os.path.join(ROOT, "docs", name)).splitlines()[0]
         if re.search(r"مُغلَق\S*\s+سلب", head):
             judgments.append(name)
-    assert len(judgments) >= 2, (
-        f"‏{len(judgments)} ملفَّ حكمٍ سلبيٍّ فقط في docs/ — والمِسطرةُ تتعرّف عليه من "
-        "عنوانه الأوّل. إن تغيّرت الصياغةُ فهذا الفحصُ يحرس العدم.")
+    # لا حدَّ أدنى لعددها: الحكمان اللذان كانا هنا (‏`DAP-01` و`LSP-01/02`) خصّا لغةَ ص
+    # وأُزيلا معها (2026-11-22). وشاهدُ التفعيل في (١) أعلاه، فالفحصُ لا يقيس العدمَ بغيابهما.
     unlinked = [n for n in judgments if n not in board and urllib.parse.quote(n) not in board]
     assert not unlinked, (
         "أحكامٌ سلبيّةٌ لا يذكرها لوحُ الحالة الوحيد: " + " · ".join(unlinked)
@@ -2717,7 +2557,7 @@ def _theme_contrast():
 
 
 # ───────────── L0-9: سمة أيقونات محراب ─────────────
-@check("سمة أيقونات محراب: JSON صالح، خرائط ص/مجلّد/عامّ، SVG موجود، مُعرّف افتراضيّ")
+@check("سمة أيقونات محراب: JSON صالح، خرائط مجلّد/عامّ، SVG موجود، مُعرّف افتراضيّ")
 def _icon_theme():
     ext = os.path.join(ROOT, "extensions", "mihrab-icons")
     if not os.path.isdir(ext):
@@ -2740,9 +2580,6 @@ def _icon_theme():
         # الافتراضات الأساسيّة موجودة (ملفّ + مجلّد) وإلّا فالملفّات غير المعرّفة بلا أيقونة:
         assert td.get("file") in defs, "لا أيقونة ملفّ افتراضيّة (file)"
         assert td.get("folder") in defs, "لا أيقونة مجلّد افتراضيّة (folder)"
-        # ملفّ ص مخرَّط (بالامتداد ص أو بلغة sad):
-        sad_ref = td.get("fileExtensions", {}).get("ص") or td.get("languageIds", {}).get("sad")
-        assert sad_ref in defs, "ملفّ ص غير مخرَّط لأيقونة (fileExtensions.ص / languageIds.sad)"
 
         # **كلّ** مرجع أيقونة (base + light + highContrast، بما فيه folderExpanded) له تعريف —
         # يمنع مرجعًا مكسورًا يمرّ صامتًا (يرتدّ لأيقونة أخرى/يختفي).
@@ -2771,10 +2608,10 @@ def _icon_theme():
             assert head.startswith("<?xml") or head.startswith("<svg"), f"ليس SVG صالحًا: {ip}"
 
         # ── [AR-06] اتّساع التغطية: السمة **افتراضيّة**، فتغطيتها الضيّقة تجعل مستكشف محراب
-        # أقلّ إفادةً من المحرّر القياسيّ (‏seti). كانت تُخرِّط نوعًا واحدًا (ص) فتصير الشجرة
+        # أقلّ إفادةً من المحرّر القياسيّ (‏seti). كانت تُخرِّط نوعًا واحدًا فتصير الشجرة
         # صفًّا من صفحاتٍ متطابقة. هذا الحدّ الأدنى يمنع الارتداد إلى تلك الحال.
         MIN_EXTENSIONS = 30
-        MUST_COVER = ("ص", "json", "md", "py", "svg", "log")   # عائلة واحدة على الأقلّ من كلٍّ
+        MUST_COVER = ("json", "md", "py", "svg", "log")   # عائلة واحدة على الأقلّ من كلٍّ
         fe = td.get("fileExtensions", {})
         assert len(fe) >= MIN_EXTENSIONS, (
             f"سمة الأيقونات تُخرِّط {len(fe)} امتدادًا فقط (الحدّ {MIN_EXTENSIONS}) — الشجرة "
@@ -2788,15 +2625,14 @@ def _icon_theme():
             assert not missing_light, \
                 f"امتدادات مخرَّطة في الداكنة وحدها: {sorted(missing_light)[:6]} [AR-06]"
 
-    # ── المولّد مصدر الحقيقة: الملفّات المشتقّة تحمل رأسه، ولا تُحرَّر يدويًّا (اصطلاح
-    # مقتطفات ص نفسه). ‏sad.svg مستثنًى صراحةً — علامة الهوية مكتوبة يدويًّا لا مشتقّة.
+    # ── المولّد مصدر الحقيقة: الملفّات المشتقّة تحمل رأسه، ولا تُحرَّر يدويًّا.
     gen = os.path.join(ext, "gen_icons.py")
     if os.path.isfile(gen):
         BANNER = "مولَّد بـgen_icons.py"
         assert BANNER in _read(gen), "رأس المولَّد غير معرَّف في gen_icons.py [AR-06]"
         for fn in sorted(os.listdir(os.path.join(ext, "icons"))):
-            if fn.startswith("sad") or fn.startswith("file") or fn.startswith("folder"):
-                continue  # أصولٌ يدويّة سابقة للمولّد (الهوية + الافتراضيّان)
+            if fn.startswith("file") or fn.startswith("folder"):
+                continue  # أصولٌ يدويّة سابقة للمولّد (الافتراضيّان)
             assert BANNER in _read(os.path.join(ext, "icons", fn)), \
                 f"‏{fn} بلا رأس المولَّد — حُرِّر يدويًّا فسيُدهَس عند أوّل توليد [AR-06]"
 
@@ -3013,16 +2849,13 @@ def _welcome_ext():
     assert "maybeShowWelcome" in js and "openWalkthrough" in js, \
         "لا منطق فتح تلقائيّ للجولة (maybeShowWelcome/openWalkthrough) في نقطة الدخول"
 
-    # (١ج) تشغيل ملفّ ص يجب أن يمرّ بالمسار المحلول (المدمج ثمّ PATH) لا باسم ثابت مباشر،
-    #      وإلّا ينكسر ربط الثنائيّ المدمج ولا يعمل التشغيل دون تثبيت على PATH.
-    #      (أنماط متسامحة مع المسافات كي لا تنكسر بإعادة تنسيق. [N1])
     import re as _re
-    # (١ب٢) كلّ أمرٍ معلَنٍ مُسجَّل — كان هذا الحارسُ لنِبراس وحدَه، فأمرٌ يُعلَن في مانيفست
+    # (١ب٢) كلّ أمرٍ معلَنٍ مُسجَّل — أمرٌ يُعلَن في مانيفست
     #       الترحيب بلا `registerCommand` كان يمرّ أخضرَ ويظهر في لوحة الأوامر ثمّ يرمي
     #       «command not found» عند النقر. التسجيلُ قد يمرّ بثابتٍ مسمّى فنحلّه.
     _wcmds = {c.get("command") for c in (pkg.get("contributes", {}).get("commands") or [])}
     assert _wcmds, "لا أوامر معلَنة في امتداد الترحيب"
-    # التسجيلُ قد يُنقَل إلى وحدةٍ مستقلّة (نمطُ نِبراس «التسجيل الموزّع»)، فنمسح كلَّ ملفّات
+    # التسجيلُ قد يُنقَل إلى وحدةٍ مستقلّة («التسجيل الموزّع»)، فنمسح كلَّ ملفّات
     # JS لا نقطةَ الدخول وحدَها — وإلّا يُسقِط أوّلُ نقلٍ الفحصَ أحمرَ كاذبًا.
     #       والثوابتُ تُجمَع **عبر ملفّات الامتداد كلِّها** لا لكلّ ملفٍّ وحدَه، ويُحَلّ معها
     #       نمطُ الإسناد من وحدةٍ أخرى (`const A = mod.B;`): المستودعُ يضع معرّفَ الأمر في
@@ -3106,43 +2939,6 @@ def _welcome_ext():
         f"أوامرُ معلَنةٌ في مانيفست الترحيب بلا registerCommand: {sorted(_wcmds - _wreg)}")
     for _c in pkg.get("contributes", {}).get("commands", []):
         assert _c.get("title"), f"أمرُ ترحيبٍ بلا عنوان: {_c.get('command')}"
-    assert "resolveSadRun" in js, "لا دالّة resolveSadRun (حلّ الثنائيّ المدمج) في نقطة الدخول"
-    # [AR-01] التشغيل يُوجَّه إلى لوحة المخرجات العربيّة (bidi صحيح) بدل مهمّة طرفيّة تشوّه العربيّة،
-    #         ويجب أن يمرّر المسار المحلول sadRunCmd — وإلّا يتجاهل الثنائيّ المدمج. حارس ضدّ انحدار.
-    assert "output-panel" in js and "SadOutputPanel" in js, \
-        "runSadFile لا يوجّه إلى لوحة المخرجات العربيّة (output-panel/SadOutputPanel) [AR-01]"
-    # اللوحة تُنشأ فعلًا وتُدفَع إلى subscriptions (وإلّا يبقى sadOutput غير مُهيّأ ⇒ runSadFile
-    # يرمي زمن التشغيل بينما L0/node --check أخضران — نجاح كاذب). وتُشغَّل بالمسار المحلول sadRunCmd.
-    assert _re.search(r"new\s+SadOutputPanel\(", js), \
-        "لا إنشاء فعليّ للوحة (new SadOutputPanel) — sadOutput يبقى غير مُهيّأ [AR-01]"
-    # اللوحة مُدرَجة في context.subscriptions (وإلّا لا تُغلَق/تُقتَل العمليّة عند التعطيل). نفحص
-    # نافذةً بعد push( تغطّي قائمة الوسائط كاملةً (لا regex [^)] الذي يتوقّف عند أوّل قوس مغلق).
-    _push_idx = js.find("subscriptions.push(")
-    assert _push_idx != -1 and "sadOutput" in js[_push_idx:_push_idx + 600], \
-        "لوحة المخرجات غير مُدرَجة في context.subscriptions — لن تُغلَق/تُقتَل عند التعطيل [AR-01]"
-    assert _re.search(r"sadOutput\.run\(\s*sadRunCmd", js), \
-        "لوحة المخرجات لا تُشغَّل بالمسار المحلول sadRunCmd — قد تتجاهل الثنائيّ المدمج [AR-01]"
-    # [SAD-04] أمر «ابنِ» يُوجَّه للّوحة بالمسار المحلول sadBuildCmd، وعدسات الكود «شغّل/ابنِ»
-    #          مسجَّلة فوق «دالة رئيسية». حرّاس ضدّ انحدار (المسار المحلول + وجود الميزة).
-    assert "resolveSadBuild" in js and _re.search(r"sadOutput\.run\(\s*sadBuildCmd", js), \
-        "أمر البناء لا يُوجَّه للّوحة بالمسار المحلول sadBuildCmd (resolveSadBuild) — قد يتجاهل الثنائيّ المدمج [SAD-04]"
-    assert "registerCodeLensProvider" in js and "SadMainCodeLensProvider" in js, \
-        "لا موفّر عدسات كود (registerCodeLensProvider/SadMainCodeLensProvider) فوق دالّة رئيسية [SAD-04]"
-    # [تدقيق #1] خطوة «شغّل» تصف لوحة ص العربيّة (وجهة AR-01) لا «طرفيّة في الأسفل» (تشوّه bidi).
-    _step_run = os.path.join(ext, "media", "step-run.md")
-    if os.path.isfile(_step_run):
-        _sr = _read(_step_run)
-        assert "لوحة" in _sr and "طرفيّة في الأسفل" not in _sr, \
-            "media/step-run.md لا يصف لوحة المخرجات العربيّة (أو ما زال يَعِد بطرفيّة في الأسفل) — يناقض AR-01 [تدقيق #1]"
-    # مهمّة tasks.json المولَّدة يجب أن تُبنى من المُشغّل المحلول (buildTasksJson(sadRunCmd)) لا
-    # باسم ثابت — وإلّا عاد تباعد المسارين (المهمّة تفشل رغم توفّر المدمج). حارس ضدّ انحدار.
-    assert "buildTasksJson" in js and _re.search(r"command:\s*runCommand", js), \
-        "مهمّة tasks.json لا تُبنى من المُشغّل المحلول (buildTasksJson/command: runCommand) — خطر تباعد المسارين"
-    # التشغيل يجب أن يصمد حين لا محرّر ص نشط (زرّ الجولة يحتلّ المحرّر فلا نصّ نشط): بحث في
-    #      مساحة العمل عن ملفّ ص وفتحه — وإلّا عاد عطل «لا محرّر نشط» في الجولة. حارس ضدّ انحدار.
-    assert "findWorkspaceSadFile" in js and "resolveSadDoc" in js, \
-        "runSadFile لا يحوي رجوعًا لملفّ مساحة العمل (findWorkspaceSadFile/resolveSadDoc) — زرّ التشغيل في الجولة سيفشل"
-
     # (١هـ) [BS-01] كاشفُ قلب الاتّجاه موصولٌ فعلًا: الوحدةُ مستهلَكة، والحارسُ **مُنشَأ** (لا
     #       مستورَدًا فقط — استيرادٌ بلا إنشاءٍ يمرّ `node --check` ولا يشخّص شيئًا: نجاحٌ كاذب)،
     #       ومزوّدُ الإجراءات مسجَّل كي يكون للتشخيص مخرَجُ إصلاحٍ لا مجرّدُ لومٍ أحمر.
@@ -3156,13 +2952,13 @@ def _welcome_ext():
         "مُحدِّدُ مزوّد الإجراءات لا يُشتَقّ من SCANNED_SCHEMES — تشخيصٌ في مخطّطٍ بلا إصلاحٍ فيه [BS-01]")
 
     # (١و) [DR-03] شارةُ الطرفيّة موصولة، ورسالتُها **تُسمّي القيدَ منبعيًّا**. الثانية ليست
-    #      تدقيقَ صياغة: بدونها يستنتج المستخدمُ أنّ **لغةَ ص** لا تُخرِج العربيّةَ صحيحة،
-    #      والعطبُ في مكتبة طرفيّةٍ منبعيّةٍ لا في اللغة ولا في برنامجه.
+    #      تدقيقَ صياغة: بدونها يستنتج المستخدمُ أنّ **برنامجَه** لا يُخرِج العربيّةَ صحيحة،
+    #      والعطبُ في مكتبة طرفيّةٍ منبعيّةٍ لا في برنامجه.
     assert "activateTerminalNotice" in js, \
         "شارةُ الطرفيّة غيرُ موصولة (activateTerminalNotice) — الحدُّ المنبعيُّ يبقى صامتًا [DR-03]"
     _tn = _read(os.path.join(ext, "terminal-notice.js"))
-    assert "xterm" in _tn and "لا في لغة ص" in _tn, \
-        "رسالةُ الطرفيّة لا تُسمّي القيدَ منبعيًّا (xterm) ولا تُبرِّئ لغةَ ص — تُحمَّل ص وزرَ غيرها [DR-03]"
+    assert "xterm" in _tn and "لا في برنامجك" in _tn, \
+        "رسالةُ الطرفيّة لا تُسمّي القيدَ منبعيًّا (xterm) ولا تُبرِّئ البرنامج — يُحمَّل وزرَ غيره [DR-03]"
 
     # (١ز) [BS-01] الكاشفُ **يميّز** ولا يبرز فقط. وهذا **فحصٌ سلوكيٌّ لا نصّيّ**: توكيدٌ
     #      نصّيٌّ على وجود `MARKS` كان يمرّ أخضرَ لو صارت `new Set()` وشُخِّصت كلُّ علامةٍ
@@ -3173,10 +2969,10 @@ def _welcome_ext():
         _probe = (
             'const s=require(process.argv[1]);'
             'const c=n=>String.fromCharCode(n);'
-            'const A=[["RLM",s.scanBidi("x"+c(0x200F)+"y","sad").length,0],'
-            '["FSI..PDI",s.scanBidi(c(0x2068)+"a"+c(0x2069),"sad").length,0],'
-            '["PDF-يتيم",s.scanBidi("x"+c(0x202C),"sad").length,0],'
-            '["RLO-معلَّق",s.scanBidi("#"+c(0x202E)+"م","sad").length,1],'
+            'const A=[["RLM",s.scanBidi("x"+c(0x200F)+"y","python").length,0],'
+            '["FSI..PDI",s.scanBidi(c(0x2068)+"a"+c(0x2069),"python").length,0],'
+            '["PDF-يتيم",s.scanBidi("x"+c(0x202C),"python").length,0],'
+            '["RLO-معلَّق",s.scanBidi("#"+c(0x202E)+"م","python").length,1],'
             '["تسرُّب",s.scanBidi("/* "+c(0x202E)+" */ x"+c(0x202C)+";","javascript").length,1]];'
             'const bad=A.filter(([,g,w])=>g!==w);'
             'if(bad.length){console.error(JSON.stringify(bad));process.exit(1)}'
@@ -3198,36 +2994,6 @@ def _welcome_ext():
             _bad = sorted({hex(ord(c)) for c in _m.group(0) if ord(c) in _INVISIBLE})
             assert not _bad, (
                 f"{_mod}: محرفٌ خفيٌّ حرفيٌّ داخل تعبيرٍ نمطيّ ({_bad}) — استعمل ترميز \\u صريحًا")
-
-    # (١ط) [TY-03] كشفُ أحاديّة العرض حيًّا: القياسُ في اللوحة (حيث DOM)، والحكمُ في وحدةٍ
-    #      نقيّة. والوصلُ بينهما **يُفحَص**: قياسٌ بلا مستقبِلٍ يُرمى في الفراغ، وحكمٌ بلا
-    #      قياسٍ لا يُستدعى أبدًا — وكلاهما يمرّ `node --check` أخضرَ.
-    _fp = os.path.join(ext, "font-probe.js")
-    assert os.path.isfile(_fp), "وحدةُ كشف أحاديّة العرض مفقودة (font-probe.js) [TY-03]"
-    _panel = _read(os.path.join(ext, "output-panel.js"))
-    assert "font-probe" in _panel and "measureText" in _panel, \
-        "لوحةُ المخرجات لا تقيس عرضَ المحارف — لا كشفَ لسقوطِ الخطّ إلى وجهٍ متناسب [TY-03]"
-    assert "onFontProbe" in js and "maybeWarnProportional" in js, \
-        "قياسُ الخطّ لا يصل إلى الحكم (onFontProbe/maybeWarnProportional) — قياسٌ يُرمى في الفراغ [TY-03]"
-    # وعيّنةُ القياس **مصدرُ حقيقةٍ واحد**: لو كُتبت في اللوحة يدويًّا لانجرفت عن التي يحكم
-    # عليها المقيِّم، فيُقاس محرفٌ ويُحكَم على آخر.
-    assert _re.search(r'require\(["\']\./font-probe\.js["\']\)\.SAMPLES', _panel), \
-        "عيّنةُ قياس الخطّ مكتوبةٌ في اللوحة لا مستورَدةٌ من font-probe — خطرُ انجرافٍ صامت [TY-03]"
-    # **ولا يُقاس خطُّ اللوحة نفسِها**: مكدَّسُ `#log` يبدأ بالوجه المحزوم و`@font-face` مُضمَّنٌ
-    # في وثيقتها، فقياسُه يعطي «أحاديّ» دائمًا — أي يعمى الكاشفُ عن الحالة التي وُجد لها.
-    assert "--vscode-editor-font-family" in _panel, (
-        "قياسُ الخطّ يقع على مكدَّس اللوحة لا على خطّ المحرّر — يعطي «أحاديًّا» دائمًا "
-        "فيعمى عن سقوط خطّ المستخدم [TY-03]")
-    # والقياسُ **بعد تحميل الوجوه**: قبلها يقع على الاحتياطيّ المتناسب ⇒ إنذارٌ كاذبٌ أوّلَ فتحة.
-    assert "fonts.ready" in _panel, \
-        "قياسُ الخطّ لا ينتظر تحميلَ الوجوه (document.fonts.ready) — إنذارٌ كاذبٌ في أوّل فتحة [TY-03]"
-    # ولا يُعلَن نجاحٌ بلا إعادة قياس: الكتابةُ تُقبَل وقد لا تُغيّر شيئًا (وجهٌ غيرُ مثبَّت،
-    # أو نطاقٌ أضيقُ يغلب) — وهو درسُ «تمّ والإعدادُ في مكانه» المدفوعُ ثمنُه مرّتين.
-    _fpsrc = _read(_fp)
-    assert "remeasure" in _fpsrc and "fixedButUnverified" in _fpsrc, (
-        "إصلاحُ الخطّ يُعلن نجاحًا بلا إعادة قياس — رسالةُ نجاحٍ بلا أثرٍ تُنهي بحثَ المستخدم [TY-03]")
-    assert "requestRemeasure" in _panel and "requestRemeasure" in js, \
-        "لا مسارَ لإعادة القياس بين اللوحة والامتداد (requestRemeasure) [TY-03]"
 
     # (١ي) [TY-04] الأشكالُ السياقيّةُ مثبَّتةٌ صراحةً لا موروثة: إطفاءُ «الروابط» نصيحةٌ
     #      لاتينيّةٌ شائعةٌ **تفكّك الكلمةَ العربيّة** إلى حروفٍ منفصلة.
@@ -3287,23 +3053,17 @@ def _welcome_ext():
     # (١س) [DX-03] اختصاراتٌ **محايدةٌ للتخطيط**: حرفٌ لاتينيٌّ في اختصارٍ لا يوجد على
     #      لوحةٍ عربيّة — والاختصارُ الذي لا يُعثَر عليه اختصارٌ غيرُ موجود.
     _kbs = pkg.get("contributes", {}).get("keybindings", [])
-    assert _kbs, "لا اختصاراتٍ لأوامر ص الأساسيّة — أوامرُ يوميّةٌ بلا مفاتيح [DX-03]"
+    assert _kbs, "لا اختصاراتٍ في امتداد الترحيب — المساعدةُ بلا مفتاح [DX-03]"
     _bound = {k.get("command") for k in _kbs}
-    for _need in ("mihrab.runSadFile", "mihrab.buildSadFile"):
-        assert _need in _bound, f"أمرٌ أساسيٌّ بلا اختصار: {_need} [DX-03]"
-    # **التمييزُ الدقيق، لا المنعُ الجملة.** المفتاحُ الحرفيُّ في تركيبةٍ (‏`Ctrl+Shift+B`)
+    assert "mihrab.openHelp" in _bound, "أمرُ المساعدة بلا اختصار [DX-03]"
+    # **التمييزُ الدقيق، لا المنعُ الجملة.** المفتاحُ الحرفيُّ في تركيبةٍ (‏`Ctrl+Alt+C`)
     # **يعمل** على التخطيط العربيّ — VS Code يسقط إلى تخطيطٍ لاتينيٍّ للإرسال حين لا تُنتِج
-    # لوحةُ المستخدم حرفًا لاتينيًّا. فالعطبُ فيه **اكتشافيٌّ لا وظيفيّ**: يُعرَض «B» ولوحتُه
-    #   تقول «لا». وعلاجُ الاكتشاف توثيقٌ لا تبديلُ مفتاح — ولذلك يوجب الحارسُ:
-    #   ‏(١) أن يكون **أمرُ التشغيل** بمفتاحٍ وظيفيٍّ محايدٍ تمامًا (أكثرُ الأوامر تكرارًا).
-    #   ‏(٢) ألّا يوجد مفتاحٌ حرفيٌّ **بلا مُعدِّل** (ذاك يُكتَب في الملفّ فيُبتلَع الحرف).
-    #   ‏(٣) أن تُسرَد الاختصاراتُ في خطوة الجولة، فيجدها من لا يقرأ لوحتَه.
+    # لوحةُ المستخدم حرفًا لاتينيًّا. فالعطبُ فيه **اكتشافيٌّ لا وظيفيّ**. ولذلك يوجب الحارسُ:
+    #   ‏(١) ألّا يوجد مفتاحٌ حرفيٌّ **بلا مُعدِّل** (ذاك يُكتَب في الملفّ فيُبتلَع الحرف).
+    #   ‏(٢) أن يُسرَد اختصارُ المساعدة في خطوة الجولة، فيجده من لا يقرأ لوحتَه.
     _FUNCTION_KEY = _re.compile(r"^f\d{1,2}$")
     _MODIFIERS = {"ctrl", "shift", "alt", "cmd", "meta", "win"}
-    _run_key = next((k.get("key", "") for k in _kbs if k.get("command") == "mihrab.runSadFile"), "")
-    assert _FUNCTION_KEY.match(_run_key.strip().lower()), (
-        f"اختصارُ التشغيل «{_run_key}» ليس مفتاحًا وظيفيًّا — وهو أكثرُ الأوامر تكرارًا، "
-        f"فيجب أن يكون محايدًا للتخطيط تمامًا [DX-03]")
+    _help_key = next((k.get("key", "") for k in _kbs if k.get("command") == "mihrab.openHelp"), "")
     for _k in _kbs:
         for _field in ("key", "mac", "linux", "win"):
             _combo = (_k.get(_field) or "").strip().lower()
@@ -3320,45 +3080,9 @@ def _welcome_ext():
     _steps_md = " ".join(
         _read(os.path.join(ext, "media", m)) for m in os.listdir(os.path.join(ext, "media"))
         if m.endswith(".md"))
-    assert _run_key.upper() in _steps_md.upper(), (
-        f"اختصارُ التشغيل «{_run_key}» غيرُ مسرودٍ في وسائط الجولة — الاختصارُ الذي لا "
+    assert _help_key and _help_key.upper() in _steps_md.upper(), (
+        f"اختصارُ المساعدة «{_help_key}» غيرُ مسرودٍ في وسائط الجولة — الاختصارُ الذي لا "
         f"يُعثَر عليه اختصارٌ غيرُ موجود [DX-03]")
-
-    # (١ح) [DX-01] تطبيعُ البحث العربيّ: نسخةُ `sad-lang` **مطابقةٌ بايتًا ببايت**. المستودعُ
-    #      يكرّر الوحداتِ بين الامتدادات عمدًا (استقلالُ الامتداد) — وثمنُ ذلك انجرافٌ صامت،
-    #      فتُطبَّع الهمزةُ في سطحٍ ولا تُطبَّع في آخر. البصمةُ تجعل الثمنَ صفرًا.
-    _sad_ext = os.path.join(ROOT, "extensions", "sad-lang")
-    if os.path.isdir(_sad_ext):
-        import hashlib as _hl
-        _digests = {}
-        for _base in (ext, _sad_ext):
-            _p = os.path.join(_base, "arabic-normalize.js")
-            assert os.path.isfile(_p), f"وحدةُ تطبيع البحث مفقودة: {_p} [DX-01]"
-            _digests[_base] = _hl.sha256(open(_p, "rb").read()).hexdigest()
-        assert len(set(_digests.values())) == 1, (
-            "نسختا arabic-normalize.js متباعدتان (بصمتان مختلفتان) — "
-            "سيُطبَّع البحثُ في سطحٍ ولا يُطبَّع في آخر [DX-01]")
-
-    # (١د) طبقة الحزم المدمجة: البناء يحقن sad-run في bin/ داخل الامتداد، وgit يتجاهله، وثابت
-    #      المجلّد في JS يطابق ما يحقنه البناء — وإلّا يمرّ L0 أخضر بينما التشغيل المدمج مكسور. [M6]
-    # ثابت مجلّد الثنائيّات المدمجة صار في tool-resolve.js (مصدر واحد يتشاركه run/check/build). [تدقيق #2]
-    tool_resolve = _read(os.path.join(ext, "tool-resolve.js"))
-    assert _re.search(r'BUNDLED_BIN_DIR\s*=\s*"bin"', tool_resolve), \
-        "ثابت BUNDLED_BIN_DIR ليس \"bin\" في tool-resolve.js — قد يفترق عن مسار الحقن في build.sh"
-    assert "resolveBundledTool" in tool_resolve and "probeTool" in tool_resolve, \
-        "tool-resolve.js لا يصدّر محلّل الأدوات المشترك (resolveBundledTool/probeTool) [تدقيق #2]"
-    build_sh = _read(os.path.join(ROOT, "build", "build.sh"))
-    assert "WELCOME_BIN" in build_sh and "sad-run.exe" in build_sh, \
-        "build.sh لا يحوي كتلة حزم sad-run المدمجة (WELCOME_BIN/sad-run.exe)"
-    # جسر التشخيص [SAD-02] يحلّ sad-check المدمج من bin/ قبل PATH ⇒ يجب أن يحزمه البناء أيضًا.
-    assert "sad-check.exe" in build_sh, \
-        "build.sh لا يحزم sad-check.exe المدمج — جسر التشخيص عند الحفظ سيسقط دومًا إلى PATH"
-    # أمر البناء [SAD-04] يحلّ sad-build المدمج من bin/ قبل PATH ⇒ يجب أن يحزمه البناء أيضًا.
-    assert "sad-build.exe" in build_sh, \
-        "build.sh لا يحزم sad-build.exe المدمج — أمر «ابنِ» سيسقط دومًا إلى PATH [SAD-04]"
-    gitignore = _read(os.path.join(ROOT, ".gitignore"))
-    assert "extensions/mihrab-welcome/bin/" in gitignore, \
-        ".gitignore لا يتجاهل الثنائيّ المدمج extensions/mihrab-welcome/bin/ (خطر إيداعه)"
 
     # (٢) كلّ أمر معلَن في المانيفست مُسجَّل فعلًا (احتواء لا تطابق تامّ: يجوز أن يسجّل JS
     #     أمرًا داخليًّا غير معلَن، لكن كلّ معلَن يجب أن يُنفَّذ). يُعاد استعمال المسح الموزّع
@@ -3731,9 +3455,8 @@ def _web_extension_entries():
     """‏`main` بلا `browser` ⇒ الامتدادُ **يسقط من بناء المتصفّح كلِّه**، لا ميزةٌ منه.
 
     والقاعدةُ منبعيّة: مضيفُ الويب لا يُحمِّل امتدادًا بلا `browser`، فلا تُقرأ حتّى
-    مساهماتُه التصريحيّة. وأثرُها مقيسٌ لا مفترَض: بناءُ محرابٍ الثابتُ خرج بلا قواعد
-    لغة ص ولا مقتطفاتِها ولا جولاتِ ترحيبه — ثلاثةُ غياباتٍ من حقلٍ واحدٍ ناقص،
-    وكلُّها صامتة (لا رسالةَ ولا سجلّ: امتدادٌ لا يُحمَّل لا يشكو).
+    مساهماتُه التصريحيّة. وأثرُها مقيسٌ لا مفترَض: بناءُ محرابٍ الثابتُ خرج بلا
+    جولاتِ ترحيبه — غيابٌ من حقلٍ واحدٍ ناقص، وصامت (لا رسالةَ ولا سجلّ: امتدادٌ لا يُحمَّل لا يشكو).
 
     والحارسُ يقيس **أربعةَ مفاصلَ لا نيّة**:
       (أ) الحقلُ موجودٌ ويشير إلى ما يكتبه البناءُ فعلًا لا إلى مسارٍ مُخترَع؛
@@ -3752,7 +3475,7 @@ def _web_extension_entries():
     }
     inject = _read(os.path.join(ROOT, "build", "patch_bundle_extensions.py"))
     reach = {}
-    for name in ("mihrab-welcome", "sad-lang"):
+    for name in ("mihrab-welcome",):
         base = os.path.join(ROOT, "extensions", name)
         if not os.path.isdir(base):
             continue
@@ -3767,7 +3490,7 @@ def _web_extension_entries():
         assert os.path.isfile(src), (
             "‏%s: المانيفستُ يَعِد بـ%s ولا `extension.web.js` يُحزَم منه [WEB-06]"
             % (name, browser))
-        assert "for _wext in mihrab-welcome sad-lang" in inject, (
+        assert "for _wext in mihrab-welcome;" in inject, (
             "حلقةُ حزم مداخل المتصفّح غابت عن كتلة الحقن — المانيفستُ يَعِد والبناءُ "
             "لا يفي [WEB-06]")
         assert "dist/web/extension.js" in inject and "esbuild" in inject, (
@@ -3820,409 +3543,6 @@ def _web_extension_entries():
             "أوامرُ معلَنةٌ بلا مُسجِّلٍ في مدخل المتصفّح: " + "، ".join(missing) +
             " — والمانيفستُ واحدٌ للمنصّتين، فتظهر في لوحة الأوامر هنا وتردّ «الأمرُ "
             "غيرُ معروف» بدل أن تقول ما الحدُّ وأين البديل [WEB-06]")
-
-
-@check("هوية لغة ص متّسقة (SAD_LANG_ID/SAD_EXT ↔ contributes.languages في sad-lang)")
-def _lang_identity():
-    # مصدر الحقيقة لهوية لغة ص = مساهمة اللغة في امتداد sad-lang (لا سلسلة مُختلَقة). كلّ مرآة
-    # SAD_LANG_ID/SAD_EXT مكرَّرة في امتدادات محراب يجب أن تطابقه — يمنع التباعد الصامت.
-    import re
-    sad_lang_pkg = os.path.join(ROOT, "extensions", "sad-lang", "package.json")
-    if not os.path.isfile(sad_lang_pkg):
-        return  # لا امتداد لغة في هذا الفرع — تخطٍّ
-    pkg = json.load(open(sad_lang_pkg, encoding="utf-8"))
-    langs = pkg.get("contributes", {}).get("languages", [])
-    assert langs, "امتداد sad-lang بلا contributes.languages (مصدر هوية اللغة)"
-    lang = langs[0]
-    lang_id = lang.get("id")
-    exts = lang.get("extensions") or []
-    assert lang_id and exts, "تعريف لغة ص ناقص (id/extensions) في sad-lang"
-    sad_ext = exts[0]
-
-    mirrors = [
-        os.path.join(ROOT, "extensions", "mihrab-nebras", n)
-        for n in ("chat.js", "agent.js", "explain-selection.js", "inline-completion.js", "fix-diagnostic.js")
-    ] + [os.path.join(ROOT, "extensions", "mihrab-welcome", "extension.js")]
-    id_re = re.compile(r'const\s+SAD_LANG_ID\s*=\s*"([^"]*)"')
-    ext_re = re.compile(r'const\s+SAD_EXT\s*=\s*"([^"]*)"')
-    seen_id = seen_ext = 0
-    for f in mirrors:
-        if not os.path.isfile(f):
-            continue
-        js = _read(f)
-        for m in id_re.finditer(js):
-            seen_id += 1
-            assert m.group(1) == lang_id, \
-                f"SAD_LANG_ID «{m.group(1)}» في {os.path.basename(f)} ≠ هوية sad-lang «{lang_id}»"
-        for m in ext_re.finditer(js):
-            seen_ext += 1
-            assert m.group(1) == sad_ext, \
-                f"SAD_EXT «{m.group(1)}» في {os.path.basename(f)} ≠ امتداد sad-lang «{sad_ext}»"
-    # حارس ضدّ التحوّل إلى no-op لو تغيّرت البنية (نقل الملفّات/إعادة تسمية الثابت).
-    assert seen_id and seen_ext, \
-        "لم يُعثَر على أيّ تصريح SAD_LANG_ID/SAD_EXT في المرايا — تحقّق من بنية الامتدادات"
-
-
-@check("مقتطفات ص [SAD-03]: معلَنة ↔ ملفّ موجود ↔ JSONC صالح ↔ رأس مولَّد (لا تحرير يدويّ)")
-def _sad_snippets():
-    ext = os.path.join(ROOT, "extensions", "sad-lang")
-    if not os.path.isdir(ext):
-        return  # لا إضافة لغة ص في هذا الفرع — تخطٍّ
-    pkg = json.load(open(os.path.join(ext, "package.json"), encoding="utf-8"))
-    decls = pkg.get("contributes", {}).get("snippets", [])
-    assert decls, "لا contributes.snippets في sad-lang — المقتطفات [SAD-03] غير مسجّلة"
-    for d in decls:
-        assert d.get("language") == "sad", f"مقتطف بلغة غير sad: {d.get('language')}"
-        rel = d.get("path")
-        assert rel, "إعلان مقتطفات بلا path"
-        p = os.path.join(ext, *rel.lstrip("./").split("/"))
-        assert os.path.isfile(p), f"ملفّ مقتطفات معلَن مفقود: {rel}"
-        raw = _read(p)
-        # رأس «مولَّد» (تعليق JSONC) — حارس ضدّ التحرير اليدويّ (المصدر gen_snippets.py في مستودع اللغة).
-        assert "gen_snippets.py" in raw and "لا تُحرِّره" in raw, \
-            f"ملفّ المقتطفات {rel} بلا رأس مولَّد — قد يكون حُرِّر يدويًّا (يجب توليده من language-truth)"
-        # JSONC صالح: نجرّد أسطر التعليقات // ثمّ نحلّل، ونتأكّد أنّ كلّ مقتطف يحمل prefix + body.
-        body = "".join(ln for ln in raw.splitlines(keepends=True) if not ln.lstrip().startswith("//"))
-        data = json.loads(body)
-        assert data, "ملفّ المقتطفات فارغ (لا مقتطفات مولَّدة)"
-        for key, snip in data.items():
-            assert isinstance(snip, dict) and snip.get("prefix") and snip.get("body"), \
-                f"مقتطف «{key}» بلا prefix/body صالح"
-
-
-# ───────────── L0-17: عميل ص LSP (SAD-01: خادم لغويّ محزوم في sad-lang) ─────────────
-@check("عميل ص LSP: main يصدّر activate، تنشيط onLanguage:sad، حلّ الخادم المدمج ↔ حقن build.sh، تشخيص/مزوّدات موصولة")
-def _sad_lsp_ext():
-    import re as _re
-    ext = os.path.join(ROOT, "extensions", "sad-lang")
-    if not os.path.isdir(ext):
-        return  # لا إضافة لغة ص في هذا الفرع — تخطٍّ
-    pkg = json.load(open(os.path.join(ext, "package.json"), encoding="utf-8"))
-    contrib = pkg.get("contributes", {})
-
-    # (١) نقطة الدخول main موجودة وتصدّر activate (وإلّا لا يُفعَّل العميل إطلاقًا).
-    main_rel = pkg.get("main")
-    assert main_rel, "لا حقل main في sad-lang — عميل LSP يحتاج نقطة دخول JS [SAD-01]"
-    main_path = os.path.join(ext, *main_rel.lstrip("./").split("/"))
-    assert os.path.isfile(main_path), f"ملفّ main مفقود: {main_rel}"
-    js = _read(main_path)
-    assert "module.exports" in js and "function activate" in js, \
-        "نقطة دخول sad-lang لا تصدّر activate"
-
-    # (٢) التنشيط عند فتح لغة ص (وإلّا لا يبدأ الخادم عند تحرير ملفّ ص).
-    assert "onLanguage:sad" in pkg.get("activationEvents", []), \
-        "activationEvents لا يحوي onLanguage:sad — الخادم لن يبدأ عند فتح ملفّ ص [SAD-01]"
-
-    # (٣) صحّة نحو JS لكلّ ملفّات العميل إن توفّر node (لا يُفشِل حين غيابه).
-    js_files = ["extension.js", "sad-lsp-process.js", "lsp-rpc.js", "lsp-protocol.js", "tool-resolve.js"]
-    node = shutil.which("node")
-    for jf in js_files:
-        jp = os.path.join(ext, jf)
-        assert os.path.isfile(jp), f"ملفّ عميل LSP مفقود: {jf}"
-        if node:
-            r = subprocess.run([node, "--check", jp], capture_output=True, text=True)
-            assert r.returncode == 0, f"خطأ نحويّ في {jf}:\n{r.stderr.strip()}"
-
-    # (٤) حلّ الخادم المدمج: ثابت مجلّد bin يطابق ما يحقنه build.sh (وإلّا L0 أخضر والحزم مكسور).
-    tool_resolve = _read(os.path.join(ext, "tool-resolve.js"))
-    assert _re.search(r'BUNDLED_BIN_DIR\s*=\s*"bin"', tool_resolve), \
-        "ثابت BUNDLED_BIN_DIR ليس \"bin\" في sad-lang/tool-resolve.js — قد يفترق عن حقن build.sh"
-    assert "resolveBundledTool" in tool_resolve and "probeTool" in tool_resolve, \
-        "sad-lang/tool-resolve.js لا يصدّر محلّل الأدوات (resolveBundledTool/probeTool)"
-    proc_js = _read(os.path.join(ext, "sad-lsp-process.js"))
-    assert 'SAD_LSP_EXE = "sad-lsp.exe"' in proc_js, \
-        "sad-lsp-process.js لا يحلّ الثنائيّ المدمج باسم sad-lsp.exe — قد يتجاهل حقن build.sh"
-
-    # (٥) البناء يحزم الخادم المدمج، وgit يتجاهله (طبقة الحزم المدمجة، نفس نمط sad-run/check/build).
-    build_sh = _read(os.path.join(ROOT, "build", "build.sh"))
-    assert "SAD_LSP_SRC" in build_sh and "sad-lsp.exe" in build_sh and "SADLANG_BIN" in build_sh, \
-        "build.sh لا يحوي كتلة حزم sad-lsp المدمجة (SAD_LSP_SRC/SADLANG_BIN/sad-lsp.exe) [SAD-01]"
-    gitignore = _read(os.path.join(ROOT, ".gitignore"))
-    assert "extensions/sad-lang/bin/" in gitignore, \
-        ".gitignore لا يتجاهل الخادم المدمج extensions/sad-lang/bin/ (خطر إيداعه) [SAD-01]"
-
-    # (٦) التشخيص موصول: publishDiagnostics → DiagnosticCollection (القيمة الأساسيّة يوم الأوّل).
-    assert "createDiagnosticCollection" in js, \
-        "extension.js لا يُنشئ DiagnosticCollection — التشخيصات لن تظهر في لوحة المشاكل [SAD-01]"
-    assert "M_PUBLISH_DIAGNOSTICS" in js, \
-        "extension.js لا يستمع لـpublishDiagnostics — لا تشخيصات حيّة من الخادم [SAD-01]"
-
-    # (٦ب) تنسيق ملكيّة التشخيص [تكامل SAD-01/02]: الخادم يملك التشخيص فيتنحّى جسر فحص-الحفظ.
-    #      يجب: (أ) إعداد sad.lsp.diagnostics معلَن، (ب) extension يصدّر isDiagnosticsActive،
-    #      (ج) جسر SAD-02 (welcome/diagnostics.js) يستعلمه ويتنحّى — وإلّا ازدواج تشخيص لنفس الخطأ.
-    props = (contrib.get("configuration", {}) or {}).get("properties", {})
-    assert "sad.lsp.diagnostics" in props, \
-        "إعداد sad.lsp.diagnostics غير معلَن — لا مفتاح لملكيّة التشخيص [تكامل SAD-01/02]"
-    assert "isDiagnosticsActive" in js, \
-        "extension.js لا يصدّر isDiagnosticsActive — جسر SAD-02 لن يعرف متى يتنحّى [تكامل SAD-01/02]"
-    welcome_diag = os.path.join(ROOT, "extensions", "mihrab-welcome", "diagnostics.js")
-    if os.path.isfile(welcome_diag):
-        wd = _read(welcome_diag)
-        assert "lspOwnsDiagnostics" in wd and "isDiagnosticsActive" in wd, \
-            "جسر SAD-02 لا يتنحّى لخادم LSP (lspOwnsDiagnostics/isDiagnosticsActive) — خطر ازدواج تشخيص [تكامل SAD-01/02]"
-
-    # (٧) المزوّدات مسجَّلة: إكمال/تحويم/تعريف [SAD-01] + الرموز الدلاليّة [SAD-07].
-    for reg in ["registerCompletionItemProvider", "registerHoverProvider", "registerDefinitionProvider"]:
-        assert reg in js, f"extension.js لا يسجّل {reg} — ميزة LSP ناقصة [SAD-01]"
-    # [SAD-07] التلوين الدلاليّ: مزوّد مسجَّل + حارس مطابقة المفتاح (legend) يمنع التلوين الخاطئ +
-    #          مُصدِر تغيّر (onDidChangeSemanticTokens) كي تظهر الألوان على الفتح البارد لا بعد أوّل تعديل.
-    assert "registerDocumentSemanticTokensProvider" in js and "serverLegendMatches" in js, \
-        "extension.js لا يسجّل التلوين الدلاليّ مع حارس المفتاح (registerDocumentSemanticTokensProvider/serverLegendMatches) [SAD-07]"
-    assert "onDidChangeSemanticTokens" in js, \
-        "المزوّد الدلاليّ بلا onDidChangeSemanticTokens — لا تلوين على الفتح البارد حتى أوّل تعديل [SAD-07]"
-    proto = _read(os.path.join(ext, "lsp-protocol.js"))
-    assert "SEMANTIC_TOKEN_TYPES" in proto and '"decorator"' in proto, \
-        "lsp-protocol.js لا يحوي مفتاح الرموز الدلاليّة SEMANTIC_TOKEN_TYPES [SAD-07]"
-
-    # (٧ب) أحرف تحفيز الإكمال ممرَّرة للمزوّد: بعد إصلاح wordPattern تُحفَّز أحرفُ الكلمة تلقائيًّا، لكنّ
-    #      أحرف التحفيز (. : ( ،) ليست أحرف كلمة فلا يُحفَّز الإكمال بعدها إلّا بتمريرها. ثابت مسمّى.
-    assert "COMPLETION_TRIGGER_CHARACTERS" in proto, \
-        "lsp-protocol.js لا يعرّف COMPLETION_TRIGGER_CHARACTERS — لا أحرف تحفيز للإكمال [SAD-01]"
-    assert _re.search(r"\.\.\.COMPLETION_TRIGGER_CHARACTERS", js), \
-        "extension.js لا يمرّر أحرف التحفيز لمزوّد الإكمال — لا إكمال تلقائيّ بعد . : ( ، [SAD-01]"
-
-    # (٨) مزامنة كاملة (Full) لا تزايديّة: didChange يرسل النصّ الكامل (تفادي حساب إزاحات UTF-16).
-    #     نتحقّق من غياب حساب إزاحات تزايديّة عبر تأكيد إرسال contentChanges بنصّ كامل.
-    assert "contentChanges" in js and _re.search(r"contentChanges:\s*\[\{\s*text:", js), \
-        "مزامنة المستند ليست كاملة (contentChanges بنصّ كامل) — خطر إزاحات UTF-16 يدويّة [SAD-01]"
-
-    # (٩) كلّ أمر معلَن في المانيفست مُسجَّل فعلًا (احتواء، مع حلّ الثوابت المسمّاة).
-    manifest_cmds = {c.get("command") for c in contrib.get("commands", [])}
-    _const_str = dict(_re.findall(r'const\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]+)"', js))
-    js_cmds = set()
-    for arg in _re.findall(r"registerCommand\(\s*([^,]+?)\s*,", js):
-        arg = arg.strip()
-        lit = _re.fullmatch(r"""["']([^"']+)["']""", arg)
-        if lit:
-            js_cmds.add(lit.group(1))
-        elif arg in _const_str:
-            js_cmds.add(_const_str[arg])
-    missing = manifest_cmds - js_cmds
-    assert not missing, f"أوامر معلَنة بلا registerCommand في sad-lang: {missing}"
-    for c in contrib.get("commands", []):
-        assert c.get("title"), f"أمر بلا عنوان: {c.get('command')}"
-
-    # (١٠) إعدادات الخادم معلَنة (المسار الصريح + التتبّع + ملكيّة التشخيص).
-    props = (contrib.get("configuration", {}) or {}).get("properties", {})
-    assert "sad.lsp.serverPath" in props and "sad.lsp.trace" in props, \
-        "إعدادات sad.lsp.serverPath/sad.lsp.trace غير معلَنة في المانيفست [SAD-01]"
-
-
-# ───────── L0-18ب: [SAD-08] مزوّدٌ مُسجَّلٌ ⇐ قدرةٌ مُعلَنة · و[DAP-01] لا مُهايئَ تنقيحٍ زائف ─────────
-@check("عميل ص LSP: كلّ مزوّدٍ مُسجَّلٍ له قدرةٌ مُعلَنة [SAD-08] · ولا مساهمةَ debuggers ما دام DAP-01 مُغلَقًا")
-def _sad_capabilities_and_no_fake_debugger():
-    import re as _re
-    ext = os.path.join(ROOT, "extensions", "sad-lang")
-    if not os.path.isdir(ext):
-        return  # لا إضافة لغة ص في هذا الفرع — تخطٍّ
-    js = _read(os.path.join(ext, "extension.js"))
-    proc_js = _read(os.path.join(ext, "sad-lsp-process.js"))
-
-    # (أ) [SAD-08] **نُعلن ما نستهلك.** كان `registerDocumentSemanticTokensProvider` مُسجَّلًا
-    #     بينما `semanticTokens` غائبةٌ عن `clientCapabilities()` — مخالفةُ مواصفةٍ قائمة.
-    #     والفحصُ **يربط الطرفين** لا يعدّ التسجيلات بالاسم: مزوّدٌ بلا قدرةٍ مُعلَنةٍ يمرّ
-    #     اليومَ على خادمٍ متسامح، ويُكتَم غدًا على خادمٍ ملتزمٍ **بحقّ** فتموت الميزةُ صامتة.
-    REGISTRATION_TO_CAPABILITY = {
-        "registerCompletionItemProvider": "completion",
-        "registerHoverProvider": "hover",
-        "registerDefinitionProvider": "definition",
-        "registerDocumentSymbolProvider": "documentSymbol",
-        "registerDocumentSemanticTokensProvider": "semanticTokens",
-    }
-    for reg, cap in REGISTRATION_TO_CAPABILITY.items():
-        if reg not in js:
-            continue  # مزوّدٌ غيرُ مشحونٍ لا يُطالَب بقدرة
-        assert _re.search(r"\b" + cap + r"\s*:", proc_js), (
-            f"مزوّدٌ مُسجَّلٌ بلا قدرةٍ مُعلَنة: {reg} يُسجَّل في extension.js و«{cap}» غائبةٌ عن "
-            f"clientCapabilities() في sad-lsp-process.js — خادمٌ ملتزمٌ يكتم القدرةَ فتموت الميزة [SAD-08]"
-        )
-
-    # (ب) [DAP-01] الحكمُ السلبيُّ على تنقيح ص **مكتوبٌ ومقيس**: خادمُ `sad --debug-server`
-    #     يردّ `verified:true` على نقطة توقّفٍ ولا يُصدِر `stopped` قطّ. فمساهمةُ `debuggers`
-    #     تُنتج نقطةَ توقّفٍ حمراءَ «مؤكَّدة» يمرّ البرنامجُ من فوقها — أخضرُ كاذبٌ في الواجهة.
-    #     ولا يُشحَن المُهايئُ إلّا بعد رفع الحكم، ورفعُه يبدأ بحذف ملفّ الحكم هذا.
-    verdict = os.path.join(ROOT, "docs", "dap-01-تنقيح-ص.md")
-    ext_root = os.path.join(ROOT, "extensions")
-    manifests = [
-        os.path.join(ext_root, d, "package.json")
-        for d in sorted(os.listdir(ext_root))
-        if os.path.isfile(os.path.join(ext_root, d, "package.json"))
-    ]
-    with_dbg = [
-        os.path.basename(os.path.dirname(m))
-        for m in manifests
-        if "debuggers" in (json.load(open(m, encoding="utf-8")).get("contributes", {}) or {})
-    ]
-    if os.path.isfile(verdict):
-        assert not with_dbg, (
-            f"مساهمةُ debuggers مشحونةٌ في {with_dbg} والحكمُ DAP-01 ما زال قائمًا في "
-            f"docs/dap-01-تنقيح-ص.md — مُهايئٌ يبدو تنقيحًا ولا يقف عند سطر. "
-            f"ارفع الحكمَ بقياسٍ جديدٍ أوّلًا، أو لا تشحن المُهايئ [DAP-01]"
-        )
-
-    # (ج) [LSP-01 · LSP-02] وحكمٌ سلبيٌّ ثانٍ كان **مكتوبًا بلا حارسٍ يقرؤه** — وهو الحالُ
-    #     الذي يُنقَض بيدٍ حسنةِ النيّة: يقرأ قادمٌ أنّ الخادم يعلن `renameProvider` فيسجّل
-    #     المزوّدَ في سطرٍ واحد. والمقيس: `rename` **يُفسِد ملفّ المستخدم** (يطوي «مُعلِّم»
-    #     إلى «معلم»، ويكرّر المديات حرفيًّا، ويُدرِج في مواضعَ صفريّة، ويصمت بلا تحريرات)،
-    #     و`references` **يُعلِّم الخطأ** بجعل الاسمين واحدًا. ورفعُ الحكم يبدأ بحذف ملفّه.
-    lsp_verdict = os.path.join(ROOT, "docs", "lsp-01-02-مديات-وطيّ.md")
-    FORBIDDEN_WHILE_CLOSED = ("registerRenameProvider", "registerReferenceProvider")
-    if os.path.isfile(lsp_verdict):
-        shipped = [r for r in FORBIDDEN_WHILE_CLOSED if r in js]
-        assert not shipped, (
-            f"مزوّدٌ مُغلَقٌ سلبًا صار مُسجَّلًا: {shipped} — والحكمُ LSP-01/LSP-02 قائمٌ في "
-            f"docs/lsp-01-02-مديات-وطيّ.md. `rename` يُفسِد ملفّ المستخدم و`references` "
-            f"يُعلِّم أنّ «معلم» و«مُعلِّم» اسمٌ واحد. ارفع الحكمَ بقياسٍ يستوفي شرطَ إعادة "
-            f"الفتح المكتوبَ فيه، أو لا تُسجّل المزوّد [LSP-01]"
-        )
-
-
-# ───────────── L0-19: wordPattern لغة ص عربيّ-الوعي (مانع انحدار الإكمال التلقائيّ) ─────────────
-@check("إعداد لغة ص: wordPattern يطابق العربيّة (كائن براية u عند \\p{}) — لا انحدار إكمال تلقائيّ")
-def _sad_word_pattern():
-    ext = os.path.join(ROOT, "extensions", "sad-lang")
-    if not os.path.isdir(ext):
-        return  # لا إضافة لغة ص في هذا الفرع — تخطٍّ
-    cfg_path = os.path.join(ext, "language-configuration.json")
-    assert os.path.isfile(cfg_path), "language-configuration.json مفقود في sad-lang"
-    # تحميله يفحص صحّة JSON ضمنًا (هذا الملفّ خارج نطاق حارس _json_valid). [تدقيق Amelia]
-    cfg = json.load(open(cfg_path, encoding="utf-8"))
-    wp = cfg.get("wordPattern")
-    assert wp is not None, \
-        "wordPattern غير معرَّف — لن يُكتشف المُدخَل العربيّ ككلمة فلا يُحفَّز الإكمال التلقائيّ"
-    # الجذر: VS Code يجمّع wordPattern النصّيّة بـnew RegExp(s, "") بلا راية ⇒ \p{L} يُعامَل حرفيًّا
-    #        فلا يطابق العربيّة. الحلّ: صيغة الكائن {pattern, flags:"u"} كي تُمرَّر الراية.
-    if isinstance(wp, str):
-        assert "\\p{" not in wp and "\\P{" not in wp, (
-            "wordPattern صيغة نصّيّة تحوي \\p{...} — تُجمَّع بلا راية u فتُعامَل حرفيًّا ولا تطابق "
-            "العربيّة (انحدار الإكمال التلقائيّ). استعمل صيغة الكائن {pattern, flags:'u'}")
-        return
-    assert isinstance(wp, dict) and isinstance(wp.get("pattern"), str), \
-        "wordPattern كائن بلا حقل pattern نصّيّ"
-    flags = wp.get("flags", "")
-    assert isinstance(flags, str), "wordPattern.flags ليس نصًّا"
-    if "\\p{" in wp["pattern"] or "\\P{" in wp["pattern"]:
-        assert "u" in flags, (
-            "wordPattern يستعمل \\p{...} دون راية u — بلا u تُعامَل حرفيًّا ولا تطابق العربيّة "
-            "(انحدار الإكمال التلقائيّ). أضِف flags:'u'")
-    # تعزيز سلوكيّ إن توفّر node: النمط يطابق عيّنة عربيّة «فيب» كاملةً فعليًّا. [تدقيق Amelia]
-    node = shutil.which("node")
-    if node:
-        sample = "فيب"  # «فيب»
-        script = (
-            "const w=%s;const re=new RegExp(w.pattern,w.flags||'');const s=%s;"
-            "const m=s.match(re);process.exit(m&&m[0]===s?0:3);"
-        ) % (json.dumps(wp), json.dumps(sample))
-        r = subprocess.run([node, "-e", script], capture_output=True, text=True)
-        assert r.returncode == 0, \
-            "wordPattern لا يطابق عيّنة عربيّة «فيب» كاملةً في Node — انحدار الإكمال التلقائيّ"
-
-
-# ───────────── L0-18: امتداد نِبراس (أوامر ↔ تسجيل موزّع + «أصلِح بنِبراس» SAD-11) ─────────────
-@check("امتداد نِبراس: main يصدّر activate، كلّ أمر معلَن مُسجَّل (تسجيل موزّع)، ووصل «أصلِح بنِبراس»")
-def _nebras_ext():
-    import re as _re
-    ext = os.path.join(ROOT, "extensions", "mihrab-nebras")
-    if not os.path.isdir(ext):
-        return  # لا امتداد نِبراس في هذا الفرع — تخطٍّ
-    pkg = json.load(open(os.path.join(ext, "package.json"), encoding="utf-8"))
-    contrib = pkg.get("contributes", {})
-
-    # (١) نقطة الدخول main موجودة وتصدّر activate.
-    main_rel = pkg.get("main")
-    assert main_rel, "لا حقل main في امتداد نِبراس"
-    main_path = os.path.join(ext, *main_rel.lstrip("./").split("/"))
-    assert os.path.isfile(main_path), f"ملفّ main مفقود: {main_rel}"
-    ext_js = _read(main_path)
-    assert "module.exports" in ext_js and "function activate" in ext_js, \
-        "نقطة دخول نِبراس لا تصدّر activate"
-
-    # (٢) صحّة نحو JS لملفّات الامتداد إن توفّر node.
-    js_files = ["extension.js", "agent.js", "fix-diagnostic.js", "explain-selection.js",
-                "chat.js", "inline-completion.js", "nebras-process.js", "rpc-client.js"]
-    node = shutil.which("node")
-    for jf in js_files:
-        jp = os.path.join(ext, jf)
-        if node and os.path.isfile(jp):
-            r = subprocess.run([node, "--check", jp], capture_output=True, text=True)
-            assert r.returncode == 0, f"خطأ نحويّ في {jf}:\n{r.stderr.strip()}"
-
-    # (٣) كلّ أمر معلَن مُسجَّل — التسجيل **موزّع** عبر extension.js ووحدات الميزات (مثل fix-diagnostic.js
-    #     عبر registerFixDiagnostic)، فنجمع registerCommand من كلّ ملفّات JS (مع حلّ الثوابت المسمّاة).
-    manifest_cmds = {c.get("command") for c in contrib.get("commands", [])}
-    assert manifest_cmds, "لا أوامر معلَنة في امتداد نِبراس"
-    js_cmds = set()
-    for jf in js_files:
-        jp = os.path.join(ext, jf)
-        if not os.path.isfile(jp):
-            continue
-        js = _read(jp)
-        const_str = dict(_re.findall(r'const\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]+)"', js))
-        for arg in _re.findall(r"registerCommand\(\s*([^,]+?)\s*,", js):
-            arg = arg.strip()
-            lit = _re.fullmatch(r"""["']([^"']+)["']""", arg)
-            if lit:
-                js_cmds.add(lit.group(1))
-            elif arg in const_str:
-                js_cmds.add(const_str[arg])
-    missing = manifest_cmds - js_cmds
-    assert not missing, f"أوامر معلَنة في مانيفست نِبراس بلا registerCommand في JS: {missing}"
-    for c in contrib.get("commands", []):
-        assert c.get("title"), f"أمر نِبراس بلا عنوان: {c.get('command')}"
-
-    # (٣.٥) [AR-05] لوحة دردشة نِبراس: عربيّة **مقروءة** لا عربيّة الاتّجاه فقط.
-    #   ردّ نِبراس نصٌّ مختلط بطبيعته (شرحٌ عربيّ + أسطر شيفرة لاتينيّة)، واللوحة كلّها RTL.
-    #   بلا `unicode-bidi: plaintext` تُصيَّر كلّ أسطر الشيفرة في فقرةٍ RTL واحدة فتقفز أقواسها
-    #   وفواصلها المنقوطة إلى الطرف المقابل — شيفرة غير قابلة للنسخ بصريًّا. ومع
-    #   ‏`white-space: pre-wrap` يصير كلّ سطر **فقرة bidi** مستقلّة، فيأخذ اتّجاهه من محتواه.
-    chat_path = os.path.join(ext, "chat.js")
-    if os.path.isfile(chat_path):
-        chat = _read(chat_path)
-        assert 'lang="ar"' in chat and 'dir="rtl"' in chat, \
-            "لوحة دردشة نِبراس بلا lang=ar/dir=rtl على <html> [AR-05]"
-        # نتحقّق من **جسم قاعدة `.msg` نفسها** لا من ورود السلسلة في مكانٍ ما من الورقة:
-        # وجودها على `#ctx` وحده كان سيُرضي فحصًا فضفاضًا بينما الفقاعات ما زالت مكسورة
-        # (‏أثبتناه باختبار فشل مقصود).
-        msg_rule = _re.search(r"\.msg\s*\{([^}]*)\}", chat)
-        assert msg_rule, "لا قاعدة CSS للصنف .msg في لوحة نِبراس [AR-05]"
-        assert "unicode-bidi: plaintext" in msg_rule.group(1), \
-            ("فقاعات دردشة نِبراس (.msg) بلا `unicode-bidi: plaintext` — أسطر الشيفرة داخل "
-             "الردّ العربيّ ستُبعثَر محايداتها في فقرة RTL واحدة [AR-05]")
-        assert 'dir="auto"' in chat, \
-            "صندوق سؤال نِبراس بلا dir=auto — لصقةُ شيفرة لاتينيّة تُفرَض عليها RTL [AR-05]"
-        assert "Noto Sans Arabic" in chat, \
-            ("مكدّس خطّ لوحة نِبراس بلا وجه عربيّ صريح — نظير [AR-03]: system-ui وحده لا "
-             "يضمن محارف عربيّة على لينكس [AR-05]")
-        # ملحوظة: فخّ الشاهدة الخلفيّة داخل قالب HTML (تُنهي القالب ⇒ SyntaxError) **مغطّى
-        # أصلًا** بفحص الصحّة النحويّة العامّ في هذا الملفّ — تحقّقنا بفشل مقصود — فلا نكرّره.
-
-    # (٤) [SAD-11] «أصلِح بنِبراس» موصول فعلًا: extension.js يستدعي registerFixDiagnostic (وإلّا يبقى
-    #     الأمر مُسجَّلًا في وحدة غير مستدعاة ⇒ «command not found» زمن التشغيل رغم خضرة L0).
-    # نطابق **النداء** `registerFixDiagnostic(` لا مجرّد الاسم (كي لا يُرضي الحارسَ سطرُ الاستيراد
-    # وحده لو حُذف الاستدعاء الفعليّ). [تشديد مراجعة Amelia]
-    assert _re.search(r"registerFixDiagnostic\s*\(", ext_js), \
-        "extension.js لا يستدعي registerFixDiagnostic(...) — «أصلِح بنِبراس» غير موصول [SAD-11]"
-    assert "mihrab.nebras.fixDiagnostic" in manifest_cmds, \
-        "أمر mihrab.nebras.fixDiagnostic غير معلَن في مانيفست نِبراس [SAD-11]"
-
-    # (٥) cwd الخادم = جذر مساحة العمل: الخادم يشتقّ workspaceRoot من process.cwd()، فلا بدّ أن يُمرَّر
-    #     cwd (من resolveWorkspaceCwd) إلى cp.spawn — وإلّا يرث مجلّد إطلاق المحرّر فتُرفَض ملفّات المشروع
-    #     بـ«المسار خارج مجلّد العمل». حذف الوصلة انحدار صامت (لا اختبار وحدة يمسّ خيارات spawn). [تدقيق Amelia]
-    proc_js = _read(os.path.join(ext, "nebras-process.js"))
-    # cwd يُحسب من resolveWorkspaceCwd (مع توجيهٍ صريح اختياريّ _cwdOverride من retargetRoot قبله في نفس التعبير).
-    assert "resolveWorkspaceCwd" in proc_js and _re.search(r"const\s+cwd\s*=[^;\n]*resolveWorkspaceCwd\(", proc_js), \
-        "nebras-process.js لا يحسب cwd من resolveWorkspaceCwd — جذر عمل الوكيل سيكون مجلّد إطلاق المحرّر"
-    # إعادة توجيه الجذر (ملفّ مفرد/جذر غير أوّل): retargetRoot معرَّفة في المدير ومستهلَكة في تجهيز الوكيل.
-    agent_js_src = _read(os.path.join(ext, "agent.js"))
-    assert "retargetRoot" in proc_js and _re.search(r"retargetRoot\s*\(", agent_js_src), \
-        "إعادة توجيه الجذر غير موصولة (retargetRoot في nebras-process/agent) — الملفّ المفرد/الجذور غير الأولى ستُرفَض"
-    # النمط يُلزِم `cwd` **كمفتاح خيار** (يليه , أو : أو }) داخل نداء spawn نفسه (حتى أوّل ;) —
-    # لا مجرّد ورود الكلمة (تعليق «// cwd …» داخل النداء كان يُرضي النمط القديم زورًا).
-    assert _re.search(r"cp\.spawn\([^;]*?\bcwd\b\s*[,:}]", proc_js), \
-        "nebras-process.js لا يمرّر cwd إلى cp.spawn — الوكيل سيرفض ملفّات المشروع «خارج مجلّد العمل»"
-    # عند تغيّر مجلّد العمل أثناء الجلسة: إعادة تشغيل كي لا يبقى الخادم بـcwd بائت. [تدقيق Amelia — فجوة (ج)]
-    assert "onDidChangeWorkspaceFolders" in ext_js and "restartIfWorkspaceChanged" in ext_js, \
-        "extension.js لا يعيد تشغيل نِبراس عند تغيّر مجلّد العمل (onDidChangeWorkspaceFolders/restartIfWorkspaceChanged) — cwd بائت"
 
 
 @check("معجم عناوين الإعدادات: موصول، بلا مفاتيح مكرّرة، وبلا نصفِ ترجمة")
@@ -4330,46 +3650,6 @@ def _settings_lexicon_sound():
                 f"{old.splitlines()[0][:80]} — انجرف المنبع؟")
 
 
-@check("جالبُ أدوات ص يطابق كلَّ صيغِ تسمية الأصول")
-def _fetcher_matches_asset_naming():
-    """‏**عطبٌ قِسناه لا افترضناه:** الجالبُ كان يبني رمزًا واحدًا (`windows-x64`) من
-    ‏`uname`، وسيرُ عمل إصدار اللغة على فرعه الرئيسيّ يسمّي `…-windows-x86_64.zip`
-    و`…-linux-aarch64.tar.gz`. فأوّلُ إصدارٍ يُوسَم يجعل الجالبَ يخرج بـ3 «لا أصلَ
-    لهذه المنصّة» — و**خطوةُ الجلب في CI فيها `continue-on-error`**، فالنشرُ يمضي
-    بحزمةٍ بلا لغة. شغّلنا النسخةَ السابقة على أسماءٍ اصطناعيّةٍ بالصيغة الجديدة فخرجت
-    بـ3 فعلًا، والحاليّةُ جلبت ٤/٤. هذا الفحصُ يمنع عودةَ الصيغة الواحدة صامتةً."""
-    src = _read(os.path.join(ROOT, "build", "fetch_sad_tools.sh"))
-    # **من كتلةِ الرموز لا من الملفّ كلِّه**: أوّلُ صيغةٍ لهذا الفحص بحثت في النصّ
-    # الكامل، فبقيت خضراءَ بعد حذفِ `windows-x86_64` من `TOKENS` — لأنّها مذكورةٌ في
-    # تعليقٍ فوقها. قِسنا ذلك بالتحوير، فصار الفحصُ يقرأ الكتلةَ وحدَها.
-    block = src.split('case "$PLATFORM/$ARCH" in', 1)
-    assert len(block) == 2, "لم تعد كتلةُ رموز المنصّة في الجالب — أين تُبنى TOKENS؟"
-    block = block[1].split("esac", 1)[0]
-    for pair in (("windows-x86_64", "windows-x64"), ("linux-x86_64", "linux-x64"),
-                 ("linux-aarch64", "linux-arm64")):
-        for tok in pair:
-            assert tok in block, (
-                f"جالبُ أدوات ص لا يطابق «{tok}» — إصدارٌ يسمّي أصلَه بها يُقرأ "
-                f"«لا أصلَ لهذه المنصّة»، وينشر محرابٌ بلا لغة.")
-    # أفضليّةُ العائلة: `sad-full` قبل `sadc`، وإلّا وقع الاختيارُ على حزمةِ مترجمٍ
-    # وحدَها فخرج محرابٌ يبني ولا يشغّل.
-    fams = src.split("for family in", 1)
-    assert len(fams) == 2, "لم تعد حلقةُ أفضليّةِ العائلات في الجالب — أين تُختار الأصول؟"
-    line = fams[1].splitlines()[0]
-    assert line.index("sad-full") < line.index("sadc"), (
-        "‏`sadc` صارت قبل `sad-full` في أفضليّة الأصول — حزمةُ مترجمٍ بلا مفسّر.")
-
-
-# ───────────────────────── شاهدُ التفعيل ─────────────────────────
-# ‏**فحصٌ لا يُنفِّذ توكيدًا واحدًا يقيس صفرًا** — وهو أخضرُ إلى الأبد.
-#
-# هذا `PF-02` (ثراءُ العيّنة) مطبَّقًا على حرّاس L0: هناك يُرصَد تعبيرٌ نمطيٌّ طُبِّق ولم
-# يطابق قطّ، وهنا يُرصَد **فحصٌ رُكِّب ولم يقِس شيئًا**. والحبّةُ في `mutation.mjs` أخشنُ
-# من أن تراه: `lint_patchers.py` **ملفٌّ واحد** في عدّ الحرّاس وفيه ستّون فحصًا، فأيُّ
-# فحصٍ يولد لا يرى شيئًا يمرّ بلا شاهد — وهي عينُ الفجوة التي أُمسِكت في حلقة
-# `node --test`، مكرَّرةً بحجمٍ أكبر.
-#
-# والقياسُ مباشر: تُتعقَّب أسطرُ هذا الملفّ المنفَّذةُ في كلّ فحص، ويُقاطَع الناتجُ بأسطرِ
 @check("رُقَعُ النواة: رأسُ كلّ جزءٍ يطابق عدَّ أسطره (‏@@‎ لا يُحسَب باليد)")
 def _core_patch_hunk_headers_are_consistent():
     """‏`git apply` يرفض الرقعةَ كلَّها برسالة «corrupt patch at line N» إن كذب الرأس.
@@ -4679,12 +3959,12 @@ def _editor_root_direction_is_unconditional():
 
 @check("سماتُ محراب مولَّدةٌ لا مكتوبةٌ بيد · وكلُّ لغةٍ تُلوَّن [TH-01]")
 def _themes_are_generated_and_color_every_language():
-    """كانت السماتُ الأربعُ تحمل سبعَ قواعد، ستٌّ منها للغة ص وحدَها.
+    """كانت السماتُ الأربعُ تحمل سبعَ قواعد، ستٌّ منها للغةٍ واحدة.
 
-    فكلُّ ملفٍّ ليس ص يُفتَح بلونٍ واحد — وقِيس على المشحون: ملفُّ HTML من ‎13‎ شظيّةً
+    فكلُّ ملفٍّ غيرِها يُفتَح بلونٍ واحد — وقِيس على المشحون: ملفُّ HTML من ‎13‎ شظيّةً
     كلُّها اللونُ الافتراضيّ. والسمةُ **مفروضةٌ افتراضًا**، فلا يختارها المستخدم ليكتشف
     نقصَها. والفحصُ يرسو على **نطاقاتٍ بالاسم** لا على عددٍ وحدَه: عدٌّ يمرّ على سبعين
-    قاعدةً كلُّها لِـص.
+    قاعدةً كلُّها للغةٍ واحدة.
     """
     gen_dir = os.path.join(ROOT, "extensions", "mihrab-themes")
     sys.path.insert(0, gen_dir)
@@ -4695,11 +3975,11 @@ def _themes_are_generated_and_color_every_language():
     except SystemExit as e:
         raise AssertionError(str(e))
 
-    # نطاقاتٌ لا تخصّ ص: وجودُها هو الفرقُ بين سمةٍ للغةٍ واحدةٍ وسمةٍ لمحرِّر.
+    # نطاقاتٌ عامّة: وجودُها هو الفرقُ بين سمةٍ للغةٍ واحدةٍ وسمةٍ لمحرِّر.
     NEEDED = ("markup.heading", "entity.name.tag", "keyword.control",
               "variable", "entity.name.function")
     seen = 0
-    for fn, _name, _tt, _pal, _wb, _variant in G.THEME_SET:
+    for fn, _name, _tt, pal, _wb, _variant in G.THEME_SET:
         rules = json.load(open(os.path.join(gen_dir, "themes", fn),
                                encoding="utf-8"))["tokenColors"]
         seen += 1
@@ -4708,10 +3988,11 @@ def _themes_are_generated_and_color_every_language():
         assert not missing, (
             "‏" + fn + ": نطاقاتٌ غيرُ ملوَّنةٍ ⇒ لغاتٌ كاملةٌ بلا لون: "
             + " · ".join(missing) + " [TH-01]")
-        # وقواعدُ ص **آخرًا** وإلّا غلبها الأساس، والغلبةُ صامتة.
-        tail = json.dumps(rules[-1].get("scope"), ensure_ascii=False)
-        assert ".sad" in tail, (
-            "‏" + fn + ": آخرُ قاعدةٍ ليست لِـص — الأساسُ يغلب قواعدَنا [TH-01].")
+        # وقواعدُ محرابٍ **آخرًا** وإلّا غلبها الأساس، والغلبةُ صامتة. تُقارَن بما يُخرجه
+        # المولِّدُ نفسُه لا بقائمةٍ مكتوبةٍ هنا تنجرف.
+        ours = G.mihrab_token_colors(pal)
+        assert ours and rules[-len(ours):] == ours, (
+            "‏" + fn + ": آخرُ القواعد ليست قواعدَ محراب — الأساسُ يغلب قواعدَنا [TH-01].")
     assert seen == 4, "‏" + str(seen) + " سمةً فُحصت لا أربعًا — الجردُ ناقص."
 
 
@@ -5742,36 +5023,20 @@ def _vscode_source_patchers_survive_reset():
         "الفحصُ يقيس صفرًا (المنتظَر اثنان على الأقلّ: esbuild_fileurl · welcome_web_entries).")
 
 
-@check("ثوابتُ المخرج متطابقةٌ بين مداخل المتصفّح [UX-02]")
-def _web_entries_share_exit_copy():
-    """‏[UX-02] رابطُ التنزيل وأزرارُه مكرَّرةٌ حرفيًّا في مدخلَي متصفّحٍ لا يستوردان.
-
-    `mihrab-welcome` و`sad-lang` امتدادان مستقلّان، يُحزَم مدخلُ كلٍّ منهما بـesbuild
-    وحدَه — فلا سبيلَ إلى ثابتٍ مشترك. والحُجّةُ المكتوبةُ في `extension.web.js` ضدّ
-    تكرار النصّ داخل الملفّ تسري بين الملفَّين بحرفها: يومَ يتغيّر عنوانُ التنزيل
-    يتغيّر في واحدٍ ويُنسى الآخر، فيبقى نصفُ المنتَج يشير إلى صفحةٍ زائلة.
+@check("رابطُ التنزيل واحدٌ في كلّ مواضعه [UX-02]")
+def _download_url_single_value():
+    """‏[UX-02] رابطُ التنزيل مكتوبٌ في مواضعَ لا يستورد أحدُها الآخر: مدخلا امتداد الترحيب
+    (المكتب والمتصفّح، يُحزَم كلٌّ منهما وحدَه) وهويّةُ المنتَج. يومَ يتغيّر العنوانُ يتغيّر في
+    واحدٍ ويُنسى الآخر، فيبقى جزءٌ من المنتَج يشير إلى صفحةٍ زائلة.
 
     وإذ يتعذّر التجريد يُحرَس **الأثر**: القيمُ متطابقة، أو البناءُ يحمرّ.
     """
     import re as _re
-    entries = []
-    exts = os.path.join(ROOT, "extensions")
-    for ext in sorted(os.listdir(exts)):
-        f = os.path.join(exts, ext, "extension.web.js")
-        if os.path.isfile(f):
-            entries.append((ext, _read(f)))
-    assert len(entries) >= 2, (
-        "‏[UX-02] وُجد " + str(len(entries)) + " مدخلَ متصفّحٍ — الفحصُ يقيس صفرًا "
-        "(المنتظَر اثنان على الأقلّ: mihrab-welcome · sad-lang).")
-
-    # ⚠️ **ورابطُ التنزيل يسكن أربعةَ مواضعَ لا اثنَين.** الصياغةُ الأولى حرست
-    #    مدخلَي المتصفّح وحدَهما، فكان البناءُ يحمرّ إن نُسي أحدُهما **ويصمت** إن
-    #    نُسي مدخلُ المكتب أو هويّةُ المنتَج — وهما نصفُ المواضع. وحارسٌ يمنح
-    #    طمأنينةً أوسعَ ممّا يقيس أسوأُ من غيابه، لأنّه يُقنع القارئَ بأنّ الفئةَ
-    #    مغلقة. فيُقاس **كلُّ** موضعٍ يحمل العنوان.
+    # ⚠️ **ويُقاس كلُّ موضعٍ يحمل العنوان.** حارسٌ يمنح طمأنينةً أوسعَ ممّا يقيس أسوأُ من
+    #    غيابه، لأنّه يُقنع القارئَ بأنّ الفئةَ مغلقة. والغيابُ عطبٌ كالاختلاف: حذفُ الثابت
+    #    أو إعادةُ تسميته أثناء إعادة صياغةٍ هو الفرعُ الأرجح.
     _url_sites = [
         ("extensions/mihrab-welcome/extension.web.js", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
-        ("extensions/sad-lang/extension.web.js", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
         ("extensions/mihrab-welcome/extension.js", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
         ("product-overrides/product.json", r'"downloadUrl"\s*:\s*"([^"]+)"'),
     ]
@@ -5791,34 +5056,6 @@ def _web_entries_share_exit_copy():
         + "\n   ".join(repr(v) + " ⇐ " + "، ".join(x) for v, x in sorted(_urls.items()))
         + "\n   فيومَ يتغيّر العنوانُ يتغيّر في بعضها ويُنسى الباقي، ويبقى جزءٌ من "
         "المنتَج يشير إلى صفحةٍ زائلة.")
-
-    # ⚠️ **الغيابُ عطبٌ كالاختلاف — وهو الفرعُ الأرجح.** أوّلُ صياغةٍ جمعت القيمَ
-    #    الموجودةَ ثمّ سألت «أهي واحدة؟». فقِيست عليها أربعُ طفراتٍ فمرّت ثلاثٌ:
-    #    حذفُ الثابت من الاثنين، وحذفُه من واحد، وإعادةُ تسميته في واحد — وكلُّها
-    #    ما يقع فعلًا أثناء إعادة صياغة، لا «قيمتان مختلفتان» التي أمسكتها وحدَها.
-    #    فصار السؤالُ: **أموجودٌ في كلّ مدخل، وبقيمةٍ واحدة؟**
-    names = [e for e, _ in entries]
-    for name, pat in (("DOWNLOAD_URL", r'DOWNLOAD_URL\s*=\s*"([^"]+)"'),
-                      ("COPY.download", r'download:\s*"([^"]+)"'),
-                      ("COPY.ok", r'ok:\s*"([^"]+)"')):
-        vals, missing = {}, []
-        for ext, code in entries:
-            m = _re.search(pat, _code(code))
-            if m:
-                vals.setdefault(m.group(1), []).append(ext)
-            else:
-                missing.append(ext)
-        assert not missing, (
-            "‏[UX-02] «" + name + "» غائبٌ عن: " + "، ".join(missing)
-            + " (وموجودٌ في: " + "، ".join(sorted(set(names)) if not vals else
-                                          sorted(x for v in vals.values() for x in v)) + ").\n"
-            "   وهما امتدادان لا يستورد أحدُهما الآخر، فالغيابُ لا يُكشَف إلّا هنا: "
-            "يبقى نصفُ المنتَج يعرض المخرجَ ونصفُه لا يعرضه، أو يشير أحدُهما إلى "
-            "صفحةٍ زائلة. إن كان الحذفُ مقصودًا فأزِل الاسمَ من هذا الفحص بسببٍ مكتوب.")
-        assert len(vals) == 1, (
-            "‏[UX-02] «" + name + "» يختلف بين مداخل المتصفّح:\n   "
-            + "\n   ".join(repr(v) + " ⇐ " + ", ".join(x) for v, x in sorted(vals.items()))
-            + "\n   وهما امتدادان لا يستورد أحدُهما الآخر، فالتطابقُ يُحرَس ولا يُفترَض.")
 
 
 @check("مِرساةٌ لا تبتلع نهايةَ السطر [CRLF-02]")
@@ -6092,38 +5329,6 @@ def _separated_from_sad_lang_site():
         "sad-lang.org صفحةَ اللغة بـ200 لكلّ رابطٍ قديم (ابتلاعٌ صامت) [SEP-01]")
     assert "mv '$OLD' '$KEEP'" in rt and "rm -rf" not in rt, (
         "سكربتُ الإزاحة يجب أن ينقل لا يحذف — الحذفُ النهائيُّ قرارُ المالك بعد أسبوع [SEP-01]")
-
-
-@check("بوّابةُ أدوات ص تحمرّ بلا مانيفست حين يُشترَط الرسميّ [TOOLS-01]")
-def _sad_tools_gate_fails_without_manifest():
-    """أخضرُ أجوف: بناءٌ بلا لغة ص يمرّ البوّابةَ التي شُرِطت لأجله.
-
-    ‏`check_sad_tools.py` كان يردّ ‎0‎ «تخطٍّ مُعلَن» حين لا مانيفست — **قبل** أن يقرأ
-    `MIHRAB_REQUIRE_OFFICIAL_TOOLS`. فحين يفشل الجلبُ (المستودعُ خاصٌّ، لا رمز) تخضرّ
-    المصفوفةُ وتُشحَن حزمةٌ بلا أدوات ص بينما الصفحةُ الأولى تَعِد «جاهزةٌ في الصندوق»
-    (قياسُ مدير المنتج). والإصلاحُ نفسُه بلا حارسٍ عاد يمرّ حين طُفِّر (‏`if False:`)
-    — فيُقاس **سلوكًا**: بلا مانيفست، الشرطُ مضبوطٌ ⇒ ‎1‎، وغيرُ مضبوطٍ ⇒ ‎0‎ تخطٍّ.
-    """
-    import importlib.util
-    p = os.path.join(ROOT, "tests", "bundle", "check_sad_tools.py")
-    spec = importlib.util.spec_from_file_location("_cst", p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.MANIFEST = os.path.join(ROOT, ".no-such-manifest-%d.json" % os.getpid())
-    old = os.environ.get("MIHRAB_REQUIRE_OFFICIAL_TOOLS")
-    try:
-        os.environ["MIHRAB_REQUIRE_OFFICIAL_TOOLS"] = "yes"
-        rc, out = mod.verify(os.path.join(ROOT, ".no-such-dist"))
-        assert rc == 1, "بلا مانيفست ومع MIHRAB_REQUIRE_OFFICIAL_TOOLS=yes ردّت البوّابةُ %d لا 1 — أخضرُ أجوف يشحن حزمةً بلا لغة ص" % rc
-        assert any("SAD_TOOLS_TOKEN" in l for l in out), "رسالةُ الفشل لا تسمّي السرَّ الناقص `SAD_TOOLS_TOKEN` — من يقرؤها لا يعرف ما يفعل"
-        os.environ.pop("MIHRAB_REQUIRE_OFFICIAL_TOOLS", None)
-        rc2, _ = mod.verify(os.path.join(ROOT, ".no-such-dist"))
-        assert rc2 == 0, "بلا شرطٍ يجب أن يكون غيابُ المانيفست تخطّيًا مُعلَنًا لا فشلًا (%d)" % rc2
-    finally:
-        if old is None:
-            os.environ.pop("MIHRAB_REQUIRE_OFFICIAL_TOOLS", None)
-        else:
-            os.environ["MIHRAB_REQUIRE_OFFICIAL_TOOLS"] = old
 
 
 @check("رُقَعُ النواة تُطبَّق عاديًّا قبل --3way [APPLY-01]")
@@ -6544,8 +5749,7 @@ def _extension_ids_match_their_publisher():
     `mihrab.mihrab-shell` في `import-settings.js` ⇒ ‎91/91‎ نجحت. و[ORG-01] لا يمسكه:
     هو يطابق مسارَ المستودع القديم بشَرطةٍ مائلة، لا اسمَ الناشر بنقطةٍ بعده.
 
-    **والفشلُ عند المستخدم صامت**: `getExtension()` يردّ `undefined` فلا يتنحّى جسرُ
-    التشخيص أمام خادم ص (تموّجان وسطران مكرّران في لوحة المشاكل)، ولا يجد مستورِدُ
+    **والفشلُ عند المستخدم صامت**: `getExtension()` يردّ `undefined` فلا يجد مستورِدُ
     الإعدادات مصدرَه. لا استثناءَ يُرمى، ولا سطرَ في سجلّ.
     """
     import json as _json
@@ -6603,7 +5807,8 @@ def _extension_ids_match_their_publisher():
                             f"{rel}:{i} يقول \u00ab{prefix}.{ext}\u00bb"
                             f"\n           بينما {where[ext]} يقول publisher = \u00ab{owner[ext]}\u00bb")
 
-    assert seen >= 4, (
+    # ثلاثةٌ بعد إزالة امتدادَي ص ونِبراس (2026-11-22): كانت أربعة.
+    assert seen >= 3, (
         f"لم يُرَ إلّا {seen} مُعرِّفًا مكتوبًا بيد — إمّا أنّها زالت (فيُحدَّث الحارس) "
         "أو أنّ النمطَ كُسِر. لا يُترَك أخضرَ فارغًا.")
     assert not wrong, (

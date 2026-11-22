@@ -143,7 +143,7 @@ function pasteHarness(opts) {
   if (o.disabled) settings.set(cb.CONFIG_KEY, false);
   const shown = [];
   const executed = [];
-  const doc = { languageId: "sad", uri: { toString: () => o.uri || "file:///a.%D8%B5" } };
+  const doc = { languageId: "plaintext", uri: { toString: () => o.uri || "file:///a.txt" } };
   const vscode = {
     window: {
       activeTextEditor: { document: doc },
@@ -215,7 +215,7 @@ test("مستندٌ آخرُ يُبلَّغ عنه — لصقةُ الصباح ل
   const t = pasteHarness();
   const body = "اطبع(\"نصّ\") # " + RLO + " تعليقٌ طويلٌ كافٍ";
   await t.h._onChange(change(t.doc, body));
-  const other = { languageId: "sad", uri: { toString: () => "file:///b.%D8%B5" } };
+  const other = { languageId: "plaintext", uri: { toString: () => "file:///b.txt" } };
   t.vscode.window.activeTextEditor = { document: other };
   await t.h._onChange({ document: other, reason: undefined, contentChanges: [{ text: body }] });
   assert.strictEqual(t.shown.length, 2);
@@ -312,17 +312,17 @@ test("النصُّ المنسوخُ للنشر لا يُشخَّص حين يعو
   const scan = require("./bidi-scan.js");
   const src = "س = ١  # شرحٌ عربيّ\nاطبع(س)  # تعليقٌ آخر";
   const shared = cb.isolateForSharing(src).text;
-  assert.deepStrictEqual(scan.scanBidi(shared, "sad"), []);
+  assert.deepStrictEqual(scan.scanBidi(shared, "python"), []);
 });
 
 test("والاستثناءُ ضيّقٌ: عزلٌ جزئيٌّ عابرٌ للحدّ ما يزال يُشخَّص", () => {
   const scan = require("./bidi-scan.js");
   const line = "س = " + FSI + "١  # نصّ" + PDI + " وبقيّة";
-  assert.deepStrictEqual(scan.scanBidi(line, "sad").map((f) => f.kind), ["leak"]);
+  assert.deepStrictEqual(scan.scanBidi(line, "python").map((f) => f.kind), ["leak"]);
 });
 
 test("و`RLO` غيرُ المغلَق ما يزال يُشخَّص", () => {
   const scan = require("./bidi-scan.js");
   assert.deepStrictEqual(
-    scan.scanBidi("س = ١ # " + RLO + "مقلوب", "sad").map((f) => f.kind), ["unbalanced"]);
+    scan.scanBidi("س = ١ # " + RLO + "مقلوب", "python").map((f) => f.kind), ["unbalanced"]);
 });

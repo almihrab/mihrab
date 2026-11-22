@@ -39,7 +39,7 @@ fi
 echo
 
 # ── [DX-02] قياسُ رتبةِ الإكمال بالعربيّة — **قياسٌ لا حارس** ──
-# يصرّف مُطابِقَ المنبع (filters.ts) ويقيس رتبةَ معرّفاتِ ص لكتاباتٍ جزئيّة. لا عتبةَ له
+# يصرّف مُطابِقَ المنبع (filters.ts) ويقيس رتبةَ المعرّفاتِ العربيّة لكتاباتٍ جزئيّة. لا عتبةَ له
 # (وعتبةٌ مخترَعةٌ أسوأُ من قياسٍ صادق)، ولا يُفشِل إلّا على «لا تظهر إطلاقًا» — وذاك عطبُ
 # اكتشافٍ لا رأيَ فيه. يتخطّى بلطفٍ إن غابت شجرةُ المنبع أو tsc المحلّيّ.
 if command -v node >/dev/null 2>&1; then
@@ -47,16 +47,9 @@ if command -v node >/dev/null 2>&1; then
 fi
 echo
 
-# ── نِبراس: حارس تطابق عقد السلك (المصدر ⇄ المولَّد) ──
-NEBRAS="$HERE/../extensions/mihrab-nebras"
-"$PY" "$NEBRAS/contract/gen_contract.py" --check || rc=1
-echo
-
-# ── اختبارات وحدة الامتدادات (نِبراس: RPC/توافق · الترحيب: تحقّق الاسم · sad-lang: نقل LSP/محوّلات) ──
+# ── اختبارات وحدة الامتدادات (الترحيب) ──
 if command -v node >/dev/null 2>&1; then
-  # (‏sad-lang مُدرَجٌ هنا **وفي CI** معًا منذ [DX-01]: كان مغطًّى هنا وحدَه، فبقي وصلُ
-  #  تطبيع البحث بلا بوّابةٍ في التكامل المستمرّ.)
-  for _ext in "$NEBRAS" "$HERE/../extensions/mihrab-welcome" "$HERE/../extensions/sad-lang"; do
+  for _ext in "$HERE/../extensions/mihrab-welcome"; do
     ( cd "$_ext" && node --test ) || rc=1
   done
 else
@@ -106,7 +99,7 @@ echo "      node tests/runtime/launch.mjs --shot welcome --keep   # لقطة و�
 echo "      node tests/runtime/unicode_guard.live.mjs             # [AR-04] على الحزمة المشحونة"
 echo "        (يُطلق بملفّ تعريفٍ معزول — إعداداتُك لا تُمسّ. أمسك نجاحًا كاذبًا لم تره الوحدة.)"
 echo "      node tests/runtime/unicode_script_mixing.live.mjs     # [AR-05] رقعةُ النواة ‎033‎"
-echo "        (ذراعان: معرّفاتُ ص ⇒ صفرُ إطارات · أسماءٌ تخلط كتابتَين ⇒ إطاراتٌ موجبة."
+echo "        (ذراعان: المعرّفاتُ العربيّة ⇒ صفرُ إطارات · أسماءٌ تخلط كتابتَين ⇒ إطاراتٌ موجبة."
 echo "         والثانيةُ شاهدُ تفعيلٍ لا زينة: الأولى وحدَها تمرّ لو أُطفئ الإبرازُ كلُّه."
 echo "         ‏MIHRAB_EXE=<مسار> يقيس ذراعَ «قبل» على المثبَّت: قِيس ‎6‎ ⇐ ‎0‎ والحمايةُ ‎2‎ ⇐ ‎2‎.)"
 echo "      node tests/runtime/m6.live.mjs                        # [VA-04]+[VA-05]+[BS-04] + عتبةُ القوائم"
@@ -141,7 +134,7 @@ echo "         تُخفق دائمًا أو لا تُخفق أبدًا. للمق
 echo "         node tests/perf/startup.mjs --label before   ثمّ  --label after  ثمّ  --compare before after)"
 echo "  (ب) نسخة مُطلَقة يدويًّا (كما كان):"
 echo "      Mihrab.exe --remote-debugging-port=9222 --remote-allow-origins=* \\"
-echo "        tests/runtime/fixtures/rtl_fixture.ص"
+echo "        tests/runtime/fixtures/rtl_fixture.txt"
 echo "      node tests/runtime/run.mjs"
 echo
 

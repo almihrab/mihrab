@@ -24,8 +24,6 @@ const has = f => argv.includes(f);
 /** المجموعاتُ التي تُقاس. كلُّ مجموعةٍ مجلَّدُ امتدادٍ فيه `*.test.js`. */
 const SUITES = [
   "extensions/mihrab-welcome",
-  "extensions/mihrab-nebras",
-  "extensions/sad-lang",
 ];
 
 console.log("╔══ [PF-02] ثراءُ العيّنة ══╗");

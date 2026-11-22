@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert");
-const { activateDiffNotice, isSadDiff, STATE_KEY, COPY } = require("./diff-notice.js");
+const { activateDiffNotice, isArabicDiff, STATE_KEY, COPY } = require("./diff-notice.js");
 
 /** ذاكرةُ حالةٍ مبسّطة (نظيرُ `context.globalState`). */
 function memento(init = {}) {
@@ -13,13 +13,22 @@ function memento(init = {}) {
   };
 }
 
+/** عنوانٌ بشكل `vscode.Uri`: المقارنةُ بـ`toString()` كما في المحرّر. */
+const uri = (p) => ({ path: p, toString: () => "file://" + p });
+/** مستندٌ مفتوح بنصٍّ معلوم. */
+const doc = (p, text) => ({ uri: uri(p), getText: () => text });
+
+const ARABIC = 'اطبع("مرحبا يا عالم")';
+const LATIN = '{ "name": "demo", "version": "1.0.0" }';
+
 /** بديلُ `vscode` يسجّل ما عُرِض ويردّ اختيارًا مُعدًّا. */
-function fakeVscode({ tabs = [], pick } = {}) {
+function fakeVscode({ tabs = [], docs = [], pick } = {}) {
   const shown = [];
   const executed = [];
   return {
     shown,
     executed,
+    workspace: { textDocuments: docs },
     window: {
       activeTextEditor: null,
       tabGroups: { all: [{ tabs }], onDidChangeTabs: () => ({ dispose() {} }) },
@@ -29,38 +38,41 @@ function fakeVscode({ tabs = [], pick } = {}) {
   };
 }
 
-const sadDiff = { input: { original: { path: "/م/قديم.ص" }, modified: { path: "/م/جديد.ص" } } };
-// الامتدادُ اللاتينيُّ `.sad` **مسنودٌ في الشيفرة** ولم يكن في أيّ عيّنة، فالفرعُ لم
-// يُنفَّذ قطّ وتأكيدُ «ليس فرقَ ص» كان يمرّ لخلوّ النطاق [PF-02].
-const sadLatinDiff = { input: { original: { path: "/م/old.sad" }, modified: { path: "/م/new.sad" } } };
-const jsonDiff = { input: { original: { path: "/م/a.json" }, modified: { path: "/م/b.json" } } };
-const plainTab = { input: { uri: { path: "/م/مثال.ص" } } };
+const arDocs = [doc("/م/قديم.txt", ARABIC), doc("/م/جديد.txt", ARABIC)];
+const arDiff = { input: { original: uri("/م/قديم.txt"), modified: uri("/م/جديد.txt") } };
+const jsonDocs = [doc("/م/a.json", LATIN), doc("/م/b.json", LATIN)];
+const jsonDiff = { input: { original: uri("/م/a.json"), modified: uri("/م/b.json") } };
+const plainTab = { input: { uri: uri("/م/قديم.txt") } };
 
-test("[DR-04] فرقُ ص يُتعرَّف عليه، وغيرُه لا", () => {
-  assert.ok(isSadDiff(sadDiff.input));
-  assert.ok(isSadDiff(sadLatinDiff.input), "الامتدادُ اللاتينيُّ .sad مسنودٌ في الشيفرة فيُختبَر");
-  assert.ok(!isSadDiff(jsonDiff.input));
-  assert.ok(!isSadDiff(plainTab.input), "تبويبٌ عاديٌّ ليس فرقًا وإن كان ملفَّ ص");
-  assert.ok(!isSadDiff(null));
+test("[DR-04] فرقٌ فيه عربيّةٌ يُتعرَّف عليه، وغيرُه لا", () => {
+  assert.ok(isArabicDiff(arDiff.input, arDocs));
+  assert.ok(!isArabicDiff(jsonDiff.input, jsonDocs), "فرقٌ لاتينيٌّ كلُّه لا يُحسَب");
+  assert.ok(!isArabicDiff(plainTab.input, arDocs), "تبويبٌ عاديٌّ ليس فرقًا وإن كان نصُّه عربيًّا");
+  assert.ok(!isArabicDiff(null, arDocs));
 });
 
-test("[DR-04] لوحٌ واحدٌ من ص يكفي (مقارنةُ ملفٍّ بنسخةٍ بلا لاحقة)", () => {
-  assert.ok(isSadDiff({ original: { path: "/م/قديم.ص" }, modified: { path: "/م/جديد" } }));
+test("[DR-04] لوحٌ واحدٌ فيه عربيّةٌ يكفي", () => {
+  const docs = [doc("/م/قديم.txt", LATIN), doc("/م/جديد.txt", ARABIC)];
+  assert.ok(isArabicDiff(arDiff.input, docs));
 });
 
-test("[DR-04] الرسالةُ تقع على أوّل فرقِ ص", async () => {
-  const v = fakeVscode({ tabs: [sadDiff] });
+test("[DR-04] مستندٌ لم يُحمَّل بعدُ لا يُحسَب — والتبويبُ التالي يعيد السؤال", () => {
+  assert.ok(!isArabicDiff(arDiff.input, []));
+});
+
+test("[DR-04] الرسالةُ تقع على أوّل فرقٍ عربيّ", async () => {
+  const v = fakeVscode({ tabs: [arDiff], docs: arDocs });
   const n = activateDiffNotice(v, memento());
   await n.initial;
   assert.strictEqual(v.shown.length, 1);
   assert.ok(v.shown[0].msg.includes("لوحا المقارنة"));
-  // الرسالةُ تسمّي الحدَّ ولا تُحمِّل ص وزرَه — كسابقةِ رسالة الطرفيّة.
+  // الرسالةُ تسمّي الحدَّ منبعيًّا — كسابقةِ رسالة الطرفيّة.
   assert.ok(v.shown[0].msg.includes("المنبع"));
   assert.deepStrictEqual(v.shown[0].btns, [COPY.openNormally, COPY.dontRemind]);
 });
 
-test("[DR-04] لا رسالةَ على فرقٍ غيرِ ص — الفرصةُ واحدةٌ فلا تُحرَق في غير سياقها", async () => {
-  const v = fakeVscode({ tabs: [jsonDiff] });
+test("[DR-04] لا رسالةَ على فرقٍ لاتينيّ — الفرصةُ واحدةٌ فلا تُحرَق في غير سياقها", async () => {
+  const v = fakeVscode({ tabs: [jsonDiff], docs: jsonDocs });
   const m = memento();
   const n = activateDiffNotice(v, m);
   await n.initial;
@@ -69,7 +81,7 @@ test("[DR-04] لا رسالةَ على فرقٍ غيرِ ص — الفرصةُ �
 });
 
 test("[DR-04] مرّةً واحدةً للأبد — والوسمُ يُكتَب قبل الانتظار", async () => {
-  const v = fakeVscode({ tabs: [sadDiff] });
+  const v = fakeVscode({ tabs: [arDiff], docs: arDocs });
   const m = memento();
   const a = activateDiffNotice(v, m);
   await a.initial;
@@ -80,15 +92,15 @@ test("[DR-04] مرّةً واحدةً للأبد — والوسمُ يُكتَب
 });
 
 test("[DR-04] «افتح في محرّرٍ عاديّ» يفتح الملفَّ النشط", async () => {
-  const v = fakeVscode({ tabs: [sadDiff], pick: COPY.openNormally });
-  v.window.activeTextEditor = { document: { uri: { path: "/م/جديد.ص" } } };
+  const v = fakeVscode({ tabs: [arDiff], docs: arDocs, pick: COPY.openNormally });
+  v.window.activeTextEditor = { document: { uri: uri("/م/جديد.txt") } };
   const n = activateDiffNotice(v, memento());
   await n.initial;
   assert.deepStrictEqual(v.executed[0][0], "vscode.open");
 });
 
 test("[DR-04] الإخفاءُ قرارٌ لا بابٌ مغلَق — والإعادةُ تمسح الوسم", async () => {
-  const v = fakeVscode({ tabs: [sadDiff], pick: COPY.dontRemind });
+  const v = fakeVscode({ tabs: [arDiff], docs: arDocs, pick: COPY.dontRemind });
   const m = memento();
   const n = activateDiffNotice(v, m);
   await n.initial;

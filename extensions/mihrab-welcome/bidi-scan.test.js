@@ -21,24 +21,24 @@ const RLM = ch(C.RLM), LRM = ch(C.LRM), ALM = ch(C.ALM);
 test("العلاماتُ المفردةُ شرعيّةٌ — لا تشخيصَ عليها أبدًا", () => {
   // ٣١٢ علامةً خفيّةً في نواة نهلة كانت كلُّها من هذا الصنف.
   for (const mark of [RLM, LRM, ALM]) {
-    assert.deepStrictEqual(S.scanBidi('اطبع("مرحبا' + mark + ' world")', "sad"), []);
+    assert.deepStrictEqual(S.scanBidi('اطبع("مرحبا' + mark + ' world")', "python"), []);
   }
 });
 
 test("القوالبُ المتوازنةُ لا تُشخَّص", () => {
-  assert.deepStrictEqual(S.scanBidi("x = " + FSI + "abc" + PDI, "sad"), []);
-  assert.deepStrictEqual(S.scanBidi(RLO + "abc" + PDF, "sad"), []);
-  assert.deepStrictEqual(S.scanBidi(RLE + "a" + LRI + "b" + PDI + "c" + PDF, "sad"), []);
+  assert.deepStrictEqual(S.scanBidi("x = " + FSI + "abc" + PDI, "python"), []);
+  assert.deepStrictEqual(S.scanBidi(RLO + "abc" + PDF, "python"), []);
+  assert.deepStrictEqual(S.scanBidi(RLE + "a" + LRI + "b" + PDI + "c" + PDF, "python"), []);
 });
 
 test("خاتمٌ زائدٌ بلا فاتحٍ لا يُشخَّص (لا يقلب شيئًا)", () => {
-  assert.deepStrictEqual(S.scanBidi("x" + PDF + "y" + PDI, "sad"), []);
+  assert.deepStrictEqual(S.scanBidi("x" + PDF + "y" + PDI, "python"), []);
 });
 
 test("نصٌّ عربيٌّ عاديٌّ بلا محارفِ تحكّمٍ لا يُمسَح أصلًا", () => {
-  assert.deepStrictEqual(S.scanBidi("دالة رئيسية() { اطبع(\"مرحبا\") }", "sad"), []);
-  assert.deepStrictEqual(S.scanBidi("", "sad"), []);
-  assert.deepStrictEqual(S.scanBidi(null, "sad"), []);
+  assert.deepStrictEqual(S.scanBidi("دالة رئيسية() { اطبع(\"مرحبا\") }", "python"), []);
+  assert.deepStrictEqual(S.scanBidi("", "python"), []);
+  assert.deepStrictEqual(S.scanBidi(null, "python"), []);
 });
 
 // ───────────────────── الكشفُ المطلوب ─────────────────────
@@ -52,7 +52,7 @@ test("تجاوزٌ بلا خاتمٍ قبل نهاية السطر ⇒ حرِج",
 });
 
 test("تضمينٌ بلا خاتمٍ خارجَ نصٍّ ⇒ مشبوهٌ لا حرِج (تدرُّجُ الشدّة حقيقيّ)", () => {
-  const hits = S.scanBidi("x = " + RLE + "y", "sad");
+  const hits = S.scanBidi("x = " + RLE + "y", "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].code, "RLE");
   assert.strictEqual(hits[0].severity, S.SEVERITY.SUSPECT);
@@ -60,7 +60,7 @@ test("تضمينٌ بلا خاتمٍ خارجَ نصٍّ ⇒ مشبوهٌ لا �
 });
 
 test("فاتحٌ داخل تعليقٍ يرتفع إلى الحرِج (مخبأُ الهجوم الأثير)", () => {
-  const hits = S.scanBidi("# شرح " + RLI + " مخفيّ", "sad");
+  const hits = S.scanBidi("# شرح " + RLI + " مخفيّ", "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].severity, S.SEVERITY.CRITICAL);
   assert.strictEqual(hits[0].inQuoted, true);
@@ -68,7 +68,7 @@ test("فاتحٌ داخل تعليقٍ يرتفع إلى الحرِج (مخبأ�
 });
 
 test("فاتحٌ داخل سلسلةٍ نصّيّةٍ يرتفع إلى الحرِج", () => {
-  const hits = S.scanBidi('اطبع("نصّ ' + LRE + ' مقلوب', "sad");
+  const hits = S.scanBidi('اطبع("نصّ ' + LRE + ' مقلوب', "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].severity, S.SEVERITY.CRITICAL);
   assert.ok(hits[0].inQuoted);
@@ -76,23 +76,23 @@ test("فاتحٌ داخل سلسلةٍ نصّيّةٍ يرتفع إلى الحر
 
 test("العزلُ لا يُغلَق بخاتم التضمين ولا العكس (نظامان مستقلّان — UAX #9)", () => {
   // `RLI` يحتاج `PDI`؛ وجودُ `PDF` لا يُغلِقه.
-  const a = S.scanBidi(RLI + "x" + PDF, "sad");
+  const a = S.scanBidi(RLI + "x" + PDF, "python");
   assert.strictEqual(a.length, 1);
   assert.strictEqual(a[0].code, "RLI");
   // `RLE` يحتاج `PDF`؛ وجودُ `PDI` لا يُغلِقه.
-  const b = S.scanBidi(RLE + "x" + PDI, "sad");
+  const b = S.scanBidi(RLE + "x" + PDI, "python");
   assert.strictEqual(b.length, 1);
   assert.strictEqual(b[0].code, "RLE");
 });
 
 test("النطاقُ سطرٌ سطر: فاتحٌ في سطرٍ لا يُغلَق بخاتمٍ في التالي", () => {
-  const hits = S.scanBidi(RLO + "a\n" + PDF + "b", "sad");
+  const hits = S.scanBidi(RLO + "a\n" + PDF + "b", "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].line, 0);
 });
 
 test("الموضعُ دقيقٌ سطرًا وعمودًا (وإلّا أشار التشخيصُ إلى محرفٍ بريء)", () => {
-  const hits = S.scanBidi("سطر أوّل\nab" + LRO + "cd", "sad");
+  const hits = S.scanBidi("سطر أوّل\nab" + LRO + "cd", "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].line, 1);
   assert.strictEqual(hits[0].column, 2);
@@ -101,7 +101,7 @@ test("الموضعُ دقيقٌ سطرًا وعمودًا (وإلّا أشار �
 
 test("يتعامل مع نهايات الأسطر الثلاث (CRLF/LF/CR)", () => {
   for (const eol of ["\r\n", "\n", "\r"]) {
-    const hits = S.scanBidi("أوّل" + eol + RLO + "ثانٍ", "sad");
+    const hits = S.scanBidi("أوّل" + eol + RLO + "ثانٍ", "python");
     assert.strictEqual(hits.length, 1, eol);
     assert.strictEqual(hits[0].line, 1, eol);
   }
@@ -111,8 +111,8 @@ test("يتعامل مع نهايات الأسطر الثلاث (CRLF/LF/CR)", ()
 
 test("stripUnbalanced يزيل الفواتحَ غيرَ المتوازنة وحدَها", () => {
   const src = "# " + RLO + "هجوم\nسطر " + FSI + "x" + PDI + " سليم\n" + RLM + " علامة";
-  const out = S.stripUnbalanced(src, "sad");
-  assert.deepStrictEqual(S.scanBidi(out, "sad"), [], "لم يبقَ غيرُ متوازن");
+  const out = S.stripUnbalanced(src, "python");
+  assert.deepStrictEqual(S.scanBidi(out, "python"), [], "لم يبقَ غيرُ متوازن");
   assert.ok(out.includes(FSI) && out.includes(PDI), "القالبُ المتوازنُ لم يُمَسّ");
   assert.ok(out.includes(RLM), "العلامةُ المفردةُ لم تُمَسّ");
   assert.ok(!out.includes(RLO));
@@ -120,17 +120,17 @@ test("stripUnbalanced يزيل الفواتحَ غيرَ المتوازنة وح
 
 test("stripUnbalanced يزيل عدّةَ فواتحَ في السطر نفسِه دون انزياحِ مواضع", () => {
   const src = "a" + RLO + "b" + LRE + "c";
-  assert.strictEqual(S.stripUnbalanced(src, "sad"), "abc");
+  assert.strictEqual(S.stripUnbalanced(src, "python"), "abc");
 });
 
 test("stripUnbalanced يحافظ على نهايات الأسطر", () => {
   const src = "أ\r\n" + RLO + "ب\r\nج";
-  assert.strictEqual(S.stripUnbalanced(src, "sad"), "أ\r\nب\r\nج");
+  assert.strictEqual(S.stripUnbalanced(src, "python"), "أ\r\nب\r\nج");
 });
 
 test("stripUnbalanced على نصٍّ سليمٍ يعيده كما هو (بلا نسخٍ ولا تغيير)", () => {
   const src = "دالة رئيسية()";
-  assert.strictEqual(S.stripUnbalanced(src, "sad"), src);
+  assert.strictEqual(S.stripUnbalanced(src, "python"), src);
 });
 
 // ───────────────────── التسمية (BS-02) ─────────────────────
@@ -143,7 +143,7 @@ test("listBidiChars يُسمّي الشرعيَّ والمشبوهَ معًا و
 });
 
 test("inCommentOrString يفهم الهروبَ داخل السلسلة", () => {
-  const syn = S.SYNTAX.sad;
+  const syn = S.SYNTAX.python;
   assert.strictEqual(S.inCommentOrString('x = "a\\"b', 8, syn), true, "ما زلنا داخل السلسلة");
   assert.strictEqual(S.inCommentOrString('x = "ab" y', 9, syn), false, "أُغلِقت السلسلة");
 });
@@ -169,7 +169,7 @@ test("قالبٌ يُفتَح في سلسلةٍ ويُغلَق في شيفرة �
 
 test("قالبٌ متوازنٌ **داخل المنطقة نفسِها** لا يُشخَّص (لا ضجيج)", () => {
   assert.deepStrictEqual(S.scanBidi("/* " + RLO + " نصّ " + PDF + " */ x();", "javascript"), []);
-  assert.deepStrictEqual(S.scanBidi('s = "' + FSI + "abc" + PDI + '";', "sad"), []);
+  assert.deepStrictEqual(S.scanBidi('s = "' + FSI + "abc" + PDI + '";', "python"), []);
 });
 
 test("التسرُّبُ لا يُزال آليًّا (حذفُ طرفٍ يترك يتيمًا، وحذفُ الطرفين قرارُ إنسان)", () => {
@@ -195,7 +195,7 @@ test("تعليقٌ كتليٌّ ممتدٌّ سطورًا تُحمَل حالت�
 });
 
 test("لغةٌ بلا تعليقٍ كتليٍّ لا تتأثّر بـ/* في نصّها", () => {
-  const hits = S.scanBidi("x = 1 /* ليس تعليقًا في ص */ " + RLE + "y", "sad");
+  const hits = S.scanBidi("x = 1 /* ليس تعليقًا في بايثون */ " + RLE + "y", "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].inQuoted, false);
 });
@@ -203,7 +203,7 @@ test("لغةٌ بلا تعليقٍ كتليٍّ لا تتأثّر بـ/* في ن
 // ─────────── حالاتٌ حديّة ───────────
 
 test("فواتحُ متداخلةٌ متعدّدةٌ: كلٌّ يُبلَّغ بموضعه الصحيح", () => {
-  const hits = S.scanBidi(RLE + "a" + RLO + "b" + PDF + "c", "sad");
+  const hits = S.scanBidi(RLE + "a" + RLO + "b" + PDF + "c", "python");
   assert.strictEqual(hits.length, 1, "الأحدثُ (RLO) أُغلِق بـPDF، وبقي RLE");
   assert.strictEqual(hits[0].code, "RLE");
   assert.strictEqual(hits[0].column, 0);
@@ -211,10 +211,10 @@ test("فواتحُ متداخلةٌ متعدّدةٌ: كلٌّ يُبلَّغ ب
 
 test("فاتحٌ في آخرِ محرفٍ من الملفّ بلا فاصلِ سطرٍ نهائيّ", () => {
   const src = "x = 1" + RLO;
-  const hits = S.scanBidi(src, "sad");
+  const hits = S.scanBidi(src, "python");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].column, 5);
-  assert.strictEqual(S.stripUnbalanced(src, "sad"), "x = 1");
+  assert.strictEqual(S.stripUnbalanced(src, "python"), "x = 1");
 });
 
 test("المكتشَفاتُ مرتَّبةٌ بالموضع (ترتيبُ لوحة المشاكل = ترتيبُ الأسطر)", () => {
@@ -224,7 +224,7 @@ test("المكتشَفاتُ مرتَّبةٌ بالموضع (ترتيبُ لو�
   assert.deepStrictEqual(order, [...order].sort((a, b) => a - b), JSON.stringify(order));
 });
 
-test("لغةٌ غيرُ معروفةٍ تسقط إلى نحو ص بلا رمي", () => {
+test("لغةٌ غيرُ معروفةٍ تسقط إلى نحو بايثون بلا رمي", () => {
   const hits = S.scanBidi("# " + RLO + "x", "لغة-لا-وجود-لها");
   assert.strictEqual(hits.length, 1);
   assert.strictEqual(hits[0].inQuoted, true, "‏`#` تعليقٌ في النحو الافتراضيّ");

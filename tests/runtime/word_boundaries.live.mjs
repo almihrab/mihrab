@@ -84,7 +84,7 @@ const ws = join(tmp, "مساحة");
 mkdirSync(join(userData, "User"), { recursive: true });
 mkdirSync(join(ws, ".vscode"), { recursive: true });
 
-const file = join(ws, "حدود.ص");
+const file = join(ws, "حدود.txt");
 writeFileSync(file, CASES.map(c => c.text).join("\n") + "\n", "utf8");
 
 // البذرُ من التحديد مُصرَّحٌ به لا متروكٌ للافتراض: قارئُنا كلُّه مبنيٌّ عليه، فلو تغيّر
@@ -347,7 +347,7 @@ async function measureCase(cdp, c) {
     }
     await closeOtherTabs(cdp);
     if (!await activateOurTab(cdp)) {
-      gap("حدُّ الكلمة", "تعذّر تنشيطُ تبويب «حدود.ص» — جولةُ الترحيب تسبقه، وضغطاتُ المفاتيح تذهب إليها");
+      gap("حدُّ الكلمة", "تعذّر تنشيطُ تبويب «حدود.txt» — جولةُ الترحيب تسبقه، وضغطاتُ المفاتيح تذهب إليها");
       return;
     }
     log("المحرّرُ مفتوحٌ وتبويبُ الحالات نشط");

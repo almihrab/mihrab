@@ -93,7 +93,6 @@ const KIND = { UNBALANCED: "unbalanced", LEAK: "leak" };
  * وأثرُ خطئه **رفعُ شدّةٍ أو خفضُها لا إسقاطُ كشفٍ للفاتح غير المتوازن** — ذاك يُشخَّص دائمًا.
  */
 const SYNTAX = {
-  sad: { line: ["#"], quotes: ['"', "'"], block: [] },
   python: { line: ["#"], quotes: ['"', "'"], block: [] },
   javascript: { line: ["//"], quotes: ['"', "'", "`"], block: [["/*", "*/"]] },
   typescript: { line: ["//"], quotes: ['"', "'", "`"], block: [["/*", "*/"]] },
@@ -115,7 +114,8 @@ const SYNTAX = {
   html: { line: [], quotes: ['"', "'"], block: [["<!--", "-->"]] },
   xml: { line: [], quotes: ['"', "'"], block: [["<!--", "-->"]] },
 };
-const DEFAULT_SYNTAX = SYNTAX.sad;
+// الافتراضُ للّغات غيرِ المعرَّفة: تعليقُ `#` وسلسلتا `"` و`'` (قواعدُ بايثون نفسُها).
+const DEFAULT_SYNTAX = SYNTAX.python;
 
 /** المناطقُ الثلاث: شيفرةٌ · تعليقٌ · سلسلة. المقارنةُ بينها هي ما يكشف العبور. */
 const REGION = { CODE: "code", COMMENT: "comment", STRING: "string" };
@@ -243,7 +243,7 @@ function makeFinding(line, open, kind, closeColumn) {
  * فتُمرَّر بين الأسطر، فتُعرَف المنطقةُ صوابًا في ملفٍّ فيه تعليقٌ ممتدّ.
  *
  * @param {string} text نصُّ المستند كاملًا.
- * @param {string} [languageId] معرّفُ اللغة (يحدّد التعليقاتِ والسلاسل؛ الافتراضُ لغةُ ص).
+ * @param {string} [languageId] معرّفُ اللغة (يحدّد التعليقاتِ والسلاسل؛ الافتراضُ قواعدُ بايثون).
  * @returns {{line:number, column:number, endColumn:number, codePoint:number, code:string,
  *            nameAr:string, severity:string, inQuoted:boolean, expected:string,
  *            kind:string, closeColumn:?number, region:string}[]}

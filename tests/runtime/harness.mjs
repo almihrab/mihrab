@@ -23,27 +23,21 @@ export async function listTargets(port = 9222) {
   return res.json();
 }
 
-// يختار صفحة الـworkbench (يفضّل ذات ملفّ ‎.ص‎ مفتوح).
+// يختار صفحة الـworkbench (يفضّل نافذةَ العيّنة).
 export async function pickPage(port = 9222) {
   const targets = await listTargets(port);
   // وضع التطوير يقدّم `workbench-dev.html` بينما الحزمة المشحونة تقدّم `workbench.html`؛
   // نطابق الاثنين كي يعمل نفس الحزام على المسارين (اكتُشف حيًّا: التطوير كان لا يُطابَق أصلًا).
   const pages = targets.filter(t => t.type === "page" && /workbench(-dev)?\.html/.test(t.url));
   if (!pages.length) throw new Error("لا صفحة workbench — هل Mihrab مُطلَق بالمنفذ وبملفّ مفتوح؟");
-  // **امتداد لغة ص هو `.ص` لا `.sad`** (‏contributes.languages في sad-lang). كانت العيّنة
-  // تُسمّى `rtl_fixture.sad` فتُفتَح **نصًّا عاديًّا**: لا تلوين ص، ولا أيقونة ص، ولا سلوك
-  // ‏wordPattern العربيّ — أي أنّ كلّ مِجَسّ خاصّ باللغة كان يقيس ملفًّا مجهول اللغة أو
-  // يُبلَّغ تخطّيًا. صحّحنا اسم العيّنة، وهذا المُطابِق يقبل الاثنين لأجل عيّنات قديمة.
-  // ⚠️ لا `\b` بعد «ص»: حدود الكلمة في JS مبنيّة على `[A-Za-z0-9_]`، والحرف العربيّ **ليس**
-  // منها — فلا حدَّ بينه وبين المسافة التالية، و`/\.ص\b/` **لا يطابق أبدًا**. أوقعنا هذا
-  // فعلًا: مع نافذتين مفتوحتين اختار الحزامُ نافذةَ الترحيب الفارغة بدل نافذة الملفّ،
-  // فتخطّى أحد عشر مِجَسًّا. الحدُّ يبقى لـ`sad` اللاتينيّة وحدها.
+  // العيّنةُ `rtl_fixture.txt` نصٌّ عاديّ: له في القشرة كتلةُ `rtl` وإطفاءُ `nonBasicASCII`،
+  // فتُقاس عليها هندسةُ الاتّجاه والإبراز كما تُقاس على أيّ نصٍّ عربيّ.
   //
-  // الترتيب: عيّنة ص أوّلًا، ثمّ **أيّ نافذة فيها ملفّ/مجلّد مفتوح** (عنوانها يحوي « - »
+  // الترتيب: العيّنةُ أوّلًا، ثمّ **أيّ نافذة فيها ملفّ/مجلّد مفتوح** (عنوانها يحوي « - »
   // فاصلًا بين الملفّ والمساحة والمنتج)، ثمّ الأولى. البند الأوسط أضفناه بعد قياس: مع
   // نافذة ترحيب فارغة عنوانها «محراب Dev» وحده، كان `pages[0]` يقع عليها فيتخطّى الحزام
   // أحد عشر مِجَسًّا — والنافذة العاملة بجانبها.
-  return pages.find(p => /\.(?:ص|sad\b)/i.test(p.title))
+  return pages.find(p => /rtl_fixture\.txt/i.test(p.title))
       || pages.find(p => / - /.test(p.title))
       || pages[0];
 }
@@ -296,8 +290,8 @@ export async function recoverWelcomeTab(cdp, tries = 3) {
   return false;
 }
 
-/** تبويب عيّنة ص (‏`.ص` — لا `\b` بعده، انظر pickPage). */
-export const activateSadTab = cdp => activateTab(cdp, "\.\u0635");
+/** تبويبُ العيّنة: أوّلُ ملفٍّ `.txt` (العيّنةُ المشتركة، أو ملفُّ المِجَسّ الذي كتبه بنفسه). */
+export const activateFixtureTab = cdp => activateTab(cdp, "\\.txt");
 /** تبويب عيّنة تصيير ملاحظات الإصدار (‏release_notes_probe.md — يفتحها المُطلِق دائمًا). */
 export const activateNotesProbeTab = cdp => activateTab(cdp, "release_notes_probe");
 /** تبويب الترحيب («مرحبًا» بأيّ صيغة همزة/تنوين، أو Welcome في وضع التطوير غير المخبوز). */
@@ -416,8 +410,8 @@ export async function suggestGap(cdp) {
   // **وأيُّ محرّرٍ نقيس؟** بلا تنشيطٍ صريح نقع على ما تركته المِجَسّاتُ قبلنا: على ملفّ
   // مستخدمٍ نظيف يكون تبويبُ الترحيب هو النشط (لا `.view-lines` ⇒ تخطٍّ)، وبعد تشغيلةٍ
   // سابقة يكون `README.md` أو محرّرُ الإعدادات (فقِسنا فجوة ‎-41px‎ على محرّرٍ آخر
-  // وأُبلِغت «انحدارًا» — إنذارٌ كاذبٌ سببُه هويّةُ المقيس لا هندستُه). ننشّط عيّنة ص.
-  await activateSadTab(cdp);
+  // وأُبلِغت «انحدارًا» — إنذارٌ كاذبٌ سببُه هويّةُ المقيس لا هندستُه). ننشّط العيّنة.
+  await activateFixtureTab(cdp);
   await sleep(400);
   if (!(await focusEditor(cdp))) return { visible: false };
   await sleep(150);
@@ -473,20 +467,6 @@ export async function welcomeHeader(cdp) {
   })()`);
 }
 
-// يفحص أيقونة ملفّ ص في المستكشف: يبحث عن صفٍّ ينتهي اسمه بـ.ص ويقرأ خلفيّة أيقونته (::before).
-// لا يفتح مجلّدًا (يحتاج مساحة عمل)؛ present=false إن لا ملفّ .ص ظاهر ⇒ تخطٍّ best-effort.
-export async function explorerSadIcon(cdp) {
-  await bringToFront(cdp);
-  return cdp.evaluate(`(() => {
-    const rows = [...document.querySelectorAll('.monaco-icon-label')];
-    const sad = rows.find(r => ((r.querySelector('.label-name') || {}).textContent || '').trim().endsWith('.ص'));
-    if (!sad) return { present: false, rows: rows.length };
-    const el = sad.classList.contains('file-icon') ? sad : (sad.closest('.file-icon') || sad);
-    const bg = getComputedStyle(el, '::before').backgroundImage || getComputedStyle(el).backgroundImage || '';
-    return { present: true, bg, isSad: /sad(-light)?\\.svg|mihrab-sad/i.test(bg) };
-  })()`);
-}
-
 // رأس التطبيق: أيقونة شريط العنوان (.window-appicon) تحمل شعار القوس (code-icon.svg في بناء محراب).
 // حاضرة دائمًا مع شريط عنوان مخصّص (custom titlebar). صحّة **المحتوى** (قوس محراب لا VSCodium)
 // مضمونة بـL2 (توقيع لونيّ في out/media)؛ هنا نؤكّد الحضور والارتباط والرسم في التطبيق الحيّ.
@@ -515,7 +495,7 @@ export async function editorLetterpress(cdp) {
   })()`);
 }
 
-// تحقّق bidi المحرّر (م3، البند #24 اتّجاه السطر + محاذاة النصّ) — يحتاج rtl_fixture.ص مفتوحًا.
+// تحقّق bidi المحرّر (م3، البند #24 اتّجاه السطر + محاذاة النصّ) — يحتاج rtl_fixture.txt مفتوحًا.
 // برهان حتميّ بلا إدخال مُصطنَع: في سطر عربيّ قصير، مدى النصّ يلتصق **بيمين** السطر (RTL)
 // لا بيساره. يتجنّب السطر الطويل (يتجاوز النافذة فيمتدّ يسارًا).
 export async function editorBidi(cdp) {
@@ -785,7 +765,7 @@ export async function restoredHorizontalPositionRtl(cdp) {
   await escape(cdp);
   // **فعِّلْ تبويبَ العيّنة أوّلًا.** المِجَسّ يقيس أكبرَ محرّرٍ ظاهرٍ ثمّ يغلق التبويبَ **النشط**:
   // لو لم يكونا واحدًا لقارنّا ملفَّين مختلفَين وأبلغنا نتيجةً لا تخصّ المنتَج.
-  const tabIsActive = await activateSadTab(cdp);
+  const tabIsActive = await activateFixtureTab(cdp);
   if (!tabIsActive) return { present: true, activated: false };
   await sleep(600);
   const M = `(() => {
@@ -832,7 +812,7 @@ export async function restoredHorizontalPositionRtl(cdp) {
   await sleep(5000);
   // ‏`activateTab` **تُعيد `false` ولا ترمي**، فـ`try/catch` هنا معالجةٌ ميّتة: لو لم يعد
   // التبويبُ لقِسنا محرّرًا آخرَ وأبلغنا فشلًا لا يخصّ المنتَج. نقرأ القيمةَ ونُبلِغ بها.
-  const tabIsBack = await activateSadTab(cdp);
+  const tabIsBack = await activateFixtureTab(cdp);
   await sleep(2500);
   const after = tabIsBack ? await cdp.evaluate(M) : null;
   // أعِدِ الشريطَ الجانبيَّ إلى ما كان عليه قبل المِجَسّ.
@@ -1035,10 +1015,10 @@ export async function releaseNotesRendering(cdp, port = 9222) {
     })()`));
   } finally { inner.close(); }
 
-  // أغلقْ محرّرَ الملاحظات وأعِدْ عيّنةَ ص نشطةً: ما بعده يرث ما يجد.
+  // أغلقْ محرّرَ الملاحظات وأعِدْ العيّنةَ نشطةً: ما بعده يرث ما يجد.
   await key(cdp, 87, "KeyW", MOD.CTRL);
   await sleep(1500);
-  await activateSadTab(cdp);
+  await activateFixtureTab(cdp);
   await sleep(600);
   return { present: true, opened: true, ...out };
 }
@@ -1197,8 +1177,8 @@ export async function arabicInkMetrics(cdp) {
       };
     };
     // عيّنات من نصوص المشروع الحقيقيّة: مُشكَّلة بكثافة (شدّة+كسرة+فتحة) مقابل مجرّدة مقابل لاتينيّة.
-    const tashkeel = ink('نِبراس مُرقَّعٌ الافتتاحيّة لِلمِحرابِ');
-    const plain    = ink('نبراس مرقع الافتتاحية للمحراب');
+    const tashkeel = ink('مِصباحٌ مُرقَّعٌ الافتتاحيّة لِلمِحرابِ');
+    const plain    = ink('مصباح مرقع الافتتاحية للمحراب');
     const latin    = ink('Editing evolved Mihrab gjpqy');
     return {
       present: true, fontSizePx: size, lineHeightPx: +lh.toFixed(2),
@@ -1455,8 +1435,8 @@ export async function editorInkMetrics(cdp) {
     // الطرفان الموثَّقان في الاشتقاق: الألفُ بهمزةٍ فوق (أعلى حبرٍ عربيّ) وتنوينُ الكسر
     // (أدناه). العيّنةُ السابقة لم تحوِ أيًّا منهما، فكانت تقيس حالةً أرخى من الحدّيّة.
     const extremes = ink('أٌإٍآً');
-    const tashkeel = ink('نِبراس مُرقَّعٌ الافتتاحيّة لِلمِحرابِ');
-    const plain = ink('نبراس مرقع الافتتاحية للمحراب');
+    const tashkeel = ink('مِصباحٌ مُرقَّعٌ الافتتاحيّة لِلمِحرابِ');
+    const plain = ink('مصباح مرقع الافتتاحية للمحراب');
     const latin = ink('Editing evolved Mihrab gjpqy');
     const w = (s) => +ctx.measureText(s).width.toFixed(3);
     const widths = { M: w('M'), ا: w('ا'), م: w('م'), ص: w('ص') };
@@ -1733,11 +1713,11 @@ export async function bidiAudit(cdp) {
 }
 
 /**
- * ‏[AR-04] إبراز يونيكود: يجب ألّا يُبرَز حرفٌ واحد في ملفّ ص — **ولو كانت المساحة غير موثوقة**.
+ * ‏[AR-04] إبراز يونيكود: يجب ألّا يُبرَز حرفٌ واحد في نصٍّ عربيّ — **ولو كانت المساحة غير موثوقة**.
  *
  * الخلفيّة المقيسة: `editor.unicodeHighlight.nonBasicASCII` افتراضُه `inUntrustedWorkspace`
- * ويُبرِز كلّ محرف خارج ‎U+0020–U+007E‎، و‎62%‎ من محارف ملفّ ص الواقعيّ كذلك. الإعفاء
- * مقصورٌ على `[sad]` في mihrab-shell، فهذا المِجَسّ يقيس **الأثر** لا الإعلان: عدد عُقَد
+ * ويُبرِز كلّ محرف خارج ‎U+0020–U+007E‎، وأكثرُ محارف النصّ العربيّ كذلك. الإعفاء
+ * مقصورٌ على نطاقات النصّ العربيّ (`[plaintext]` وأخواتها) في mihrab-shell، فهذا المِجَسّ يقيس **الأثر** لا الإعلان: عدد عُقَد
  * ‏`.unicode-highlight` في المحرّر النشط (الصنف من unicodeHighlighter.ts:561).
  *
  * يعيد كذلك حالة الثقة، فقياسٌ في مساحةٍ موثوقة لا يُثبت شيئًا (الإبراز مُعطَّل فيها أصلًا).
@@ -1868,8 +1848,7 @@ export async function bidiPanels(cdp) {
       // ودجاتٌ عائمة **داخل حاوية المحرّر LTR**: نصُّها واجهةٌ مترجَمة لا كود.
       + " .editor-widget.find-widget, .suggest-widget, .action-widget, .zone-widget,"
       // **عدساتُ الكود [LN-01] — خامسُ أفراد عائلة «القاعدة 30»، ولم يُفتَح قطّ.**
-      // محرابٌ يصيّر عدستَين عربيّتين من صنعه («شغّل» و«ابنِ» فوق دالّة البداية في كلّ
-      // ملفّ ص)، وامتدادُ merge-conflict المحزوم يضيف عدساتِه العربيّة فوق كتلة التعارض.
+      // امتدادُ merge-conflict المحزوم يضيف عدساتِه العربيّة فوق كتلة التعارض.
       // والعائلةُ نفسُها قِيست فوُجدت مكسورةً في أربعة أسطحٍ متتالية. والعدسةُ لم تكن في
       // النطاق **أصلًا**: لا تُبلِّغ نظيفًا ولا تُبلِّغ شيئًا — وهي حالٌ أشدُّ من «نطاقٍ بلا
       // محتوًى». وهي ودجةُ محتوًى (‏allowEditorOverflow: false) تسكن ‎.contentWidgets‎
@@ -2213,7 +2192,7 @@ export async function resetWorkbench(cdp) {
  * ‏`editor.action.showHover` = ‏Ctrl+K ثمّ Ctrl+I، لا اسمَ أمرٍ مترجَمًا في الطريق.
  * ويشترط مؤشّرًا على رمزٍ له معلومة: ننقل المؤشّرَ إلى أوّل كلمة (‏Home ثمّ →).
  *
- * ⚠️ **ولم ينجح هذا أيضًا — والنتيجةُ مُبلَّغة لا مكتومة.** قِسنا الوترَ على عيّنة ص وعلى
+ * ⚠️ **ولم ينجح هذا أيضًا — والنتيجةُ مُبلَّغة لا مكتومة.** قِسنا الوترَ على العيّنة وعلى
  * ‏`package.json` (لـJSON مزوّدُ تحويمٍ مدمج) فبقيت `.monaco-hover` **قائمةً بحجم ‎0×0‎** في
  * الحالتين — أي أنّ العنصر في الصفحة دائمًا وفارغٌ دائمًا، وهو ما جعل إدراجَه في نطاق
  * الماسح يُسهم بصفرٍ بينما يُقرأ «نظيفًا». فالسطحُ **غيرُ مقيسٍ بثلاث طرقٍ مجرَّبة**
@@ -2221,7 +2200,7 @@ export async function resetWorkbench(cdp) {
  */
 export async function editorHover(cdp) {
   await bringToFront(cdp);
-  await activateSadTab(cdp); await sleep(300);
+  await activateFixtureTab(cdp); await sleep(300);
   if (!(await focusEditor(cdp))) return false;
   await key(cdp, 36, "Home", 0); await sleep(120);
   await key(cdp, 39, "ArrowRight", 0); await sleep(120);
