@@ -2,7 +2,7 @@
 description: بطاقةٌ مرجعيّة عربيّة لاختصارات محراب، قابلةٌ للترشيح والطباعة.
 source_path: docs/reference/default-keybindings.md
 translated_at: 2026-08-01
-source_sha: "adee58228128192f3c394cfff7f0c4ca07bc7093"
+source_sha: "fcbb32c11d7ec2f4392fe3617b6bfbb312510c8c"
 ---
 
 هذه بطاقةٌ مرجعيّة كاملة لاختصارات محراب. رشِّحها بالأمر أو بالمفتاح، أو اضغط **التقط اختصارًا** ثمّ اضغط ما تريد معرفتَه على لوحتك.

@@ -1,8 +1,8 @@
 ---
 description: نواحي شاشة محراب الخمس، وماذا يفعل كلٌّ منها.
-source_path: docs/getstarted/overview.md
+source_path: docs/editing/getting-started/userinterface.md
 translated_at: 2026-08-01
-source_sha: "59015cb5edb51b00250d10db49ef14ac6ce7beb2"
+source_sha: "d541b5c82d5ce86b4f9477c1c22cb4ff0540c13a"
 ---
 
 شاشةُ محراب خمسُ نواحٍ. وترتيبُها من اليمين إلى اليسار، لأنّ الواجهة عربيّةُ الاتّجاه كليًّا لا مقلوبةً جزئيًّا.

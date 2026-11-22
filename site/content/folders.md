@@ -2,7 +2,7 @@
 description: المجلّدات ومساحات العمل متعدّدة الجذور، وأين تعيش الإعدادات.
 source_path: docs/editing/workspaces/workspaces.md
 translated_at: 2026-08-01
-source_sha: "f9d0e22b4962a9ee8fc954a25a5c6d8bd32811cc"
+source_sha: "8dfa3fd7ea6207ed9062d5606d7846e1901d02d3"
 ---
 
 > **في [`app.mihrab.dev`](https://app.mihrab.dev):** فتحُ المجلّدات يعمل على Chrome وEdge وحدَهما (واجهة File System Access)، ويُقرأ المجلّدُ من جهازك مباشرةً بلا رفع. وفي فايرفوكس وسفاري: افتح ملفّاتٍ مفردةً أو اسحبها إلى النافذة.

@@ -2,7 +2,7 @@
 description: الطرفيّة المدمجة — التقسيم والتهيئة والاتّجاه.
 source_path: docs/terminal/basics.md
 translated_at: 2026-08-01
-source_sha: "0e811f74146846515f55cee3ca72068e2be0396c"
+source_sha: "7f74349bceb0d87e7df2ceb4493d48bf2e71c85c"
 ---
 
 > **هذه الصفحةُ عن نسخة المكتب.** في [`app.mihrab.dev`](https://app.mihrab.dev) لا طرفيّةَ ولا تشغيلَ ولا تنقيح — لا جهازَ خلف الصفحة يُنفّذ.

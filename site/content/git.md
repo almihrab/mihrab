@@ -2,7 +2,7 @@
 description: مصادر التحكّم داخل محراب — المرحلة والالتزام والدمج.
 source_path: docs/sourcecontrol/overview.md
 translated_at: 2026-08-01
-source_sha: "4023023d45f8689cae87f2000f16c25b38cc50ca"
+source_sha: "6c96cbc51cfe0f5b34439448c867a38a0c672eab"
 ---
 
 > **هذه الصفحةُ عن نسخة المكتب.** لا Git في [`app.mihrab.dev`](https://app.mihrab.dev): لا ثنائيَّ `git` ولا عمليّةَ تشغّله — مضيفُ الامتدادات هناك عاملُ ويب.

@@ -2,7 +2,7 @@
 description: تثبيت الامتدادات وإدارتها، وما يأتي مدمجًا في محراب.
 source_path: docs/configure/extensions/extension-marketplace.md
 translated_at: 2026-08-01
-source_sha: "4ae160de0ac27f6a6f02214ceef0a06ec68189f6"
+source_sha: "cd60f2802148b8360a4568758bc4504953f0acad"
 ---
 
 > **في [`app.mihrab.dev`](https://app.mihrab.dev):** امتداداتُ Open VSX تعمل، أمّا ما يحتاج أداةً أصليّةً فلا. **لغةُ ص** يبقى تلوينُها ويسقط إكمالُها وتشخيصُها وتشغيلُها (‏`sad-lsp` و`sad-run` برنامجان أصليّان) — كحالِ كلِّ لغةٍ عربيّةٍ أخرى. و**نِبراس** لا يعمل هناك.

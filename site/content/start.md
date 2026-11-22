@@ -1,8 +1,8 @@
 ---
 description: أوّلُ ملفٍّ وأوّلُ تشغيل في محراب — في دقيقة.
-source_path: docs/getstarted/getting-started.md
+source_path: docs/editing/getting-started/editor-tutorial.md
 translated_at: 2026-08-01
-source_sha: "66b0bc4c4a3859923585187ff6f26b5d2fa0b58b"
+source_sha: "1c797c7858f6c5df2e68c4bb5a7cff56b471d1ba"
 ---
 
 > **هذه الصفحةُ عن نسخة المكتب.** في [`app.mihrab.dev`](https://app.mihrab.dev) لا طرفيّةَ ولا تشغيلَ ولا تنقيح — لا جهازَ خلف الصفحة يُنفّذ.

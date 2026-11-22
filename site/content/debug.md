@@ -2,7 +2,7 @@
 description: نقاط التوقّف وتهيئة التشغيل ومراقبة القيم.
 source_path: docs/debugtest/debugging.md
 translated_at: 2026-08-01
-source_sha: "9ae6e89958447c9980c2b3431536f64cdf274d28"
+source_sha: "c6c191ec9ed2a4c5240db4d909c9682ce35e71b2"
 ---
 
 > **هذه الصفحةُ عن نسخة المكتب.** في [`app.mihrab.dev`](https://app.mihrab.dev) لا طرفيّةَ ولا تشغيلَ ولا تنقيح — لا جهازَ خلف الصفحة يُنفّذ.

@@ -2,7 +2,7 @@
 description: التحديد المتعدّد وتحريك الأسطر والطيّ والتنسيق.
 source_path: docs/editing/codebasics.md
 translated_at: 2026-08-01
-source_sha: "30ea77d8c8fa474c6eb22b3bc3d3e2fd8d5457fe"
+source_sha: "45f750191dc0d4821aa6e10feea58eba72a0ea1e"
 ---
 
 ## التحديد المتعدّد

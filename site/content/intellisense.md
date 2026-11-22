@@ -2,7 +2,7 @@
 description: الإكمال التلقائيّ والتلميحات والانتقال إلى التعريف.
 source_path: docs/editing/intellisense.md
 translated_at: 2026-08-01
-source_sha: "be93f91cfa42afd21d83fd559c9b6058dfab5599"
+source_sha: "9205d8bdb257779d1732fc6e78745b19c6643dd1"
 ---
 
 > **في [`app.mihrab.dev`](https://app.mihrab.dev):** الإكمالُ المبنيُّ على خادمِ لغةٍ أصليٍّ لا يعمل — يبقى إكمالُ النصّ والمقتطفات.
