@@ -830,6 +830,13 @@ def _nls_js_array(js):
 @check("محرابُ المتصفّح مُعرَّبٌ ومعكوسُ الاتّجاه [WEB-01]")
 def _web_arabized():
     web = _web_dir()
+    # ‏VSCodium نفسُه يُطفئ REH-web على ويندوز غيرِ x64 (‏`build.sh` المنبع:
+    # ‏`if [[ "${VSCODE_ARCH}" != "x64" ]]; then … SHOULD_BUILD_REH_WEB="no"`) — فغيابُه هناك
+    # ليس بناءً ناقصًا بل قرارُ المنبع، ويُعلَن تخطّيًا لا يُسكَت. قِيس على ويندوز arm64
+    # في `61e877a`: «لا بناءَ ويب» والبناءُ سليم. وعلى كلّ منصّةٍ أخرى يبقى الغيابُ فشلًا.
+    _dist = os.path.basename(os.path.normpath(DIST))
+    if web is None and _dist.startswith("VSCode-win32-") and _dist != "VSCode-win32-x64":
+        raise _Skip(f"{_dist}: VSCodium لا يبني REH-web على ويندوز غيرِ x64 — يُقاس على x64")
     assert web is not None, (
         "لا مجلّدَ vscode-reh-web-* في .upstream — البناءُ يُخرجه في كلّ مرّة، فغيابُه "
         "يعني بناءً ناقصًا لا ميزةً غائبة")
