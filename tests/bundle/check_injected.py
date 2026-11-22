@@ -597,6 +597,38 @@ def _icons_shipped():
     assert default in ids, "سمة الأيقونات الافتراضيّة لا تطابق أيّ id في حزمة المخرَج"
 
 
+@check("لا عنوانَ قياسٍ لمايكروسوفت في الحزمة [UNDO-01]")
+def _no_ms_telemetry_endpoint_shipped():
+    """‏`undo_telemetry.sh` (VSCodium) يستبدل `//*.data.microsoft.com` بـ`//0.0.0.0` في شجرة
+    المصدر قبل الترجمة — **ولا شيءَ بعده يقيس أنّه فعل.** على ويندوز arm64 المتقاطع جلب
+    ‏`npm_config_arch=arm64` نسخةَ `rg` لا تعمل على المضيف، فخرجت `Exec format error` داخل
+    أنبوبٍ بلا `pipefail` ⇒ `undo_telemetry: 0s` والخطوةُ خضراء: صفرُ ملفٍّ مُستبدَل مقابل
+    ‏472 على x64 من الشجرة نفسِها (`ea497f3`، الوظيفتان 137237604259 و137237604282).
+
+    فيُقاس **ما شُحن** على كلّ منصّة: لا عنوانَ قياس، وشاهدُ تفعيلٍ موجبٌ أنّ الاستبدالَ
+    جرى فعلًا (‏`//0.0.0.0/` حاضر) — وإلّا لكان غيابُ العنوان قد يعني فقط أنّا لم نقرأ شيئًا.
+    """
+    import re as _re
+    bad = _re.compile(rb"//[a-z0-9.-]+\.data\.microsoft\.com")
+    hits, seen, witness = [], 0, 0
+    for base, dirs, files in os.walk(APP):
+        for fn in files:
+            if not fn.endswith((".js", ".mjs", ".cjs", ".json", ".map", ".html")):
+                continue
+            with open(os.path.join(base, fn), "rb") as fh:
+                data = fh.read()
+            seen += 1
+            if bad.search(data):
+                hits.append(os.path.relpath(os.path.join(base, fn), APP).replace(os.sep, "/"))
+            witness += data.count(b"//0.0.0.0/")
+    assert seen > 100, f"قُرئ {seen} ملفًّا فقط من {APP} — لا حزمةَ تُقاس [UNDO-01]"
+    assert not hits, (
+        f"{len(hits)} ملفًّا في الحزمة ما زال يحمل عنوانَ قياسِ مايكروسوفت — `undo_telemetry` "
+        "لم يستبدل (هل عمل `rg` على المضيف؟):\n       " + "\n       ".join(hits[:8]))
+    assert witness > 0, (
+        "لا `//0.0.0.0/` في الحزمة — الاستبدالُ لم يجرِ أصلًا، وغيابُ العنوان لا يُثبت شيئًا [UNDO-01]")
+
+
 @check("أدواتُ ص: ما جُلب من الإصدار الرسميّ وصل الحزمةَ ببصمته")
 def _sad_tools_shipped():
     """البوّابةُ نفسُها التي يشغّلها CI، كي لا يكون النشرُ أوّلَ من يكتشف. تنفيذُها

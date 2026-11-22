@@ -99,6 +99,8 @@ BUILD_PATCHERS = [
     # `product.json` ولا حزمةِ JS. يرقّع `build_cli.sh` (سكربتَ VSCodium) قبل
     # `cargo build` — لا مصدرَ منبعٍ نظيفًا له في L1 [BR-05].
     "patch_cli_endpoints.py",
+    # ‏`undo_telemetry.sh` (سكربتُ VSCodium) يبتلع فشلَ `rg` في البناء المتقاطع [UNDO-01].
+    "patch_undo_telemetry.py",
 ]
 
 # رُقَعُ **المنبع** (diff موحَّد لا مرقِّع بايثون): تعديلاتٌ مصوغةٌ للرفع إلى microsoft/vscode

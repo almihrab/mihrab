@@ -737,6 +737,15 @@ if [[ "${SKIP_SOURCE:-no}" == "yes" ]]; then BUILD_ARGS+=("-s"); fi
   echo "   شغّله وحدَه لترى سببَه:  \"$PY_BIN\" \"$ROOT/build/patch_dev_build_env.py\" \"$UP/dev/build.sh\"" >&2
   exit 1; }
 
+# ── [UNDO-01] `undo_telemetry.sh` يبتلع فشلَ `rg` في البناء المتقاطع ──────────────
+# ‏`npm_config_arch` أعلاه يجلب `rg` بمعماريّة الهدف، فلا يعمل على عدّاءٍ x64 يبني arm64،
+# والأنبوبُ بلا pipefail ⇒ صفرُ استبدال وخطوةٌ خضراء وعناوينُ قياسِ مايكروسوفت في الحزمة.
+# فشلٌ قاتل: حارسُ L2 [UNDO-01] يُسقِط الحزمةَ بعد ساعة؛ هنا يُمسَك في ثانية.
+"$PY_BIN" "$ROOT/build/patch_undo_telemetry.py" "$UP/undo_telemetry.sh" || {
+  echo "❌ فشل ترقيعُ undo_telemetry.sh — [UNDO-01]: البناءُ المتقاطع يشحن عناوينَ قياس." >&2
+  echo "   شغّله وحدَه لترى سببَه:  \"$PY_BIN\" \"$ROOT/build/patch_undo_telemetry.py\" \"$UP/undo_telemetry.sh\"" >&2
+  exit 1; }
+
 # ── (و-4ب) وجهةُ خادمِ النفق: **مُجمَّدةٌ حتّى يُرفَع الأثر** [BR-05] ──
 # ‏bin/mihrab-tunnel.exe يحتاج وجهتَين مخبوزتَين وقتَ الترجمة (option_env!):
 #   • VSCODE_CLI_UPDATE_ENDPOINT   ⇒ {قاعدة}/{جودة}/{نظام}/{معماريّة}/<لاحقة>
