@@ -6680,17 +6680,16 @@ def _site_output_has_no_inline_script():
     # ‏`site/public/` متجاهَلٌ في git، فهو غائبٌ في CI دائمًا. والتخطّي عند غيابه
     # جعل الفحصَ يقيس صفرًا في المكان الوحيد الذي يحرس فيه — وشاهدُ التفعيل
     # أحمرَ `main` على ذلك منذ 2026-09-21. فيُبنى المخرَجُ هنا كما في [SITE-01].
-    tmp = None
-    out = os.path.join(ROOT, "site", "public")
-    if not os.path.isdir(out):
-        tmp = tempfile.TemporaryDirectory()
-        out = tmp.name
-        env = dict(os.environ, MIHRAB_SITE_OUT=out, PYTHONIOENCODING="utf-8")
-        r = subprocess.run([sys.executable, os.path.join(ROOT, "site", "build.py")],
-                           cwd=ROOT, env=env, capture_output=True, text=True,
-                           errors="replace")
-        assert r.returncode == 0, (
-            "‏site/build.py يخرج بـ" + str(r.returncode) + " — لا مخرَجَ يُفحَص [WEB-10]")
+    # ‏ويُبنى دائمًا لا حين يغيب: `site/public/` الباقي على جهاز المطوّر قد يكون أقدمَ من
+    # المصدر، فيُقاس ما لم يعد يُنشَر.
+    tmp = tempfile.TemporaryDirectory()
+    out = tmp.name
+    env = dict(os.environ, MIHRAB_SITE_OUT=out, PYTHONIOENCODING="utf-8")
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "site", "build.py")],
+                       cwd=ROOT, env=env, capture_output=True, text=True,
+                       errors="replace")
+    assert r.returncode == 0, (
+        "‏site/build.py يخرج بـ" + str(r.returncode) + " — لا مخرَجَ يُفحَص [WEB-10]")
 
     OPEN = _re.compile(r"<script\b([^>]*)>", _re.IGNORECASE)
     bad, seen = [], 0
@@ -6710,8 +6709,7 @@ def _site_output_has_no_inline_script():
                     continue
                 line = text[:m.start()].count("\n") + 1
                 bad.append(f"{rel}:{line}")
-    if tmp is not None:
-        tmp.cleanup()
+    tmp.cleanup()
     assert seen >= 5, (
         f"لم يُرَ إلّا {seen} وسمَ `script` في المخرَج — إمّا لم يُبنَ الموقعُ أو كُسِر "
         "النمط. لا يُترَك أخضرَ فارغًا [WEB-10]")

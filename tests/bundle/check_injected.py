@@ -367,12 +367,21 @@ def _exe():
     assert os.path.isfile(EXE), f"لا exe: {EXE}"
 
 
+def _dist_arch():
+    """معماريّةُ الحزمة المقيسة من اسمها (`VSCode-<نظام>-<معماريّة>`)، وx64 إن لم تُقرأ."""
+    m = re.match(r"VSCode-[a-z0-9]+-([a-z0-9]+)$", os.path.basename(os.path.normpath(DIST)))
+    return m.group(1) if m else "x64"
+
+
 # الثنائيّاتُ التي تحمل اسمَ منتَجِنا: يجب أن تحمل ناشرَنا معه.
 _VERSIONED_BINARIES = [
     "Mihrab.exe",
     os.path.join("bin", "mihrab-tunnel.exe"),
+    # ‏`ripgrep-universal` يشحن ثنائيَّ **معماريّةِ الحزمة** وحدَه (‏`win32-arm64/rg.exe` في
+    # حزمة arm64 — قِيس في سجلّ `ea497f3`). وكان المسارُ `win32-x64` حرفيًّا، والحلقةُ
+    # تتخطّى الغائبَ بصمت، فلم يُقَس `rg.exe` على arm64 قطّ.
     os.path.join("resources", "app", "node_modules", "@vscode", "ripgrep-universal",
-                 "bin", "win32-x64", "rg.exe"),
+                 "bin", "win32-" + _dist_arch(), "rg.exe"),
 ]
 _EXPECTED_COMPANY = "Mihrab"
 
@@ -824,8 +833,14 @@ _WEB_JS_PREFIX = "globalThis._VSCODE_NLS_MESSAGES="
 
 
 def _web_dir():
-    """مجلّدُ `vscode-reh-web-*` الوحيد، أو None إن لم يُبنَ."""
-    hits = sorted(glob.glob(os.path.join(ROOT, ".upstream", "vscode-reh-web-*")))
+    """مجلّدُ ويبِ **هذه الحزمة** (`vscode-reh-web-<نظام>-<معماريّة>`)، أو None إن لم يُبنَ.
+
+    كان أيَّ `vscode-reh-web-*`: فمجلّدٌ باقٍ من بناءٍ سابقٍ بمعماريّةٍ أخرى يُقاس بدلَ
+    المبنيّ الآن، أو يُخفي غيابَه. فيُشتقّ الاسمُ من الحزمة، وإن لم تُقرأ عاد إلى النمط.
+    """
+    m = re.match(r"VSCode-([a-z0-9]+)-([a-z0-9]+)$", os.path.basename(os.path.normpath(DIST)))
+    pat = f"vscode-reh-web-{m.group(1)}-{m.group(2)}" if m else "vscode-reh-web-*"
+    hits = sorted(glob.glob(os.path.join(ROOT, ".upstream", pat)))
     hits = [h for h in hits if os.path.isdir(h)]
     if len(hits) > 1:
         raise AssertionError(f"وُجد {len(hits)} مجلّدَ ويبٍ — لا يُقاس ما لم يُحدَّد أيُّه المشحون")
