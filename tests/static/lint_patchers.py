@@ -6719,6 +6719,36 @@ def _site_output_has_no_inline_script():
         + "\n       أخرِجه إلى `site/assets/<اسم>.js` وصِلْه بـ`src` [WEB-10 · WEB-09].")
 
 
+@check("مرقِّعُ undo_telemetry يحفظ بتَّ التنفيذ [UNDO-01]")
+def _undo_telemetry_patcher_keeps_exec_bit():
+    """‏`prepare_vscode.sh` **يُنفِّذ** `../undo_telemetry.sh` مباشرةً لا يُلقِّمه (`.`) — فهو
+    وحدَه بين السكربتات التي نرقّعها يحتاج بتَّ التنفيذ. والمرقِّعُ يكتب ملفًّا مؤقّتًا
+    ثمّ `os.replace`، فيولد الجديدُ بأذونات umask (‏644) ⇒ `Permission denied` على macOS
+    arm64 في `c1183ec`، وويندوز لا يرى البتَّ أصلًا فمرّ أخضر. يُقاس هنا على لينكس (CI).
+    """
+    import importlib.util as _ilu
+    import stat as _st
+    import tempfile as _tf
+    spec = _ilu.spec_from_file_location(
+        "_pu", os.path.join(ROOT, "build", "patch_undo_telemetry.py"))
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    with _tf.TemporaryDirectory() as d:
+        p = os.path.join(d, "undo_telemetry.sh")
+        with open(p, "w", encoding="utf-8", newline="") as fh:
+            fh.write('#!/usr/bin/env bash\nset -ex\n'
+                     'if [[ "${OS_NAME}" == "linux" ]]; then\n  :\nfi\n')
+        os.chmod(p, 0o755)
+        before = _st.S_IMODE(os.stat(p).st_mode)
+        assert mod.main(p) == 0, "المرقِّعُ فشل على مِرساته [UNDO-01]"
+        with open(p, encoding="utf-8") as fh:
+            assert "[UNDO-01]" in fh.read(), "المرقِّعُ لم يرقّع — الفحصُ يقيس صفرًا"
+        after = _st.S_IMODE(os.stat(p).st_mode)
+        assert after == before, (
+            f"أذوناتُ undo_telemetry.sh صارت {after:o} وكانت {before:o} — "
+            "`prepare_vscode.sh` يُنفّذه فيسقط بـPermission denied [UNDO-01]")
+
+
 @check("كلُّ منصّةٍ تُعلِنُها الصفحةُ تُبنى وتُغلَّف [PKG-01]")
 def _every_advertised_platform_is_actually_built():
     """صفحةُ التنزيل تُعلِن ثمانيَ منصّاتٍ ولا يُبنى منها إلّا ثلاث.

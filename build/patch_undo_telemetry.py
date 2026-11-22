@@ -31,6 +31,7 @@
 import io
 import os
 import re
+import shutil
 import sys
 
 for _s in (sys.stdout, sys.stderr):
@@ -75,6 +76,9 @@ def main(path):
     out = ANCHOR.sub(lambda m: nl.join(lines), src, count=1)
     tmp = path + ".mihrab-tmp"
     io.open(tmp, "w", encoding="utf-8", newline="").write(out)
+    # ‏`prepare_vscode.sh` **يُنفِّذ** هذا السكربتَ لا يُلقِّمه، والمؤقّتُ يولد بأذونات umask
+    # ‏(644) ⇒ `Permission denied` على macOS ولينكس (‏`c1183ec`). فتُنسَخ أذوناتُ الأصل.
+    shutil.copymode(path, tmp)
     os.replace(tmp, path)
     print("  ✅ undo_telemetry.sh يسقط إلى grep حين لا يعمل rg [UNDO-01]")
     return 0
