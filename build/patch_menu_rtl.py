@@ -33,16 +33,17 @@ EDITS = [
     (
         "mihrab-rtl-submenu",
         (
-            "\t\t\tconst { top, left } = this.calculateSubmenuMenuLayout("
+            # المسافة البادئة تبويبتان منذ 1.143 (كانت ثلاثًا حتّى 1.126: الكتلة فُكّ تداخُلها).
+            "\t\tconst { top, left } = this.calculateSubmenuMenuLayout("
             "new Dimension(window.innerWidth, window.innerHeight), Dimension.lift(viewBox), "
             "entryBoxUpdated, this.expandDirection);"
         ),
         (
-            "\t\t\t// mihrab-rtl-submenu: في RTL اجعل القائمة الفرعيّة تتعاقب يسارًا (متّسقًا مع اتّجاه القراءة).\n"
-            "\t\t\tconst mihrabExpand = getWindow(this.element).getComputedStyle(this.element).direction === 'rtl'\n"
-            "\t\t\t\t? { horizontal: HorizontalDirection.Left, vertical: this.expandDirection.vertical }\n"
-            "\t\t\t\t: this.expandDirection;\n"
-            "\t\t\tconst { top, left } = this.calculateSubmenuMenuLayout("
+            "\t\t// mihrab-rtl-submenu: في RTL اجعل القائمة الفرعيّة تتعاقب يسارًا (متّسقًا مع اتّجاه القراءة).\n"
+            "\t\tconst mihrabExpand = getWindow(this.element).getComputedStyle(this.element).direction === 'rtl'\n"
+            "\t\t\t? { horizontal: HorizontalDirection.Left, vertical: this.expandDirection.vertical }\n"
+            "\t\t\t: this.expandDirection;\n"
+            "\t\tconst { top, left } = this.calculateSubmenuMenuLayout("
             "new Dimension(window.innerWidth, window.innerHeight), Dimension.lift(viewBox), "
             "entryBoxUpdated, mihrabExpand);"
         ),

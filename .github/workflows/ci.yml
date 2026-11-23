@@ -27,7 +27,7 @@ jobs:
         run: |
           for f in README.md LICENSE upstream.json build/README.md \
                    build/prepare.sh build/prepare.ps1 build/build.sh \
-                   build/patch_node_gyp_spectre.py build/patch_npmrc_tolerance.py \
+                   build/patch_node_gyp_spectre.py \
                    patches/README.md product-overrides/README.md \
                    docs/architecture/three-layer-model.md docs/milestones.md; do
             test -f "$f" || { echo "❌ مفقود: $f"; exit 1; }
@@ -37,7 +37,7 @@ jobs:
       - name: فحص صياغة سكربت البناء (bash) + سكربتات الترقيع (python)
         run: |
           bash -n build/build.sh && echo "✅ build.sh سليم نحويًّا."
-          python3 -m py_compile build/patch_node_gyp_spectre.py build/patch_npmrc_tolerance.py \
+          python3 -m py_compile build/patch_node_gyp_spectre.py \
             && echo "✅ سكربتات الترقيع سليمة."
 
       - name: فحص صياغة سكربت التحضير (bash)

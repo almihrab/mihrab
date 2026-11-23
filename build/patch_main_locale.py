@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 """رُقعة نواة محراب: لغة الواجهة الافتراضيّة من product.defaultLocale.
 
-src/main.ts يحلّ لغة الواجهة: --locale ← argv.json.locale ← لغة النظام ← en.
+src/mainImpl.ts (كان src/main.ts حتّى 1.126؛ نُقل حرفيًّا في 1.143) يحلّ لغة الواجهة: --locale ← argv.json.locale ← لغة النظام ← en.
 لجعل محراب عربيّ الواجهة افتراضيًّا (دون أن يحدّد المستخدم شيئًا)، نجعل
 getUserDefinedLocale يرجع product.defaultLocale عند غياب تحديد المستخدم.
 (الطبقة الثالثة — أوّل رُقعة نواة في محراب؛ لا سبيل لضبط اللغة الافتراضيّة من
 الطبقتين 1/2 لأنّ الحلّ يجري في النواة قبل تحميل الإضافات.)
 
 idempotent: يتحقّق من الوسم. متوافق مع Python 3.12 (open الصريح، لا newline=).
-الاستعمال: python patch_main_locale.py <مسار src/main.ts>
+الاستعمال: python patch_main_locale.py <مسار src/mainImpl.ts>
 """
 import os
 import sys
@@ -39,7 +39,7 @@ NEW = (
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("الاستعمال: python patch_main_locale.py <مسار src/main.ts>", file=sys.stderr)
+        print("الاستعمال: python patch_main_locale.py <مسار src/mainImpl.ts>", file=sys.stderr)
         return 2
     path = sys.argv[1]
     try:
@@ -52,7 +52,7 @@ def main() -> int:
         print("مُرقَّع مسبقًا — تخطٍّ.")
         return 0
     if OLD not in text:
-        print("⚠️ لم يُعثر على سطر getUserDefinedLocale المتوقّع — ربّما تغيّر main.ts.", file=sys.stderr)
+        print("⚠️ لم يُعثر على سطر getUserDefinedLocale المتوقّع — ربّما تغيّر mainImpl.ts.", file=sys.stderr)
         return 1
     text = text.replace(OLD, NEW, 1)
     tmp = path + ".tmp"
@@ -67,7 +67,7 @@ def main() -> int:
             pass
         print(f"⚠️ تعذّر كتابة {path}: {e}", file=sys.stderr)
         return 1
-    print("✅ رُقِّع main.ts (لغة افتراضيّة من product.defaultLocale).")
+    print("✅ رُقِّع mainImpl.ts (لغة افتراضيّة من product.defaultLocale).")
     return 0
 
 

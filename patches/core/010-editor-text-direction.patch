@@ -164,7 +164,7 @@ index 98694f0d9f6..5afa3950c1a 100644
  	}
  
 diff --git a/src/vs/editor/browser/gpu/viewGpuContext.ts b/src/vs/editor/browser/gpu/viewGpuContext.ts
-index 9d520abdb3b..096c75cf69d 100644
+index 2fd57051960..eb34ffc7abf 100644
 --- a/src/vs/editor/browser/gpu/viewGpuContext.ts
 +++ b/src/vs/editor/browser/gpu/viewGpuContext.ts
 @@ -10,6 +10,7 @@ import { Color } from '../../../base/common/color.js';
@@ -174,8 +174,8 @@ index 9d520abdb3b..096c75cf69d 100644
 +import { TextDirection } from '../../common/model.js';
  import type { ViewLineOptions } from '../viewParts/viewLines/viewLineOptions.js';
  import { observableValue, runOnChange, type IObservable } from '../../../base/common/observable.js';
- import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
-@@ -78,6 +79,8 @@ export class ViewGpuContext extends Disposable {
+ import * as strings from '../../../base/common/strings.js';
+@@ -79,6 +80,8 @@ export class ViewGpuContext extends Disposable {
  	readonly devicePixelRatio: IObservable<number>;
  	readonly contentLeft: IObservable<number>;
  
@@ -184,7 +184,7 @@ index 9d520abdb3b..096c75cf69d 100644
  	constructor(
  		context: ViewContext,
  		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-@@ -87,6 +90,8 @@ export class ViewGpuContext extends Disposable {
+@@ -88,6 +91,8 @@ export class ViewGpuContext extends Disposable {
  	) {
  		super();
  
@@ -193,15 +193,15 @@ index 9d520abdb3b..096c75cf69d 100644
  		this.canvas = createFastDomNode(document.createElement('canvas'));
  		this.canvas.setClassName('editorCanvas');
  
-@@ -164,6 +169,7 @@ export class ViewGpuContext extends Disposable {
+@@ -165,6 +170,7 @@ export class ViewGpuContext extends Disposable {
  		// Check if the line has simple attributes that aren't supported
  		if (
  			data.containsRTL ||
 +			this._isRtlLine(lineNumber) ||
- 			data.maxColumn > this.maxGpuCols
+ 			data.maxColumn > this.maxGpuCols ||
+ 			requiresDomFullwidthCharacterRendering(options, data.content)
  		) {
- 			return false;
-@@ -200,6 +206,16 @@ export class ViewGpuContext extends Disposable {
+@@ -202,6 +208,16 @@ export class ViewGpuContext extends Disposable {
  		return true;
  	}
  
@@ -218,7 +218,7 @@ index 9d520abdb3b..096c75cf69d 100644
  	/**
  	 * Like {@link canRender} but returns detailed information about why the line cannot be rendered.
  	 */
-@@ -209,6 +225,9 @@ export class ViewGpuContext extends Disposable {
+@@ -211,6 +227,9 @@ export class ViewGpuContext extends Disposable {
  		if (data.containsRTL) {
  			reasons.push('containsRTL');
  		}
@@ -229,10 +229,10 @@ index 9d520abdb3b..096c75cf69d 100644
  			reasons.push('maxColumn > maxGpuCols');
  		}
 diff --git a/src/vs/editor/browser/view.ts b/src/vs/editor/browser/view.ts
-index 481d89ba..83ac7ae8 100644
+index 881e78b57eb..85e00374b73 100644
 --- a/src/vs/editor/browser/view.ts
 +++ b/src/vs/editor/browser/view.ts
-@@ -46,7 +46,6 @@ import { EditorOption } from '../common/config/editorOptions.js';
+@@ -47,7 +47,6 @@ import { EditorOption } from '../common/config/editorOptions.js';
  import { Position } from '../common/core/position.js';
  import { Range } from '../common/core/range.js';
  import { Selection } from '../common/core/selection.js';
@@ -240,7 +240,7 @@ index 481d89ba..83ac7ae8 100644
  import { GlyphMarginLane, IGlyphMarginLanesModel } from '../common/model.js';
  import { ViewEventHandler } from '../common/viewEventHandler.js';
  import * as viewEvents from '../common/viewEvents.js';
-@@ -670,11 +669,8 @@ export class View extends ViewEventHandler {
+@@ -672,11 +671,8 @@ export class View extends ViewEventHandler {
  		this._scrollbar.delegateScrollFromMouseWheelEvent(browserEvent);
  	}
  
@@ -272,10 +272,10 @@ index 7cd7ea0be4c..7e5ca4b395c 100644
  			this.contentLeft = newContentLeft;
  			didChange = true;
 diff --git a/src/vs/editor/browser/viewParts/contentWidgets/contentWidgets.ts b/src/vs/editor/browser/viewParts/contentWidgets/contentWidgets.ts
-index 1f43f7834f0..76661b9c772 100644
+index cb9fe65c5ac..d4bf9641c64 100644
 --- a/src/vs/editor/browser/viewParts/contentWidgets/contentWidgets.ts
 +++ b/src/vs/editor/browser/viewParts/contentWidgets/contentWidgets.ts
-@@ -199,7 +199,19 @@ class Widget {
+@@ -207,7 +207,19 @@ class Widget {
  
  	private readonly _fixedOverflowWidgets: boolean;
  	private _contentWidth: number;
@@ -295,7 +295,7 @@ index 1f43f7834f0..76661b9c772 100644
  
  	private _primaryAnchor: PositionPair = new PositionPair(null, null);
  	private _secondaryAnchor: PositionPair = new PositionPair(null, null);
-@@ -229,8 +241,9 @@ class Widget {
+@@ -237,8 +249,9 @@ class Widget {
  		this.useDisplayNone = this._actual.useDisplayNone || false;
  
  		this._fixedOverflowWidgets = options.get(EditorOption.fixedOverflowWidgets);
@@ -306,7 +306,7 @@ index 1f43f7834f0..76661b9c772 100644
  
  		this._affinity = null;
  		this._preference = [];
-@@ -249,9 +262,10 @@ class Widget {
+@@ -257,9 +270,10 @@ class Widget {
  
  	public onConfigurationChanged(e: viewEvents.ViewConfigurationChangedEvent): void {
  		const options = this._context.configuration.options;
@@ -319,7 +319,7 @@ index 1f43f7834f0..76661b9c772 100644
  			this._contentWidth = layoutInfo.contentWidth;
  			this._maxWidth = this._getMaxWidth();
  		}
-@@ -322,8 +336,9 @@ class Widget {
+@@ -330,8 +344,9 @@ class Widget {
  		const belowTop = underLineTop;
  		const fitsBelow = (heightAvailableUnderLine >= height);
  
@@ -331,7 +331,7 @@ index 1f43f7834f0..76661b9c772 100644
  		if (left + width > ctx.scrollLeft + ctx.viewportWidth) {
  			left = ctx.scrollLeft + ctx.viewportWidth - width;
  		}
-@@ -373,7 +388,9 @@ class Widget {
+@@ -381,7 +396,9 @@ class Widget {
  		const absoluteBelowTop = domNodePosition.top + belowTop - (elWindow?.scrollY ?? 0);
  
  		const windowSize = dom.getClientArea(elDocument.body);
@@ -597,7 +597,7 @@ index ad53e1e16c1..86813c5b46e 100644
  		this._domNode.setHeight(this._model.options.minimapHeight);
  		this._shadow.setHeight(this._model.options.minimapHeight);
 diff --git a/src/vs/editor/browser/viewParts/overlayWidgets/overlayWidgets.ts b/src/vs/editor/browser/viewParts/overlayWidgets/overlayWidgets.ts
-index d286e3b2074..ca4c1b72e86 100644
+index 4e919762ce4..6f2117518ca 100644
 --- a/src/vs/editor/browser/viewParts/overlayWidgets/overlayWidgets.ts
 +++ b/src/vs/editor/browser/viewParts/overlayWidgets/overlayWidgets.ts
 @@ -42,6 +42,7 @@ export class ViewOverlayWidgets extends ViewPart {
@@ -616,7 +616,7 @@ index d286e3b2074..ca4c1b72e86 100644
  		this._viewDomNodeRect = { top: 0, left: 0, width: 0, height: 0 };
  
  		this._domNode = createFastDomNode(document.createElement('div'));
-@@ -87,6 +89,7 @@ export class ViewOverlayWidgets extends ViewPart {
+@@ -94,6 +96,7 @@ export class ViewOverlayWidgets extends ViewPart {
  		this._horizontalScrollbarHeight = layoutInfo.horizontalScrollbarHeight;
  		this._editorHeight = layoutInfo.height;
  		this._editorWidth = layoutInfo.width;
@@ -624,7 +624,7 @@ index d286e3b2074..ca4c1b72e86 100644
  		return true;
  	}
  
-@@ -185,7 +188,15 @@ export class ViewOverlayWidgets extends ViewPart {
+@@ -192,7 +195,15 @@ export class ViewOverlayWidgets extends ViewPart {
  			if (widgetData.stack !== undefined) {
  				domNode.setTop(stackCoordinates[widgetData.preference]);
  				stackCoordinates[widgetData.preference] += domNode.domNode.clientWidth;
@@ -733,7 +733,7 @@ index a703acd26c2..cc3d9191901 100644
  		} else {
  			this._width = layoutInfo.width - layoutInfo.verticalScrollbarWidth;
 diff --git a/src/vs/editor/browser/viewParts/viewLines/viewLines.ts b/src/vs/editor/browser/viewParts/viewLines/viewLines.ts
-index cb819821..c9e31eb2 100644
+index cb819821291..c9e31eb2ca2 100644
 --- a/src/vs/editor/browser/viewParts/viewLines/viewLines.ts
 +++ b/src/vs/editor/browser/viewParts/viewLines/viewLines.ts
 @@ -282,9 +282,13 @@ export class ViewLines extends ViewPart implements IViewLines {
@@ -778,7 +778,7 @@ index 638055a055d..e3022f34cdb 100644
  	background-color: var(--vscode-editor-background);
  }
 diff --git a/src/vs/editor/common/config/editorOptions.ts b/src/vs/editor/common/config/editorOptions.ts
-index 6e6f3605c55..d7bca5f96fc 100644
+index c89cdb4bee2..4277faf20eb 100644
 --- a/src/vs/editor/common/config/editorOptions.ts
 +++ b/src/vs/editor/common/config/editorOptions.ts
 @@ -84,6 +84,25 @@ export interface IEditorOptions {
@@ -807,7 +807,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  	/**
  	 * Render vertical lines at the specified columns.
  	 * Defaults to empty array.
-@@ -1692,6 +1711,12 @@ class EditorClassName extends ComputedEditorOption<EditorOption.editorClassName,
+@@ -1714,6 +1733,12 @@ class EditorClassName extends ComputedEditorOption<EditorOption.editorClassName,
  			classNames.push('showDeprecated');
  		}
  
@@ -820,7 +820,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  		return classNames.join(' ');
  	}
  }
-@@ -2054,6 +2079,62 @@ class EffectiveCursorStyle extends ComputedEditorOption<EditorOption.effectiveCu
+@@ -2076,6 +2101,62 @@ class EffectiveCursorStyle extends ComputedEditorOption<EditorOption.effectiveCu
  
  //#endregion
  
@@ -883,7 +883,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  //#region effectiveExperimentalEditContext
  
  class EffectiveEditContextEnabled extends ComputedEditorOption<EditorOption.effectiveEditContext, boolean> {
-@@ -2619,6 +2700,7 @@ export interface IMinimapLayoutInput {
+@@ -2659,6 +2740,7 @@ export interface IMinimapLayoutInput {
  	readonly viewLineCount: number;
  	readonly remainingWidth: number;
  	readonly isViewportWrapping: boolean;
@@ -891,7 +891,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  }
  
  /**
-@@ -2862,7 +2944,10 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
+@@ -2902,7 +2984,10 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
  		minimapCanvasInnerWidth = Math.floor(minimapCanvasInnerWidth * minimapWidthMultiplier);
  
  		const renderMinimap = (minimapRenderCharacters ? RenderMinimap.Text : RenderMinimap.Blocks);
@@ -903,7 +903,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  
  		return {
  			renderMinimap,
-@@ -2902,6 +2987,7 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
+@@ -2943,6 +3028,7 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
  		const scrollBeyondLastLine = options.get(EditorOption.scrollBeyondLastLine);
  		const padding = options.get(EditorOption.padding);
  		const minimap = options.get(EditorOption.minimap);
@@ -911,7 +911,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  
  		const scrollbar = options.get(EditorOption.scrollbar);
  		const verticalScrollbarWidth = scrollbar.verticalScrollbarSize;
-@@ -2963,9 +3049,20 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
+@@ -3004,9 +3090,20 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
  			viewLineCount: viewLineCount,
  			remainingWidth: remainingWidth,
  			isViewportWrapping: isViewportWrapping,
@@ -933,7 +933,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  			// the minimap is rendered to the left, so move everything to the right
  			glyphMarginLeft += minimapLayout.minimapWidth;
  			lineNumbersLeft += minimapLayout.minimapWidth;
-@@ -3490,7 +3587,7 @@ class EditorMinimap extends BaseEditorOption<EditorOption.minimap, IEditorMinima
+@@ -3533,7 +3630,7 @@ class EditorMinimap extends BaseEditorOption<EditorOption.minimap, IEditorMinima
  					type: 'string',
  					enum: ['left', 'right'],
  					default: defaults.side,
@@ -942,7 +942,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  				},
  				'editor.minimap.showSlider': {
  					type: 'string',
-@@ -5942,6 +6039,8 @@ export const enum EditorOption {
+@@ -5987,6 +6084,8 @@ export const enum EditorOption {
  	suggestSelection,
  	tabCompletion,
  	tabIndex,
@@ -951,15 +951,15 @@ index 6e6f3605c55..d7bca5f96fc 100644
  	trimWhitespaceOnDelete,
  	unicodeHighlighting,
  	unusualLineTerminators,
-@@ -5964,6 +6063,7 @@ export const enum EditorOption {
- 	wrapOnEscapedLineFeeds,
+@@ -6010,6 +6109,7 @@ export const enum EditorOption {
+ 	wordWrapIndicator,
  	// Leave these at the end (because they have dependencies!)
  	effectiveCursorStyle,
 +	effectiveTextDirection,
  	editorClassName,
  	pixelRatio,
  	tabFocusMode,
-@@ -6752,6 +6852,26 @@ export const EditorOptions = {
+@@ -6832,6 +6932,26 @@ export const EditorOptions = {
  		EditorOption.tabIndex, 'tabIndex',
  		0, -1, Constants.MAX_SAFE_SMALL_INTEGER
  	)),
@@ -986,7 +986,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  	trimWhitespaceOnDelete: register(new EditorBooleanOption(
  		EditorOption.trimWhitespaceOnDelete, 'trimWhitespaceOnDelete', false,
  		{ description: nls.localize('trimWhitespaceOnDelete', "Controls whether the editor will also delete the next line's indentation whitespace when deleting a newline.") }
-@@ -6865,6 +6985,7 @@ export const EditorOptions = {
+@@ -6954,6 +7074,7 @@ export const EditorOptions = {
  
  	// Leave these at the end (because they have dependencies!)
  	effectiveCursorStyle: register(new EffectiveCursorStyle()),
@@ -995,7 +995,7 @@ index 6e6f3605c55..d7bca5f96fc 100644
  	defaultColorDecorators: register(new EditorStringEnumOption(
  		EditorOption.defaultColorDecorators, 'defaultColorDecorators', 'auto' as 'auto' | 'always' | 'never',
 diff --git a/src/vs/editor/common/editorCommon.ts b/src/vs/editor/common/editorCommon.ts
-index df56a1be..2c334460 100644
+index df56a1beab5..2c334460929 100644
 --- a/src/vs/editor/common/editorCommon.ts
 +++ b/src/vs/editor/common/editorCommon.ts
 @@ -189,6 +189,15 @@ export interface IViewState {
@@ -1015,87 +1015,93 @@ index df56a1be..2c334460 100644
  	firstPositionDeltaTop: number;
  }
 diff --git a/src/vs/editor/common/standalone/standaloneEnums.ts b/src/vs/editor/common/standalone/standaloneEnums.ts
-index cb0db8b268d..301a44a3af6 100644
+index 92870c46d35..e180e6c025f 100644
 --- a/src/vs/editor/common/standalone/standaloneEnums.ts
 +++ b/src/vs/editor/common/standalone/standaloneEnums.ts
-@@ -315,39 +315,42 @@ export enum EditorOption {
- 	suggestSelection = 138,
- 	tabCompletion = 139,
- 	tabIndex = 140,
--	trimWhitespaceOnDelete = 141,
--	unicodeHighlighting = 142,
--	unusualLineTerminators = 143,
--	useShadowDOM = 144,
--	useTabStops = 145,
--	wordBreak = 146,
--	wordSegmenterLocales = 147,
--	wordSeparators = 148,
--	wordWrap = 149,
--	wordWrapBreakAfterCharacters = 150,
--	wordWrapBreakBeforeCharacters = 151,
--	wordWrapColumn = 152,
--	wordWrapOverride1 = 153,
--	wordWrapOverride2 = 154,
--	wrappingIndent = 155,
--	wrappingStrategy = 156,
--	showDeprecated = 157,
--	inertialScroll = 158,
--	inlayHints = 159,
--	wrapOnEscapedLineFeeds = 160,
--	effectiveCursorStyle = 161,
--	editorClassName = 162,
--	pixelRatio = 163,
--	tabFocusMode = 164,
--	layoutInfo = 165,
--	wrappingInfo = 166,
--	defaultColorDecorators = 167,
--	colorDecoratorsActivatedOn = 168,
--	inlineCompletionsAccessibilityVerbose = 169,
--	effectiveEditContext = 170,
--	scrollOnMiddleClick = 171,
--	effectiveAllowVariableFonts = 172,
--	doubleClickSelectsBlock = 173
-+	textDirection = 141,
-+	textDirectionOverride = 142,
-+	trimWhitespaceOnDelete = 143,
-+	unicodeHighlighting = 144,
-+	unusualLineTerminators = 145,
-+	useShadowDOM = 146,
-+	useTabStops = 147,
-+	wordBreak = 148,
-+	wordSegmenterLocales = 149,
-+	wordSeparators = 150,
-+	wordWrap = 151,
-+	wordWrapBreakAfterCharacters = 152,
-+	wordWrapBreakBeforeCharacters = 153,
-+	wordWrapColumn = 154,
-+	wordWrapOverride1 = 155,
-+	wordWrapOverride2 = 156,
-+	wrappingIndent = 157,
-+	wrappingStrategy = 158,
-+	showDeprecated = 159,
-+	inertialScroll = 160,
-+	inlayHints = 161,
-+	wrapOnEscapedLineFeeds = 162,
-+	effectiveCursorStyle = 163,
-+	effectiveTextDirection = 164,
-+	editorClassName = 165,
-+	pixelRatio = 166,
-+	tabFocusMode = 167,
-+	layoutInfo = 168,
-+	wrappingInfo = 169,
-+	defaultColorDecorators = 170,
-+	colorDecoratorsActivatedOn = 171,
-+	inlineCompletionsAccessibilityVerbose = 172,
-+	effectiveEditContext = 173,
-+	scrollOnMiddleClick = 174,
-+	effectiveAllowVariableFonts = 175,
-+	doubleClickSelectsBlock = 176
+@@ -317,42 +317,45 @@ export enum EditorOption {
+ 	suggestSelection = 140,
+ 	tabCompletion = 141,
+ 	tabIndex = 142,
+-	trimWhitespaceOnDelete = 143,
+-	unicodeHighlighting = 144,
+-	unusualLineTerminators = 145,
+-	useShadowDOM = 146,
+-	useTabStops = 147,
+-	wordBreak = 148,
+-	wordSegmenterLocales = 149,
+-	wordSeparators = 150,
+-	wordWrap = 151,
+-	wordWrapBreakAfterCharacters = 152,
+-	wordWrapBreakBeforeCharacters = 153,
+-	wordWrapColumn = 154,
+-	wordWrapOverride1 = 155,
+-	wordWrapOverride2 = 156,
+-	wrappingIndent = 157,
+-	wrappingStrategy = 158,
+-	showDeprecated = 159,
+-	inertialScroll = 160,
+-	inlayHints = 161,
+-	wrapOnEscapedLineFeeds = 162,
+-	wordWrapIndicator = 163,
+-	effectiveCursorStyle = 164,
+-	editorClassName = 165,
+-	pixelRatio = 166,
+-	tabFocusMode = 167,
+-	layoutInfo = 168,
+-	wrappingInfo = 169,
+-	defaultColorDecorators = 170,
+-	colorDecoratorsActivatedOn = 171,
+-	inlineCompletionsAccessibilityVerbose = 172,
+-	effectiveEditContext = 173,
+-	scrollOnMiddleClick = 174,
+-	effectiveAllowVariableFonts = 175,
+-	doubleClickSelectsBlock = 176,
+-	fullwidthCharacterWidth = 177,
+-	effectiveFullwidthCharacterWidth = 178
++	textDirection = 143,
++	textDirectionOverride = 144,
++	trimWhitespaceOnDelete = 145,
++	unicodeHighlighting = 146,
++	unusualLineTerminators = 147,
++	useShadowDOM = 148,
++	useTabStops = 149,
++	wordBreak = 150,
++	wordSegmenterLocales = 151,
++	wordSeparators = 152,
++	wordWrap = 153,
++	wordWrapBreakAfterCharacters = 154,
++	wordWrapBreakBeforeCharacters = 155,
++	wordWrapColumn = 156,
++	wordWrapOverride1 = 157,
++	wordWrapOverride2 = 158,
++	wrappingIndent = 159,
++	wrappingStrategy = 160,
++	showDeprecated = 161,
++	inertialScroll = 162,
++	inlayHints = 163,
++	wrapOnEscapedLineFeeds = 164,
++	wordWrapIndicator = 165,
++	effectiveCursorStyle = 166,
++	effectiveTextDirection = 167,
++	editorClassName = 168,
++	pixelRatio = 169,
++	tabFocusMode = 170,
++	layoutInfo = 171,
++	wrappingInfo = 172,
++	defaultColorDecorators = 173,
++	colorDecoratorsActivatedOn = 174,
++	inlineCompletionsAccessibilityVerbose = 175,
++	effectiveEditContext = 176,
++	scrollOnMiddleClick = 177,
++	effectiveAllowVariableFonts = 178,
++	doubleClickSelectsBlock = 179,
++	fullwidthCharacterWidth = 180,
++	effectiveFullwidthCharacterWidth = 181
  }
  
  /**
 diff --git a/src/vs/editor/common/viewLayout/viewLayout.ts b/src/vs/editor/common/viewLayout/viewLayout.ts
-index e64482e1..abd5140d 100644
+index e64482e192c..abd5140d827 100644
 --- a/src/vs/editor/common/viewLayout/viewLayout.ts
 +++ b/src/vs/editor/common/viewLayout/viewLayout.ts
 @@ -159,6 +159,22 @@ export class ViewLayout extends Disposable implements IViewLayout {
@@ -1414,10 +1420,10 @@ index e64482e1..abd5140d 100644
  		this._scrollable.setScrollPositionNow({
  			scrollLeft: currentScrollPosition.scrollLeft + deltaScrollLeft,
 diff --git a/src/vs/editor/common/viewModel.ts b/src/vs/editor/common/viewModel.ts
-index 94d4488e..50031457 100644
+index 0774a175140..974099b3690 100644
 --- a/src/vs/editor/common/viewModel.ts
 +++ b/src/vs/editor/common/viewModel.ts
-@@ -129,6 +129,7 @@ export interface IViewLayout {
+@@ -130,6 +130,7 @@ export interface IViewLayout {
  	getFutureViewport(): Viewport;
  
  	setScrollPosition(position: INewScrollPosition, type: ScrollType): void;
@@ -1426,10 +1432,10 @@ index 94d4488e..50031457 100644
  
  	validateScrollPosition(scrollPosition: INewScrollPosition): IScrollPosition;
 diff --git a/src/vs/editor/common/viewModel/viewModelImpl.ts b/src/vs/editor/common/viewModel/viewModelImpl.ts
-index abbd44aa..149dc0e1 100644
+index e2453ccdc3c..332407f0d20 100644
 --- a/src/vs/editor/common/viewModel/viewModelImpl.ts
 +++ b/src/vs/editor/common/viewModel/viewModelImpl.ts
-@@ -291,6 +291,11 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -294,6 +294,11 @@ export class ViewModel extends Disposable implements IViewModel {
  			this._updateConfigurationViewLineCount.schedule();
  		}
  
@@ -1441,7 +1447,7 @@ index abbd44aa..149dc0e1 100644
  		if (e.hasChanged(EditorOption.readOnly)) {
  			// Must read again all decorations due to readOnly filtering
  			this._decorations.reset();
-@@ -755,12 +760,13 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -758,12 +763,13 @@ export class ViewModel extends Disposable implements IViewModel {
  
  		return {
  			scrollLeft: compatViewState.scrollLeft,
@@ -1456,7 +1462,7 @@ index abbd44aa..149dc0e1 100644
  		if (typeof state.firstPosition === 'undefined') {
  			// This is a view state serialized by an older version
  			return this._reduceRestoreStateCompatibility(state);
-@@ -771,13 +777,15 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -774,13 +780,15 @@ export class ViewModel extends Disposable implements IViewModel {
  		const scrollTop = this.viewLayout.getVerticalOffsetForLineNumber(viewPosition.lineNumber) - state.firstPositionDeltaTop;
  		return {
  			scrollLeft: state.scrollLeft,
@@ -1473,7 +1479,7 @@ index abbd44aa..149dc0e1 100644
  			scrollTop: state.scrollTopWithoutViewZones!
  		};
  	}
-@@ -855,6 +863,7 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -858,6 +866,7 @@ export class ViewModel extends Disposable implements IViewModel {
  
  	private _getTextDirection(lineNumber: number, decorations: ViewModelDecoration[]): TextDirection {
  		let rtlCount = 0;
@@ -1481,7 +1487,7 @@ index abbd44aa..149dc0e1 100644
  
  		for (const decoration of decorations) {
  			const range = decoration.range;
-@@ -864,12 +873,19 @@ export class ViewModel extends Disposable implements IViewModel {
+@@ -867,12 +876,19 @@ export class ViewModel extends Disposable implements IViewModel {
  			const textDirection = decoration.options.textDirection;
  			if (textDirection === TextDirection.RTL) {
  				rtlCount++;
@@ -1538,7 +1544,7 @@ index ecc59245dec..97cf6ae4bc7 100644
 +	float: right;
 +}
 diff --git a/src/vs/editor/contrib/stickyScroll/browser/stickyScrollWidget.ts b/src/vs/editor/contrib/stickyScroll/browser/stickyScrollWidget.ts
-index ddc342fa97e..0a21716bbd0 100644
+index 5d3894e79ae..ecace92922b 100644
 --- a/src/vs/editor/contrib/stickyScroll/browser/stickyScrollWidget.ts
 +++ b/src/vs/editor/contrib/stickyScroll/browser/stickyScrollWidget.ts
 @@ -21,6 +21,7 @@ import { foldingCollapsedIcon, foldingExpandedIcon } from '../../folding/browser
@@ -1562,7 +1568,7 @@ index ddc342fa97e..0a21716bbd0 100644
  	}
  
  	private _useFoldingOpacityTransition(requireTransitions: boolean) {
-@@ -488,6 +493,16 @@ class RenderedStickyLine {
+@@ -490,6 +495,16 @@ class RenderedStickyLine {
  		lineHTMLNode.setAttribute('role', 'listitem');
  		lineHTMLNode.tabIndex = 0;
  		lineHTMLNode.className = 'sticky-line-content';
@@ -1611,7 +1617,7 @@ index 96820f1eafd..a41feb982e1 100644
  		}
  		return 0;
 diff --git a/src/vs/editor/test/browser/config/editorLayoutProvider.test.ts b/src/vs/editor/test/browser/config/editorLayoutProvider.test.ts
-index 0d516e35a14..23e082b093b 100644
+index ddfcbc762c6..46975cae9d8 100644
 --- a/src/vs/editor/test/browser/config/editorLayoutProvider.test.ts
 +++ b/src/vs/editor/test/browser/config/editorLayoutProvider.test.ts
 @@ -34,6 +34,7 @@ interface IEditorLayoutProviderOpts {
@@ -1621,19 +1627,8 @@ index 0d516e35a14..23e082b093b 100644
 +	readonly textDirection?: 'auto' | 'ltr' | 'rtl';
  	minimapSize?: 'proportional' | 'fill' | 'fit';
  	readonly pixelRatio: number;
- }
-@@ -43,6 +44,10 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
- 	ensureNoDisposablesAreLeakedInTestSuite();
  
- 	function doTest(input: IEditorLayoutProviderOpts, expected: EditorLayoutInfo): void {
-+		assert.deepStrictEqual(computeLayout(input), expected);
-+	}
-+
-+	function computeLayout(input: IEditorLayoutProviderOpts): EditorLayoutInfo {
- 		const options = new ComputedEditorOptions();
- 		options._write(EditorOption.glyphMargin, input.showGlyphMargin);
- 		options._write(EditorOption.lineNumbersMinChars, input.lineNumbersMinChars);
-@@ -93,6 +98,9 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
+@@ -101,6 +102,9 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
  		options._write(EditorOption.wordWrapOverride1, 'inherit');
  		options._write(EditorOption.wordWrapOverride2, 'inherit');
  		options._write(EditorOption.accessibilitySupport, 'auto');
@@ -1643,18 +1638,9 @@ index 0d516e35a14..23e082b093b 100644
  
  		const actual = EditorLayoutInfoComputer.computeLayout(options, {
  			memory: null,
-@@ -107,7 +115,7 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
- 			pixelRatio: input.pixelRatio,
- 			glyphMarginDecorationLaneCount: 1,
- 		});
--		assert.deepStrictEqual(actual, expected);
-+		return actual;
- 	}
- 
- 	test('EditorLayoutProvider 1', () => {
-@@ -1429,4 +1437,51 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
- 		});
- 
+@@ -1499,4 +1503,51 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
+ 			}
+ 		);
  	});
 +
 +	test('textDirection rtl: the layout is computed from the leading edge and ignores minimap.side', () => {
@@ -1683,8 +1669,8 @@ index 0d516e35a14..23e082b093b 100644
 +		// In a right-to-left layout the minimap is rendered on the physical left by the view part, but
 +		// the offsets are computed as if it were on the trailing side, so that `contentLeft` keeps
 +		// measuring the width of the margin strip only.
-+		const ltr = computeLayout({ ...input, textDirection: 'ltr' });
-+		const rtl = computeLayout({ ...input, textDirection: 'rtl' });
++		const ltr = computeLayoutInfo({ ...input, textDirection: 'ltr' });
++		const rtl = computeLayoutInfo({ ...input, textDirection: 'rtl' });
 +		const withoutMarginOrder = (layout: EditorLayoutInfo) => ({ ...layout, glyphMarginLeft: 0, lineNumbersLeft: 0, decorationsLeft: 0 });
 +		assert.deepStrictEqual(withoutMarginOrder(rtl), withoutMarginOrder(ltr));
 +
@@ -1697,15 +1683,15 @@ index 0d516e35a14..23e082b093b 100644
 +		assert.strictEqual(rtl.glyphMarginLeft + rtl.glyphMarginWidth, rtl.contentLeft);
 +
 +		// ... and `minimap.side` does not move anything around, unlike in a left-to-right layout.
-+		const rtlMinimapLeft = computeLayout({ ...input, minimapSide: 'left', textDirection: 'rtl' });
-+		const ltrMinimapLeft = computeLayout({ ...input, minimapSide: 'left', textDirection: 'ltr' });
++		const rtlMinimapLeft = computeLayoutInfo({ ...input, minimapSide: 'left', textDirection: 'rtl' });
++		const ltrMinimapLeft = computeLayoutInfo({ ...input, minimapSide: 'left', textDirection: 'ltr' });
 +		assert.deepStrictEqual(rtlMinimapLeft, rtl);
 +		assert.strictEqual(ltrMinimapLeft.minimap.minimapLeft, 0);
 +		assert.strictEqual(ltrMinimapLeft.contentLeft, rtl.contentLeft + rtl.minimap.minimapWidth);
 +	});
  });
 diff --git a/src/vs/monaco.d.ts b/src/vs/monaco.d.ts
-index d93410d6..9f796e3d 100644
+index 525e69ca2c1..7f4f2b8adc3 100644
 --- a/src/vs/monaco.d.ts
 +++ b/src/vs/monaco.d.ts
 @@ -2633,6 +2633,15 @@ declare namespace monaco.editor {
@@ -1750,83 +1736,89 @@ index d93410d6..9f796e3d 100644
  		/**
  		 * Render vertical lines at the specified columns.
  		 * Defaults to empty array.
-@@ -5225,39 +5253,42 @@ declare namespace monaco.editor {
- 		suggestSelection = 138,
- 		tabCompletion = 139,
- 		tabIndex = 140,
--		trimWhitespaceOnDelete = 141,
--		unicodeHighlighting = 142,
--		unusualLineTerminators = 143,
--		useShadowDOM = 144,
--		useTabStops = 145,
--		wordBreak = 146,
--		wordSegmenterLocales = 147,
--		wordSeparators = 148,
--		wordWrap = 149,
--		wordWrapBreakAfterCharacters = 150,
--		wordWrapBreakBeforeCharacters = 151,
--		wordWrapColumn = 152,
--		wordWrapOverride1 = 153,
--		wordWrapOverride2 = 154,
--		wrappingIndent = 155,
--		wrappingStrategy = 156,
--		showDeprecated = 157,
--		inertialScroll = 158,
--		inlayHints = 159,
--		wrapOnEscapedLineFeeds = 160,
--		effectiveCursorStyle = 161,
--		editorClassName = 162,
--		pixelRatio = 163,
--		tabFocusMode = 164,
--		layoutInfo = 165,
--		wrappingInfo = 166,
--		defaultColorDecorators = 167,
--		colorDecoratorsActivatedOn = 168,
--		inlineCompletionsAccessibilityVerbose = 169,
--		effectiveEditContext = 170,
--		scrollOnMiddleClick = 171,
--		effectiveAllowVariableFonts = 172,
--		doubleClickSelectsBlock = 173
-+		textDirection = 141,
-+		textDirectionOverride = 142,
-+		trimWhitespaceOnDelete = 143,
-+		unicodeHighlighting = 144,
-+		unusualLineTerminators = 145,
-+		useShadowDOM = 146,
-+		useTabStops = 147,
-+		wordBreak = 148,
-+		wordSegmenterLocales = 149,
-+		wordSeparators = 150,
-+		wordWrap = 151,
-+		wordWrapBreakAfterCharacters = 152,
-+		wordWrapBreakBeforeCharacters = 153,
-+		wordWrapColumn = 154,
-+		wordWrapOverride1 = 155,
-+		wordWrapOverride2 = 156,
-+		wrappingIndent = 157,
-+		wrappingStrategy = 158,
-+		showDeprecated = 159,
-+		inertialScroll = 160,
-+		inlayHints = 161,
-+		wrapOnEscapedLineFeeds = 162,
-+		effectiveCursorStyle = 163,
-+		effectiveTextDirection = 164,
-+		editorClassName = 165,
-+		pixelRatio = 166,
-+		tabFocusMode = 167,
-+		layoutInfo = 168,
-+		wrappingInfo = 169,
-+		defaultColorDecorators = 170,
-+		colorDecoratorsActivatedOn = 171,
-+		inlineCompletionsAccessibilityVerbose = 172,
-+		effectiveEditContext = 173,
-+		scrollOnMiddleClick = 174,
-+		effectiveAllowVariableFonts = 175,
-+		doubleClickSelectsBlock = 176
+@@ -5249,42 +5277,45 @@ declare namespace monaco.editor {
+ 		suggestSelection = 140,
+ 		tabCompletion = 141,
+ 		tabIndex = 142,
+-		trimWhitespaceOnDelete = 143,
+-		unicodeHighlighting = 144,
+-		unusualLineTerminators = 145,
+-		useShadowDOM = 146,
+-		useTabStops = 147,
+-		wordBreak = 148,
+-		wordSegmenterLocales = 149,
+-		wordSeparators = 150,
+-		wordWrap = 151,
+-		wordWrapBreakAfterCharacters = 152,
+-		wordWrapBreakBeforeCharacters = 153,
+-		wordWrapColumn = 154,
+-		wordWrapOverride1 = 155,
+-		wordWrapOverride2 = 156,
+-		wrappingIndent = 157,
+-		wrappingStrategy = 158,
+-		showDeprecated = 159,
+-		inertialScroll = 160,
+-		inlayHints = 161,
+-		wrapOnEscapedLineFeeds = 162,
+-		wordWrapIndicator = 163,
+-		effectiveCursorStyle = 164,
+-		editorClassName = 165,
+-		pixelRatio = 166,
+-		tabFocusMode = 167,
+-		layoutInfo = 168,
+-		wrappingInfo = 169,
+-		defaultColorDecorators = 170,
+-		colorDecoratorsActivatedOn = 171,
+-		inlineCompletionsAccessibilityVerbose = 172,
+-		effectiveEditContext = 173,
+-		scrollOnMiddleClick = 174,
+-		effectiveAllowVariableFonts = 175,
+-		doubleClickSelectsBlock = 176,
+-		fullwidthCharacterWidth = 177,
+-		effectiveFullwidthCharacterWidth = 178
++		textDirection = 143,
++		textDirectionOverride = 144,
++		trimWhitespaceOnDelete = 145,
++		unicodeHighlighting = 146,
++		unusualLineTerminators = 147,
++		useShadowDOM = 148,
++		useTabStops = 149,
++		wordBreak = 150,
++		wordSegmenterLocales = 151,
++		wordSeparators = 152,
++		wordWrap = 153,
++		wordWrapBreakAfterCharacters = 154,
++		wordWrapBreakBeforeCharacters = 155,
++		wordWrapColumn = 156,
++		wordWrapOverride1 = 157,
++		wordWrapOverride2 = 158,
++		wrappingIndent = 159,
++		wrappingStrategy = 160,
++		showDeprecated = 161,
++		inertialScroll = 162,
++		inlayHints = 163,
++		wrapOnEscapedLineFeeds = 164,
++		wordWrapIndicator = 165,
++		effectiveCursorStyle = 166,
++		effectiveTextDirection = 167,
++		editorClassName = 168,
++		pixelRatio = 169,
++		tabFocusMode = 170,
++		layoutInfo = 171,
++		wrappingInfo = 172,
++		defaultColorDecorators = 173,
++		colorDecoratorsActivatedOn = 174,
++		inlineCompletionsAccessibilityVerbose = 175,
++		effectiveEditContext = 176,
++		scrollOnMiddleClick = 177,
++		effectiveAllowVariableFonts = 178,
++		doubleClickSelectsBlock = 179,
++		fullwidthCharacterWidth = 180,
++		effectiveFullwidthCharacterWidth = 181
  	}
  
  	export const EditorOptions: {
-@@ -5409,9 +5440,11 @@ declare namespace monaco.editor {
+@@ -5439,9 +5470,11 @@ declare namespace monaco.editor {
  		suggestSelection: IEditorOption<EditorOption.suggestSelection, 'first' | 'recentlyUsed' | 'recentlyUsedByPrefix'>;
  		tabCompletion: IEditorOption<EditorOption.tabCompletion, 'on' | 'off' | 'onlySnippets'>;
  		tabIndex: IEditorOption<EditorOption.tabIndex, number>;
@@ -1839,7 +1831,7 @@ index d93410d6..9f796e3d 100644
  		useShadowDOM: IEditorOption<EditorOption.useShadowDOM, boolean>;
  		useTabStops: IEditorOption<EditorOption.useTabStops, boolean>;
  		wordBreak: IEditorOption<EditorOption.wordBreak, 'normal' | 'keepAll'>;
-@@ -5421,10 +5454,11 @@ declare namespace monaco.editor {
+@@ -5452,10 +5485,11 @@ declare namespace monaco.editor {
  		wordWrapBreakAfterCharacters: IEditorOption<EditorOption.wordWrapBreakAfterCharacters, string>;
  		wordWrapBreakBeforeCharacters: IEditorOption<EditorOption.wordWrapBreakBeforeCharacters, string>;
  		wordWrapColumn: IEditorOption<EditorOption.wordWrapColumn, number>;

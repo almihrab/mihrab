@@ -224,12 +224,8 @@ fi
 
 fi  # ── نهاية إصلاحات ويندوز (د)+(هـ) ──
 
-# ── (و) ترقيع رقصة .npmrc في prepare_vscode.sh (تتوقّف تحت set -e عند حالة متبقّية) ──
-PVS="$UP/prepare_vscode.sh"
-if [[ -f "$PVS" ]] && ! grep -q 'محراب م0: تسامح مع غياب .npmrc' "$PVS"; then
-  log "ترقيع prepare_vscode.sh (تسامح .npmrc)"
-  "$PY_BIN" "$ROOT/build/patch_npmrc_tolerance.py" "$PVS"
-fi
+# ── (و) كان هنا ترقيعُ رقصة .npmrc في prepare_vscode.sh [م-١٢]. تقاعد مع VSCodium
+#        1.143: المنبعُ حذف الرقصةَ كلَّها (لا .npmrc.bak بعد اليوم)، فلا ما يُرقَّع. ──
 
 # ── (و-2) ترقيع build_cli.sh: «mkdir openssl» (بلا -p) يفشل تحت set -e عند إعادة
 #         الاستعمال (المجلّد موجود من بناء سابق). نجعله idempotent. ──
@@ -421,12 +417,10 @@ fi
 [[ -f "$ROOT/build/patch_sash_rtl.py" ]] && cp -f "$ROOT/build/patch_sash_rtl.py" "$UP/.mihrab-patch-sash-rtl.py"
 [[ -f "$ROOT/build/patch_tabsdrop_rtl.py" ]] && cp -f "$ROOT/build/patch_tabsdrop_rtl.py" "$UP/.mihrab-patch-tabsdrop-rtl.py"
 [[ -f "$ROOT/build/patch_gridview_marker.py" ]] && cp -f "$ROOT/build/patch_gridview_marker.py" "$UP/.mihrab-patch-gridview-marker.py"
-# ‏**رُقعةُ مصدرِ vscode تُحقَن بعد الـreset لا قبله.** أوّلُ صياغةٍ نادت المرقِّعَ في
-# خطوة (و) المبكّرة، فطبع «مُرقَّعٌ سلفًا» (لأنّي كنتُ رقّعتُ الملفَّ بيدي للقياس)
-# **ثمّ محا `dev/build.sh` أثرَه** بـ`git add . ; git reset --hard` — فسقط بناءُ الويب
-# بالعطب نفسِه، والسجلُّ يحمل شهادةَ ترقيعٍ لملفٍّ غيرِ مُرقَّع. وهو الفخُّ الذي يصفه
-# التعليقُ في خطوة (ز) حرفيًّا، ووقعتُ فيه بعد قراءته.
-[[ -f "$ROOT/build/patch_esbuild_fileurl.py" ]] && cp -f "$ROOT/build/patch_esbuild_fileurl.py" "$UP/.mihrab-patch-esbuild-fileurl.py"
+# ‏xterm المكتبيّ يُرقَّع **قبل** التحزيم [DR-08]: منذ 1.143 يُشحَن داخل `node_modules.asar`
+# لا مجلّدًا مفتوحًا، فلا يبلغه الترقيعُ بعد البناء. يُرقَّع في `vscode/node_modules` بعد
+# ‏`npm ci` فيدخل الأرشيفَ مُرقَّعًا؛ وبعد البناء يُتحقَّق من الوسم داخل الأرشيف (ط-0أ2).
+[[ -f "$ROOT/build/patch_xterm_bidi.py" ]] && cp -f "$ROOT/build/patch_xterm_bidi.py" "$UP/.mihrab-patch-xterm-bidi.py"
 # محرّر Monaco RTL: لم تعد رُقعةً خاصّة بمحراب بل **تعديلٌ منبعيٌّ كامل** (خيار
 # `editor.textDirection`) مُصاغٌ للرفع إلى microsoft/vscode ومحفوظٌ هنا ملفَّ diff واحدًا.
 # يُطبَّق بـ`git apply --3way` داخل شجرة vscode بعد reset (يتسامح مع انجراف المنبع).
@@ -864,8 +858,13 @@ if [[ -d "$APP_DIR/node_modules/@xterm/xterm" ]]; then
   "$PY_BIN" "$ROOT/build/patch_xterm_bidi.py" "$APP_DIR" || {
     echo "❌ فشل ترقيع اتّجاه xterm — راجع أعلاه. ورقةُ الاتّجاه بلا هذه الرقعة تعني" >&2
     echo "   تحديدًا يقع في غير موضع النقر. لا يُشحَن." >&2; exit 1; }
+elif [[ -f "$APP_DIR/node_modules.asar" ]]; then
+  # منذ 1.143: xterm المكتبيُّ داخل الأرشيف، رُقِّع قبل التحزيم. هنا شاهدٌ لا ترقيع.
+  log "التحقّق من رقعة اتّجاه xterm داخل node_modules.asar"
+  "$PY_BIN" "$ROOT/build/patch_xterm_bidi.py" --verify-asar "$APP_DIR" || {
+    echo "❌ xterm في الأرشيف غيرُ مُرقَّع — التحديدُ سيقع في غير موضع النقر. لا يُشحَن." >&2; exit 1; }
 else
-  echo "❌ لا حزمةَ xterm في المشحون ($APP_DIR/node_modules/@xterm/xterm)." >&2; exit 1
+  echo "❌ لا حزمةَ xterm في المشحون ($APP_DIR/node_modules/@xterm/xterm ولا node_modules.asar)." >&2; exit 1
 fi
 
 # ── (ط-0أ3) الخطُّ العربيُّ المحزوم يُحمَّل فعلًا [AR-02] ──

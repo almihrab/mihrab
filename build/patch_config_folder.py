@@ -272,12 +272,11 @@ FILES = [
                 ),
                 1,
             ),
+            # مرساةُ الاستيراد على URI: استيرادُ IStringDictionary أُزيل في 1.143.
             (
-                "import { IStringDictionary } from "
-                "'../../../../base/common/collections.js';",
+                "import { URI } from '../../../../base/common/uri.js';",
                 (
-                    "import { IStringDictionary } from "
-                    "'../../../../base/common/collections.js';\n"
+                    "import { URI } from '../../../../base/common/uri.js';\n"
                     "import { MIHRAB_CONFIG_FOLDER_NAME } from "
                     "'../../../../base/common/mihrabConfigFolder.js'; // mihrab-cfgfolder-prefs"
                 ),
@@ -653,33 +652,34 @@ FILES = [
     # نمطٌ يطابق `.vscode` وحده يصير **ثقبًا** لحظةَ تسمية المجلّد باسمه الجديد:
     # يعود الوكيلُ يعدّل settings.json وlaunch.json بموافقةٍ تلقائيّة. الأسماءُ
     # مكتوبةٌ حرفيًّا هنا لأنّ القيمة افتراضُ إعدادٍ مُسجَّل (لا مجالَ لاستدعاء دالّة).
+    #
+    # منذ 1.143 جمع المنبعُ النمطَ في موضعٍ واحد: ALWAYS_CHECKED_EDIT_PATTERNS في
+    # platform/chat/common/chatSettings.ts، ويستورده chat.shared.contribution.ts
+    # وagentHost/node/sessionPermissions.ts معًا (كان كلٌّ منهما يكتبه حرفيًّا حتّى 1.126).
+    # فرقعةٌ واحدة هناك تسدّ الثقبين.
     (
-        "src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts",
-        "mihrab-cfgfolder-chatglob",
-        [
-            (
-                "\t\t\t\t'**/.vscode/*.json': false,",
-                "\t\t\t\t'**/{.محراب,.mihrab,.vscode}/*.json': false, "
-                "// mihrab-cfgfolder-chatglob",
-                1,
-            ),
-            # وصفُ الإعداد يذكر النمطَ الافتراضيّ حرفيًّا: تركُه يجعل التوثيقَ
-            # المدمج يصف افتراضًا لم يعد قائمًا — وهو أسوأ من غيابه.
-            (
-                "such as `**/.vscode/*.json`.",
-                "such as `**/{.محراب,.mihrab,.vscode}/*.json`.",
-                1,
-            ),
-        ],
-    ),
-    (
-        "src/vs/platform/agentHost/node/sessionPermissions.ts",
+        "src/vs/platform/chat/common/chatSettings.ts",
         "mihrab-cfgfolder-permglob",
         [
             (
                 "\t'**/.vscode/*.json': false,",
                 "\t'**/{.محراب,.mihrab,.vscode}/*.json': false, "
                 "// mihrab-cfgfolder-permglob",
+                1,
+            ),
+        ],
+    ),
+    (
+        "src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts",
+        # الوسمُ هنا هو النصُّ المُرقَّع نفسُه: لم يبقَ في الملفّ إلّا سلسلةٌ داخل
+        # localize، ولا يُحقَن فيها تعليق. والمطابقةُ بالاحتواء، فتبقى idempotent.
+        "such as `**/{.محراب,.mihrab,.vscode}/*.json`.",
+        [
+            # وصفُ الإعداد يذكر النمطَ الافتراضيّ حرفيًّا: تركُه يجعل التوثيقَ
+            # المدمج يصف افتراضًا لم يعد قائمًا — وهو أسوأ من غيابه.
+            (
+                "such as `**/.vscode/*.json`.",
+                "such as `**/{.محراب,.mihrab,.vscode}/*.json`.",
                 1,
             ),
         ],

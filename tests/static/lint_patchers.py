@@ -4977,9 +4977,11 @@ def _vscode_source_patchers_survive_reset():
             "‏[SRC-01] " + name + " يُنسَخ ولا يُحقَن: لا ذكرَ لـ`.mihrab-patch-"
             + stem + ".py` في patch_bundle_extensions.py — ملفٌّ يُنقَل ولا يُشغَّل.")
 
-    assert wired >= 2, (
-        "‏[SRC-01] لم يُعثَر إلّا على " + str(wired) + " مرقِّعٍ لشجرة vscode — "
-        "الفحصُ يقيس صفرًا (المنتظَر اثنان على الأقلّ: esbuild_fileurl · welcome_web_entries).")
+    # كان الحدُّ اثنين (esbuild_fileurl · welcome_web_entries)؛ تقاعد الأوّل مع 1.143
+    # حين اعتمد المنبعُ إصلاحَه، فبقي واحد. والغرضُ ألّا يمرّ الفحصُ وهو يقيس صفرًا.
+    assert wired >= 1, (
+        "‏[SRC-01] لم يُعثَر على أيّ مرقِّعٍ لشجرة vscode — "
+        "الفحصُ يقيس صفرًا (المنتظَر واحدٌ على الأقلّ: welcome_web_entries).")
 
 
 @check("رابطُ التنزيل واحدٌ في كلّ مواضعه [UX-02]")

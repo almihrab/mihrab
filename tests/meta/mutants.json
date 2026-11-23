@@ -377,8 +377,8 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": ".upstream/patches/00-ui-report-issue.patch",
-      "old": "+\t\t\tthis.searchGitHub('!!GH_REPO_PATH!!', title);",
-      "new": "+\t\t\tthis.searchGitHub('VSCodium/vscodium', title);",
+      "old": "+\t\t\tthis.searchGitHub('!!GH_REPO_PATH!!', title, this.similarIssueSearchGeneration);",
+      "new": "+\t\t\tthis.searchGitHub('VSCodium/vscodium', title, this.similarIssueSearchGeneration);",
       "expect": "وجهةُ المنبع حرفيّةً في سطرٍ مُضاف",
       "why": "وجهةٌ حرفيّةٌ في سطرٍ مُضافٍ **تتجاوز العنصرَ النائبَ كلَّه**، فيبقى `GH_REPO_PATH` مضبوطًا بلا أثرٍ على هذا الموضع. والأثرُ أنّ مُبلِّغَ الأعطاب يبحث في قضايا المنبع بنصّ عطبِ مستخدمِنا."
     },
@@ -577,8 +577,8 @@
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
       "file": "build/build.sh",
-      "old": "[[ -f \"$ROOT/build/patch_esbuild_fileurl.py\" ]] && cp -f \"$ROOT/build/patch_esbuild_fileurl.py\" \"$UP/.mihrab-patch-esbuild-fileurl.py\"",
-      "new": "\"$PY_BIN\" \"$ROOT/build/patch_esbuild_fileurl.py\" \"$UP/vscode\"",
+      "old": "[[ -f \"$ROOT/build/patch_welcome_web_entries.py\" ]] && cp -f \"$ROOT/build/patch_welcome_web_entries.py\" \"$UP/.mihrab-patch-welcome-web-entries.py\"",
+      "new": "\"$PY_BIN\" \"$ROOT/build/patch_welcome_web_entries.py\" \"$UP/vscode\"",
       "expect": "SRC-01",
       "why": "‏**المُصابُ هو الخطأُ الذي أسقط بناءَين.** المرقِّعُ يُنادى مباشرةً بدل أن يُنسَخ ويُحقَن، فيعمل **قبل** `git add . ; git reset --hard` الذي يُجريه `dev/build.sh` — ويزول أثرُه. والعطبُ صامتٌ مضاعَف: وجد الملفَّ مُرقَّعًا من تجربةٍ يدويّةٍ سابقة فطبع «مُرقَّعٌ سلفًا» في السطر 18 من السجلّ، والملفُّ غيرُ مُرقَّعٍ في السطر 22 — **شهادةُ نجاحٍ لملفٍّ يُمحى بعد سطور**، ثمّ سقط `vscode-web-min` بالعطب نفسِه بعد 6.7 دقيقة. والتعليقُ في `build/build.sh` يصف هذا الفخَّ حرفيًّا: قُرِئ ثمّ وقع. فصار بنيويًّا: من كانت `FILES` له في شجرة vscode فطريقُه `.mihrab-patch-*`، ولا يُنادى مباشرةً."
     },

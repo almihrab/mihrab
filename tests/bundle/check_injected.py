@@ -851,6 +851,46 @@ def _ar_ratio(strings):
     return ar, len(strings)
 
 
+# ‏**سطوحُ Copilot والوكلاء خارجَ مقياس التعريب — مسمّاةً هنا لا مُغفَلة.** ترقيةُ 1.143
+# أضافت آلافَ السلاسل الإنجليزيّة، ثلاثةُ أرباعها في هذه الوحدات: محادثةُ Copilot ومضيفُ
+# الوكيل والوضعُ الصوتيّ وMCP ونافذةُ الوكلاء (‏`vs/sessions`). وهي ميزاتٌ لا تعمل في
+# محراب (لا إضافةَ Copilot في Open VSX). فقِيس على 1.143: الويب 75% بها، و94% بدونها —
+# أي أنّ النسبةَ الإجماليّة كانت تقيس حجمَ ميزةٍ لا نشحنها، لا تعريبَ ما نشحنه.
+# والاستثناءُ يُطبَع مع كلّ قياس (عددُه ونسبتُه)، فلا يتّسع صامتًا.
+_AR_SCOPE_EXCLUDE = (
+    "vs/workbench/contrib/chat",
+    "vs/platform/agentHost",
+    "vs/workbench/contrib/agentsVoice",
+    "vs/workbench/contrib/mcp",
+    "vs/sessions",
+)
+
+
+def _scoped_ar_ratio(out_dir, strings):
+    """نسبةُ العربيّة في السلاسل **خارج** `_AR_SCOPE_EXCLUDE`. يعيد (عربيّ، مقيس، مستثنى).
+
+    الوحدةُ تُعرَف من `nls.keys.json` — المصفوفةُ مرتّبةٌ بترتيب المفاتيح نفسِه، فاختلافُ
+    العددين يعني أنّ الخريطة لا تصف هذه المصفوفة، والقياسُ حينها تخمين ⇒ فشل."""
+    keys = json.loads(_readtext(os.path.join(out_dir, "nls.keys.json")))
+    n = sum(len(ks) for _m, ks in keys)
+    assert n == len(strings), (
+        f"nls.keys.json يصف {n} رسالةً والمصفوفةُ {len(strings)} — لا يُقاس بخريطةٍ لا تطابق")
+    ar = tot = excl = 0
+    i = 0
+    for mod, ks in keys:
+        skip = mod.startswith(_AR_SCOPE_EXCLUDE)
+        for _k in ks:
+            x = strings[i]
+            i += 1
+            if skip:
+                excl += 1
+                continue
+            tot += 1
+            if isinstance(x, str) and _AR_RE.search(x):
+                ar += 1
+    return ar, tot, excl
+
+
 def _nls_js_array(js):
     """مصفوفةُ الرسائل من `nls.messages.js` — والبادئةُ تُبحَث ولا يُشترَط موضعُها.
 
@@ -892,16 +932,18 @@ def _web_arabized():
 
     # (1) نواةُ الترجمة — الملفُّ الذي تقرؤه العمليّة
     msgs = json.loads(_readtext(os.path.join(web, "out", "nls.messages.json")))
-    ar, tot = _ar_ratio(msgs)
+    ar, tot, excl = _scoped_ar_ratio(os.path.join(web, "out"), msgs)
     pct = (ar * 100) // tot if tot else 0
     assert pct >= _WEB_MIN_AR_PCT, (
-        f"واجهةُ الويب {pct}% عربيّة ({ar}/{tot}) — دون العتبة {_WEB_MIN_AR_PCT}%. "
-        f"خطواتُ ما بعد البناء ربّما عادت مربوطةً بالمكتبيّ وحدَه.")
+        f"واجهةُ الويب {pct}% عربيّة ({ar}/{tot}، واستُثني {excl} من سطوح Copilot) — دون "
+        f"العتبة {_WEB_MIN_AR_PCT}%. خطواتُ ما بعد البناء ربّما عادت مربوطةً بالمكتبيّ وحدَه.")
+    print(f"     ‏[WEB-01] {pct}% عربيّة ({ar}/{tot}) · مستثنى بالاسم: {excl} "
+          f"({excl * 100 // (tot + excl)}%) من سطوح Copilot والوكلاء")
 
     # (2) ونسخةُ المتصفّح — الملفُّ الذي **يُخدَم فعلًا** للصفحة. الفصلُ مقصود: خبزُ الأولى
     # وحدَها تركَ الواجهةَ إنجليزيّةً بالكامل (1/21922) والحارسُ لو قاسها وحدَها لكان أخضر.
     js = _readtext(os.path.join(web, "out", "nls.messages.js"))
-    jar, jtot = _ar_ratio(_nls_js_array(js))
+    jar, jtot, _jx = _scoped_ar_ratio(os.path.join(web, "out"), _nls_js_array(js))
     jpct = (jar * 100) // jtot if jtot else 0
     assert jpct >= _WEB_MIN_AR_PCT, (
         f"‏nls.messages.js — وهو ما يصل المتصفّح — {jpct}% عربيّة ({jar}/{jtot})")
@@ -952,14 +994,16 @@ def _static_arabized():
     # (2) نواةُ الترجمة، ثمّ **ما يصل المتصفّح**. الفصلُ مقصود: خبزُ الأولى وحدَها
     # ترك الواجهةَ إنجليزيّةً بالكامل مرّةً سابقة.
     msgs = json.loads(_readtext(os.path.join(web, "out", "nls.messages.json")))
-    ar, tot = _ar_ratio(msgs)
+    ar, tot, excl = _scoped_ar_ratio(os.path.join(web, "out"), msgs)
     pct = (ar * 100) // tot if tot else 0
     assert pct >= _WEB_MIN_AR_PCT, (
-        f"الشجرةُ الثابتة {pct}% عربيّة ({ar}/{tot}) — دون العتبة {_WEB_MIN_AR_PCT}%. "
-        f"ربّما عادت خطوةُ (ط-0د2) مربوطةً بشجرتين لا بثلاث.")
+        f"الشجرةُ الثابتة {pct}% عربيّة ({ar}/{tot}، واستُثني {excl} من سطوح Copilot) — دون "
+        f"العتبة {_WEB_MIN_AR_PCT}%. ربّما عادت خطوةُ (ط-0د2) مربوطةً بشجرتين لا بثلاث.")
+    print(f"     ‏[WEB-03] {pct}% عربيّة ({ar}/{tot}) · مستثنى بالاسم: {excl} "
+          f"({excl * 100 // (tot + excl)}%) من سطوح Copilot والوكلاء")
 
     js = _readtext(os.path.join(web, "out", "nls.messages.js"))
-    jar, jtot = _ar_ratio(_nls_js_array(js))
+    jar, jtot, _jx = _scoped_ar_ratio(os.path.join(web, "out"), _nls_js_array(js))
     jpct = (jar * 100) // jtot if jtot else 0
     assert jpct >= _WEB_MIN_AR_PCT, (
         f"‏nls.messages.js الثابت — وهو ما يصل المتصفّح — {jpct}% عربيّة ({jar}/{jtot})")

@@ -57,7 +57,11 @@ for _s in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-SUPPORTED_VERSION = "6.1.0-beta.285"
+# ‏beta.304 مع ترقية المنبع إلى 1.143: أُعيد قياسُ المرساتين فوقعت كلٌّ منهما مرّةً واحدة،
+# ودلالاتُ الوسائط كما هي (‏getCoords: ‏s العنصر · r الأعمدة · o الصفوف؛ والتحديد: e الصفّ
+# ‏· o الإزاحة · n العرض). والجديدُ أنّ المكتبيَّ يُشحَن داخل node_modules.asar، فيُرقَّع
+# قبل التحزيم في vscode/node_modules (انظر build.sh).
+SUPPORTED_VERSION = "6.1.0-beta.304"
 MARK = "/*mihrab-bidi*/"
 
 # ── المُساعِد: أهذا الصفُّ يمينيّ؟ ────────────────────────────────────────────
@@ -148,7 +152,54 @@ def main(app_dir):
     return 0
 
 
+# ‏3 = المُساعِدُ في الرأس + المرساتان. أقلُّ من ذلك يعني رقعةً ناقصةً أو غائبة.
+_MIN_MARKS = 3
+
+
+def _asar_read(asar_path, rel):
+    """محتوى ملفٍّ **مُحزَمٍ** داخل أرشيف asar، أو None إن غاب أو كان خارجَه.
+
+    الصيغة: ‏uint32 ‏(4) · ‏uint32 حجمُ وسادة الرأس · ‏uint32 · ‏uint32 طولُ JSON · JSON.
+    وإزاحاتُ الملفّات نسبيّةٌ إلى ما بعد الوسادة (‏8 + حجمها)."""
+    import struct
+    with open(asar_path, "rb") as f:
+        head = f.read(16)
+        _four, pickle_size, _h, json_len = struct.unpack("<4I", head)
+        header = json.loads(f.read(json_len).decode("utf-8"))
+        node = header
+        for part in rel.split("/"):
+            node = (node.get("files") or {}).get(part)
+            if node is None:
+                return None
+        if node.get("unpacked") or "offset" not in node:
+            return None
+        f.seek(8 + pickle_size + int(node["offset"]))
+        return f.read(int(node["size"])).decode("utf-8", errors="replace")
+
+
+def verify_asar(app_dir):
+    """يتحقّق أنّ xterm **داخل** `node_modules.asar` مُرقَّع — لا يرقّع.
+
+    منذ 1.143 يُحزَم xterm المكتبيُّ في الأرشيف، فيُرقَّع قبل التحزيم في
+    ‏`vscode/node_modules`. وهذا الشاهدُ بعد البناء: لولاه لصار نسيانُ تلك الخطوة —
+    أو تحزيمُ نسخةٍ غيرِ مُرقَّعة — تحديدًا مقلوبًا في بناءٍ أخضر."""
+    asar = os.path.join(app_dir, "node_modules.asar")
+    if not os.path.isfile(asar):
+        fail("لا node_modules.asar في " + app_dir)
+    src = _asar_read(asar, "@xterm/xterm/lib/xterm.js")
+    if src is None:
+        fail("لا @xterm/xterm/lib/xterm.js مُحزَمًا في " + asar)
+    n = src.count(MARK)
+    if n < _MIN_MARKS:
+        fail("xterm في الأرشيف يحمل " + str(n) + " وسمًا لا " + str(_MIN_MARKS)
+             + " — لم يُرقَّع قبل التحزيم [DR-08].")
+    print("  ✅ xterm داخل node_modules.asar مُرقَّع (" + str(n) + " وسوم) [DR-08]")
+    return 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "--verify-asar":
+        sys.exit(verify_asar(sys.argv[2]))
     if len(sys.argv) != 2:
-        fail("الاستعمال: python build/patch_xterm_bidi.py <APP_DIR>")
+        fail("الاستعمال: python build/patch_xterm_bidi.py <APP_DIR> | --verify-asar <APP_DIR>")
     sys.exit(main(sys.argv[1]))

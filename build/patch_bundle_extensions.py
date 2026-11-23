@@ -158,7 +158,7 @@ _INJECT_TEMPLATE = """
     echo "محراب: طُبِّقت أصول مساحة sessions (شعار الحوض + أيقونة + خلفية)"
   fi
   if [ -f ../.mihrab-patch-main-locale.py ]; then
-    "${_MIHRAB_PY}" ../.mihrab-patch-main-locale.py src/main.ts || { echo "محراب: فشلت رُقعة اللغة الافتراضيّة" >&2; exit 1; }
+    "${_MIHRAB_PY}" ../.mihrab-patch-main-locale.py src/mainImpl.ts || { echo "محراب: فشلت رُقعة اللغة الافتراضيّة" >&2; exit 1; }
   fi
   # رُقعة الاتّجاه RTL-0: انسخ ورقة الأنماط إلى media/ ثمّ رقّع workbench.ts ليستوردها ويضبط dir=rtl.
   # **الشرطُ على المرقِّع وحدَه** [VA-05]: كانت الورقتان داخل شرطٍ يذكر `.mihrab-rtl.css`،
@@ -205,16 +205,14 @@ _INJECT_TEMPLATE = """
   if [ -f ../.mihrab-patch-menu-rtl.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-menu-rtl.py src/vs/base/browser/ui/menu/menu.ts || { echo "محراب: فشلت رُقعة القائمة الفرعيّة RTL" >&2; exit 1; }
   fi
-  # رُقعةُ بناء الويب: `import.meta.resolve(...).replace('file://','')` يترك شرطةً
-  # قبل حرف القرص على ويندوز، فيُحلّ المسارُ على قرص العمل ⇒ `C:\\C:\\…` ويسقط
-  # `vscode-web-min` — هدفُ ما يُنشَر على mihrab.dev — بعد 6.7 دقيقة برسالةِ «الملفُّ
-  # مفقود» والملفُّ في مكانه. حتميٌّ على ويندوز، غائبٌ عن CI المنبع [م-٣٢].
-  if [ -f ../.mihrab-patch-esbuild-fileurl.py ]; then
-    "${_MIHRAB_PY}" ../.mihrab-patch-esbuild-fileurl.py . || { echo "محراب: فشلت رُقعة حلّ مسار file://" >&2; exit 1; }
-  fi
   # رُقعة RTL-2: وسم splitview الشبكة (يُمكِّن استثناءها في رُقعتَي splitview/sash).
   if [ -f ../.mihrab-patch-gridview-marker.py ]; then
     "${_MIHRAB_PY}" ../.mihrab-patch-gridview-marker.py src/vs/base/browser/ui/grid/gridview.ts || { echo "محراب: فشلت رُقعة وسم الشبكة" >&2; exit 1; }
+  fi
+  # ‏[DR-08] xterm المكتبيّ يُحزَم في node_modules.asar منذ 1.143، فيُرقَّع هنا قبل التحزيم
+  # (بعد npm ci). شجرةُ vscode نفسُها جذرٌ صالحٌ للمرقِّع: ./node_modules/@xterm/xterm.
+  if [ -f ../.mihrab-patch-xterm-bidi.py ]; then
+    "${_MIHRAB_PY}" ../.mihrab-patch-xterm-bidi.py . || { echo "محراب: فشلت رُقعة اتّجاه أعمدة xterm" >&2; exit 1; }
   fi
   # رُقعة RTL-2: اتّجاه SplitView الأفقيّ المستقلّ (كلّ اللوحات، باستثناء splitview الشبكة) + المقبض.
   if [ -f ../.mihrab-patch-splitview-rtl.py ]; then

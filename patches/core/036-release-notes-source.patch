@@ -1,8 +1,8 @@
 diff --git a/src/vs/base/common/product.ts b/src/vs/base/common/product.ts
-index 85064c8c..8c38dba9 100644
+index 2c732eba..4d10b1de 100644
 --- a/src/vs/base/common/product.ts
 +++ b/src/vs/base/common/product.ts
-@@ -187,6 +187,13 @@ export interface IProductConfiguration {
+@@ -214,6 +214,13 @@ export interface IProductConfiguration {
  	readonly documentationUrl?: string;
  	readonly serverDocumentationUrl?: string;
  	readonly releaseNotesUrl?: string;
@@ -17,13 +17,14 @@ index 85064c8c..8c38dba9 100644
  	readonly keyboardShortcutsUrlLinux?: string;
  	readonly keyboardShortcutsUrlWin?: string;
 diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/vs/platform/update/common/update.config.contribution.ts
+index f00f77df..f33be908 100644
 --- a/src/vs/platform/update/common/update.config.contribution.ts
 +++ b/src/vs/platform/update/common/update.config.contribution.ts
 @@ -21,7 +21,19 @@ configurationRegistry.registerConfiguration({
  			enum: ['none', 'manual', 'start', 'default'],
  			default: 'default',
  			scope: ConfigurationScope.APPLICATION,
--			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."),
+-			description: localize('updateMode', "Configure whether you receive automatic updates. The updates are fetched from a Microsoft online service."),
 +			// The sentence has to be true for the build in front of the reader. A fork that
 +			// ships no update service at all (`updateUrl: null`) was telling every user, in
 +			// their own language, that it fetches updates from a service it never asks - and
@@ -36,11 +37,11 @@ diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/v
 +			// Only this one occurrence: the other two are the deprecated `update.channel` and
 +			// the enterprise policy entry. The first sits next to a downstream-only setting, so
 +			// patching it would tie this hunk to a neighbour the pinned upstream does not have.
-+			description: localize('updateModeProductSource', "Configure whether you receive automatic updates. Requires a restart after change. Updates are fetched from this product's online service, if it provides one; a build that ships none never checks."),
++			description: localize('updateModeProductSource', "Configure whether you receive automatic updates. Updates are fetched from this product's online service, if it provides one; a build that ships none never checks."),
  			tags: ['usesOnlineServices'],
  			enumDescriptions: [
  				localize('none', "Disable updates."),
-@@ -81,7 +93,16 @@ configurationRegistry.registerConfiguration({
+@@ -75,7 +87,16 @@ configurationRegistry.registerConfiguration({
  			type: 'boolean',
  			default: true,
  			scope: ConfigurationScope.APPLICATION,
@@ -59,18 +60,18 @@ diff --git a/src/vs/platform/update/common/update.config.contribution.ts b/src/v
  			agentsWindow: { default: false, readOnly: true },
  		},
 diff --git a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
-index 835f4980..8e17dd4b 100644
+index 45496263..e415b758 100644
 --- a/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
 +++ b/src/vs/workbench/contrib/update/browser/releaseNotesEditor.ts
-@@ -36,6 +36,7 @@ import { Schemas } from '../../../../base/common/network.js';
- import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
- import { dirname } from '../../../../base/common/resources.js';
- import { asWebviewUri } from '../../webview/common/webview.js';
+@@ -60,6 +60,7 @@ interface IReleaseNotesTokenization {
+ 	readonly value: string;
+ 	readonly codeBlocks: readonly { readonly id: string; readonly html: string }[];
+ }
 +import { mainWindow } from '../../../../base/browser/window.js';
  
  export class ReleaseNotesManager extends Disposable {
  	private readonly _simpleSettingRenderer: SimpleSettingRenderer;
-@@ -87,7 +88,11 @@ export class ReleaseNotesManager extends Disposable {
+@@ -133,7 +134,11 @@ export class ReleaseNotesManager extends Disposable {
  				return dirname(currentFileUri);
  			}
  		}
@@ -83,7 +84,7 @@ index 835f4980..8e17dd4b 100644
  	}
  
  	public async show(version: string, useCurrentFile: boolean): Promise<boolean> {
-@@ -154,7 +159,10 @@ export class ReleaseNotesManager extends Disposable {
+@@ -258,7 +263,10 @@ export class ReleaseNotesManager extends Disposable {
  		}
  
  		const versionLabel = match[1].replace(/\./g, '_');
@@ -95,7 +96,7 @@ index 835f4980..8e17dd4b 100644
  		const url = `${baseUrl}/v${versionLabel}.md`;
  		const unassigned = nls.localize('unassigned', "unassigned");
  
-@@ -272,8 +280,23 @@ export class ReleaseNotesManager extends Disposable {
+@@ -377,8 +385,23 @@ export class ReleaseNotesManager extends Disposable {
  		const css = colorMap ? generateTokensCSSForColorMap(colorMap) : '';
  		const showReleaseNotes = Boolean(this._configurationService.getValue<boolean>('update.showReleaseNotes'));
  
@@ -120,15 +121,15 @@ index 835f4980..8e17dd4b 100644
  			<head>
  				<base href="${asWebviewUri(fileContent.base).toString(true)}/" >
  				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-@@ -282,6 +305,7 @@ export class ReleaseNotesManager extends Disposable {
- 					${DEFAULT_MARKDOWN_STYLES}
- 					${css}
+@@ -416,6 +439,7 @@ export class ReleaseNotesManager extends Disposable {
+ 						color: var(--vscode-textLink-activeForeground);
+ 					}
  
 +
  					/* codesetting */
  
  					code:has(.codesetting) {
-@@ -532,6 +556,62 @@ export class ReleaseNotesManager extends Disposable {
+@@ -666,6 +690,62 @@ export class ReleaseNotesManager extends Disposable {
  						}
  					}
  
@@ -189,21 +190,21 @@ index 835f4980..8e17dd4b 100644
 +					}
 +
  				</style>
+ 				<style id="release-notes-tokenization" nonce="${nonce}">${css}</style>
  			</head>
- 			<body>
 diff --git a/src/vs/workbench/contrib/update/browser/update.contribution.ts b/src/vs/workbench/contrib/update/browser/update.contribution.ts
-index 777207d..3435f6d 100644
+index 3a3ca539..edc1c28e 100644
 --- a/src/vs/workbench/contrib/update/browser/update.contribution.ts
 +++ b/src/vs/workbench/contrib/update/browser/update.contribution.ts
-@@ -26,6 +26,7 @@ import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys
- import { IOpenerService } from '../../../../platform/opener/common/opener.js';
- import { IProductService } from '../../../../platform/product/common/productService.js';
+@@ -28,6 +28,7 @@ import { IProductService } from '../../../../platform/product/common/productServ
  import { URI } from '../../../../base/common/uri.js';
+ import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
+ import { ReleaseNotesAccessibilityHelp } from './releaseNotesAccessibilityHelp.js';
 +import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
  
  const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
  
-@@ -63,13 +64,44 @@ export class ShowReleaseNotesAction extends Action2 {
+@@ -67,13 +68,44 @@ export class ShowReleaseNotesAction extends Action2 {
  		const instantiationService = accessor.get(IInstantiationService);
  		const productService = accessor.get(IProductService);
  		const openerService = accessor.get(IOpenerService);

@@ -16,7 +16,7 @@
 # هنا خطأً) — يفعله `build.sh` تهيئةً و`patch_bundle_extensions` حقنًا. والمرقِّعُ يحقن
 # **استيرادَهما** وحدَه. وفحصُ المراسي يحتاج workbench.ts فقط.
 PATCHERS = [
-    ("patch_main_locale.py", "file", ["src/main.ts"]),
+    ("patch_main_locale.py", "file", ["src/mainImpl.ts"]),
     ("patch_workbench_rtl.py", "file", ["src/vs/workbench/browser/workbench.ts"]),
     ("patch_menubar_rtl.py", "file", ["src/vs/base/browser/ui/menu/menubar.ts"]),
     ("patch_menu_rtl.py", "file", ["src/vs/base/browser/ui/menu/menu.ts"]),
@@ -56,14 +56,9 @@ PATCHERS = [
     # `hasWebFileSystemAccess`. **وكان خارجَ هذه القائمة**، أي خارجَ L1 كلِّه — حتّى
     # كسر بناءَ ويندوز بمِرساةٍ فيها `\n` حرفيًّا لا تُطابِق `\r\n` [CRLF-01].
     ("patch_welcome_web_entries.py", "root", None),
-    # ‏**مصدرُ منبعٍ نظيفٌ ⇒ مرقِّعُ جذرٍ لا BUILD_PATCHERS.** أوّلُ تصنيفٍ وضعه في
-    # `BUILD_PATCHERS` لأنّه يمرّ عبر `.mihrab-patch-*` [SRC-01] — وذلك **طريقُ
-    # التطبيق** لا **وجودُ المصدر**. ورأسُ تلك القائمة يقول «لا مصدرَ منبعٍ لها»،
-    # وهدفُ هذا المرقِّع ملفٌّ في `.upstream/vscode` يُعاد إلى حالته بكلّ reset. فكان
-    # خارجَ L1 كلِّه: لا فحصَ مِرساةٍ على منبعٍ نظيف، ولا إعادةَ تطبيق، ولا نهايتَي
-    # سطر — وهي الثغرةُ بعينها التي أخرجت `patch_welcome_web_entries.py` حتّى كسر
-    # بناءَ ويندوز، والمكتوبةُ في هذا الملفّ أسفلَه.
-    ("patch_esbuild_fileurl.py", "root", None),
+    # ‏`patch_esbuild_fileurl.py` [م-٣٢] تقاعد مع ترقية 1.143: المنبعُ اعتمد الإصلاحَ
+    # نفسَه حرفيًّا (`fileURLToPath(import.meta.resolve('typescript'))`)، فصار المرقِّعُ
+    # لا يغيّر شيئًا — وأمسك L1 ذلك («لم يتغيّر أيّ ملفّ»).
 ]
 
 # رُقَع «الجذر» تشتقّ ملفّاتها من قائمة FILES داخلها. لا تُسرَد هنا يدويًّا: نسخةٌ
@@ -73,7 +68,6 @@ ROOT_PATCHER_FILES_ATTR = {
     "patch_settings_labels.py": "FILES",
     "patch_win_metadata.py": "FILES",
     "patch_welcome_web_entries.py": "FILES",
-    "patch_esbuild_fileurl.py": "FILES",
 }
 
 # مرقِّعات بناء لا تُطبَّق على مصدر vscode مباشرةً (تُستثنى من فحص المراسي L1، لكنّها
@@ -83,7 +77,6 @@ BUILD_PATCHERS = [
     "bake_nls_arabic.py",          # خطوة بعد-بناء على الـartifacts
     "patch_extension_nls.py",      # حقن package.nls.ar.json للامتدادات (بعد-بناء)
     "patch_node_gyp_spectre.py",   # م0
-    "patch_npmrc_tolerance.py",    # م0
     # ── مرقِّعاتُ ما بعد البناء: تعمل على شجرةِ مخرَجٍ لا على مصدر vscode ──
     # ‏L1 يقيس «هل تُطابِق المِرساةُ مصدرَ المنبع النظيف؟»، وهذه لا مصدرَ منبعٍ لها:
     # مدخلاتُها ناتجُ البناء أو سكربتاتُ VSCodium. وقاطعُها L2 (مِجَسُّ الحزمة) وL0.

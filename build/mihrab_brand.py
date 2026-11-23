@@ -188,6 +188,10 @@ def leaks(text):
 HINGE_NAMES = (
     "nls.messages.en.json",     # نسخةُ الإنجليزيّة الأصليّة (‏bake_nls_arabic)
     "nls.keys.json",            # مفاتيحُ لا نصٌّ مُصيَّر
+    # بياناتُ تصدير الترجمة (‏`vscode-translations-export`) — صار المنبعُ يشحنها في `out/`
+    # منذ 1.143. قِيس: لا ملفَّ JS مشحونٌ يذكر `nls.metadata` ولا يقرؤها شيءٌ وقتَ التشغيل،
+    # فالإنجليزيّةُ فيها (ومعها اسمُ التوزيعة الأمّ) لا تُصيَّر لأحد.
+    "nls.metadata.json",
     "package.nls.en.json",      # الاسمُ القديم — يُهاجَر عند البناء، ويُستثنى حتّى يزول
     ".mihrab-nls-orig.json",    # أصلُ بيانات كلّ امتدادٍ مدمج (خارجَ نمط package.nls.*)
 )
