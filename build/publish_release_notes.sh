@@ -7,7 +7,7 @@
 # الوجهة: `<جذر الملاحظات>/v<كبير>_<صغير>.md` — وهو ما يطلبه `releaseNotesEditor.ts`
 # بعد رقعة النواة ‎036‎: `<releaseNotesBaseUrl>/v<كبير>_<صغير>.md`، والقاعدةُ في
 # `product-overrides/product.json`. من غيّر إحداهما فليغيّر الأخرى وكتلةَ
-# `location /notes/` في `deploy/nginx/mihrab.dev.static.conf` — وإلّا جلب المحرِّرُ ‎404‎
+# `location /notes/` في كتل nginx — وإلّا جلب المحرِّرُ ‎404‎
 # وارتدّ بالقارئ إلى صفحة الإصدارات في المتصفّح.
 #
 # **المجلّدُ خارج جذر الحمولة عمدًا** (`/opt/mihrab/notes` لا `/opt/mihrab/static/notes`):
@@ -155,6 +155,6 @@ for entry in "${FILES[@]}"; do
   fi
 done
 
-(( bad == 0 )) || { echo "❌ مرفوعٌ ولا يُخدَم: انشرْ كتلةَ location /notes/ من deploy/nginx (ثمّ nginx -t وإعادةُ التحميل)" >&2; exit 1; }
+(( bad == 0 )) || { echo "❌ مرفوعٌ ولا يُخدَم: انشرْ كتلةَ location /notes/ (ثمّ nginx -t وإعادةُ التحميل)" >&2; exit 1; }
 
 echo "✅ منشورةٌ ومخدومةٌ من $BASE"

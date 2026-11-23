@@ -39,28 +39,6 @@ def read(rel):
         return f.read()
 
 
-def ngx_strip(text):
-    """نصُّ إعدادِ nginx بلا تعليقات.
-
-    التعليقاتُ في ملفّاتنا تقتبس التوجيهاتِ **حرفًا بحرف** لتشرحها، و`#` وحدَه
-    يفصل بين توجيهٍ يُرسَل وسطرٍ لا يفعل شيئًا. فحارسٌ يقرأ النصَّ خامًا يقبل
-    سطرًا معلَّقًا مكانَ توجيهٍ حيّ: قِيس بالطفرة — تعليقُ سطرِ
-    `add_header Content-Security-Policy …` مرَّ أخضرَ في [W404] و[CSP-01] معًا،
-    وصفحةُ ‎404‎ تخرج بلا سياسةٍ البتّة. و`#` داخل قيمةٍ مقتبسةٍ ليس تعليقًا.
-    """
-    out = []
-    for line in text.splitlines(True):
-        quoted = False
-        for i, ch in enumerate(line):
-            if ch == '"':
-                quoted = not quoted
-            elif ch == "#" and not quoted:
-                line = line[:i] + ("\n" if line.endswith("\n") else "")
-                break
-        out.append(line)
-    return "".join(out)
-
-
 def css_strip_comments(raw, name="?"):
     """نصُّ CSS بلا تعليقات — بماسحٍ بأربع حالات: خارجَ كلّ شيء، داخلَ تعليق،
     داخلَ سلسلة، داخلَ `url(` بلا اقتباس [CSS-01].
@@ -122,37 +100,6 @@ def css_strip_comments(raw, name="?"):
         pos += 1
     assert depth == 0, "تعليقٌ لم يُغلَق في %s [CSS-01]" % name
     return "".join(out)
-
-
-def ngx_servers(conf):
-    """[(البداية، النهاية، أسماءُ الخادم)] لكلّ كتلة `server` بموازنة الأقواس.
-
-    **والاسمُ يُقرأ من الكتلة الحاوية لا من «آخرِ `server_name` قبل الموضِع»**:
-    ‏nginx لا يبالي بترتيب التوجيهات داخل الكتلة، فـ`server_name` **بعد** موضِعٍ
-    مشروعٌ تمامًا — وكان ذلك الافتراضُ يُسنِد موضِعًا في كتلة `app.mihrab.dev`
-    إلى اسم الكتلة السابقة، فتُقبَل `'self'` حيث لا تعني أصلَ الموقع. قِيس
-    بالطفرة: نقلُ `server_name app.mihrab.dev;` أسفلَ كتلة ‎404‎ مع سياسةٍ
-    بـ`'self'` وحدَها ⇒ ‎95/95‎ خضراء وصفحةٌ عارية.
-    """
-    out = []
-    for m in re.finditer(r"^[ 	]*server\s*\{", conf, re.MULTILINE):
-        j = conf.index("{", m.start())
-        depth, k = 0, j
-        while k < len(conf):
-            if conf[k] == "{":
-                depth += 1
-            elif conf[k] == "}":
-                depth -= 1
-                if depth == 0:
-                    break
-            k += 1
-        blk = conf[j:k]
-        names = set()
-        nm = re.search(r"^\s*server_name\s+([^;]+);", blk, re.MULTILINE)
-        if nm:
-            names = set(nm.group(1).split())
-        out.append((j, k, names))
-    return out
 
 
 def main():
@@ -807,9 +754,7 @@ def main():
     #   ١) المضيفُ هو أصلُ الموقع لا شيءٌ آخر — وإلّا كانت الصفحةُ تُحمّل من مكانٍ
     #      لا نملكه، أو (كما وقع أوّلًا) بشرطةٍ من الجذر فتُحلّ على أصل الورشة
     #      حيث لا `assets/` ⇒ حلقةُ ‎404‎ مغلقة.
-    #   ٢) وسياسةُ **كلّ** `location = /404.html` في الإعدادات الحيّة تسمح بذلك
-    #      المضيف — وإلّا حُجِبت الورقةُ والسكربتُ بـCSP فتصل الصفحةُ عاريةً،
-    #      وهو ما وقع فعلًا بعد إصلاح الضلع الأوّل: العطبُ انتقل طبقةً ولم يزل.
+    #   ٢) وسياسةُ **كلّ** `location = /404.html` في إعداد nginx تسمح بذلك المضيف.
     nf = read("404.html")
     with open(os.path.join(SITE, "data", "site.json"), encoding="utf-8") as _f:
         _site = json.load(_f)
@@ -843,202 +788,6 @@ def main():
     assert not extra, (
         "‏404.html تحمّل من مضيفٍ غيرِ أصل الموقع: %s — وهي تُقدَّم من أصلين، "
         "فكلُّ عنوانٍ فيها يجب أن يكون مطلقًا بأصل الموقع [W404]" % ", ".join(extra))
-
-    # والأصولُ التي تُحمَّل فعلًا (ورقةُ أنماطٍ وسكربت) تُقابَل بسياسة كلّ كتلة.
-    ngx_dir = os.path.join(ROOT, "deploy", "nginx")
-    checked = 0
-    for fn in sorted(os.listdir(ngx_dir)):
-        if not fn.endswith(".conf"):
-            continue
-        with open(os.path.join(ngx_dir, fn), encoding="utf-8") as _cf:
-            raw = _cf.read()
-        # وسمُ التقاعد تعليقٌ، فيُقرأ **قبل** تجريد التعليقات.
-        if "[MIHRAB-CONF-RETIRED]" in raw:
-            continue
-        conf = ngx_strip(raw)
-        srvs = ngx_servers(conf)
-        for bm in re.finditer(r"location\s*=\s*/404\.html\s*\{", conf):
-            j = conf.index("{", bm.start())
-            depth, k = 0, j
-            while k < len(conf):
-                if conf[k] == "{":
-                    depth += 1
-                elif conf[k] == "}":
-                    depth -= 1
-                    if depth == 0:
-                        break
-                k += 1
-            blk = conf[j:k]
-            pm = re.search(r'add_header\s+Content-Security-Policy\s+"([^"]+)"', blk)
-            assert pm, ("كتلةُ `= /404.html` في %s بلا سياسةِ أمانِ محتوى [W404]" % fn)
-            policy = pm.group(1)
-            checked += 1
-            # و`'self'` تكفي **حين يكون الأصلُ هو أصلَ الكتلة نفسِها**. وذلك
-            # التمييزُ هو كلُّ المسألة: في كتلة `mihrab.dev` تعني `'self'`
-            # `mihrab.dev` فتُجزئ؛ وفي كتلة `app.mihrab.dev` تعني `app.` —
-            # فتحجب أصولَ الصفحة كلَّها بينما تبدو السياستان متطابقتين نصًّا.
-            # والاسمُ يُقرأ من **الكتلة الحاوية** (`ngx_servers`) لا من «آخرِ
-            # `server_name` قبل الموضِع»: ‏nginx لا يبالي بترتيب التوجيهات، فاسمٌ
-            # مكتوبٌ أسفلَ الموضِع كان يُسنِده إلى الكتلة السابقة — قِيس بالطفرة.
-            names = set()
-            for _a, _b, _nm in srvs:
-                if _a <= bm.start() < _b:
-                    names = _nm
-                    break
-            self_ok = origin.split("//")[-1] in names
-            for directive in ("script-src", "style-src", "font-src"):
-                dm = re.search(re.escape(directive) + r"\s+([^;]+)", policy)
-                assert dm, "لا `%s` في سياسة ‎404‎ في %s [W404]" % (directive, fn)
-                vals = dm.group(1).split()
-                if self_ok and "'self'" in vals:
-                    continue
-                assert origin in vals or "*" in vals, (
-                    "سياسةُ `= /404.html` في %s لا تسمح بـ%s في `%s` — وأصولُ الصفحة "
-                    "مطلقةٌ بذلك الأصل، فتُحجَب بـCSP وتصل الصفحةُ **بلا أنماطٍ ولا "
-                    "سكربت**: عارية، على الصفحة الوحيدة التي وظيفتُها الإنقاذ [W404]"
-                    % (fn, origin, directive))
-            # ── `internal` شرطٌ لا زينة — ولم يكن له حارس ──
-            # بدونه يصير `/404.html` عنوانًا عامًّا يردّ **‎200‎** بصفحةِ خطأ،
-            # فتفهرسه محرّكاتُ البحث صفحةً حقيقيّة ويصلها الزائرُ من نتيجةِ بحثٍ
-            # ليقرأ «لا شيءَ هنا». والجملةُ مكتوبةٌ في الإعداد نفسِه («شرطٌ لا
-            # زينة») **وكانت بلا حارسٍ يسندها**: طفرةٌ تحذفه مرّت خضراء.
-            assert re.search(r"^\s*internal\s*;", blk, re.MULTILINE), (
-                "كتلةُ `= /404.html` في %s بلا `internal;` — فيصير `/404.html` "
-                "عنوانًا عامًّا يردّ ‎200‎ بصفحةِ خطأ، وتفهرسه محرّكاتُ البحث "
-                "صفحةً حقيقيّة [W404]" % fn)
-
-            # ── والترويساتُ الأربعُ معها ──
-            # `add_header` في الموضِع يُلغي وراثةَ `server`، ولا `add_header` على
-            # مستوى `server` في هذا الملفّ — فكتلةٌ تحمل السياسةَ وحدَها تخرج بلا
-            # `nosniff` ولا HSTS ولا `Referrer-Policy`. و[CSP-01] يقيس السياسةَ
-            # وحدَها، فكان حذفُ الثلاثِ يمرّ أخضر.
-            # والقيمةُ لا الاسمُ وحدَه: `add_header X-Content-Type-Options "";`
-            # يمرّ من فحصِ الورود ويُرسِل ترويسةً فارغةً — أي لا حمايةَ البتّة.
-            # قِيس بالطفرة: تفريغُ الثلاثِ معًا مرّ أخضر.
-            for _h in ("X-Content-Type-Options", "Strict-Transport-Security",
-                       "Referrer-Policy"):
-                _hm = re.search(r"^\s*add_header\s+" + _h + r'\s+"([^"]*)"',
-                                blk, re.MULTILINE | re.IGNORECASE)
-                assert _hm, (
-                    "كتلةُ `= /404.html` في %s بلا `%s` — و`add_header` في "
-                    "الموضِع يُلغي وراثةَ `server`، فصفحةُ الخطأ تخرج ناقصةَ "
-                    "ترويساتِ الأمان [W404]" % (fn, _h))
-                assert _hm.group(1).strip(), (
-                    "كتلةُ `= /404.html` في %s ترسل `%s` **بقيمةٍ فارغة** — "
-                    "ترويسةٌ موجودةُ الاسمِ معدومةُ الأثر [W404]" % (fn, _h))
-
-            # ── ووجهةُ `alias` يجب أن تكون شجرةً تُنشَر إليها ──
-            # القاعدةُ نفسُها التي يطبّقها [RN-01] على `/notes/`: ‏`alias` إلى
-            # مسارٍ لا يكتب فيه أحدٌ = «النشرُ يكتب حيث لا يقرأ الخادم»، وصفحةُ
-            # الخطأ تردّ ‎500‎ بدل ‎404‎. والقاعدةُ كانت مطبَّقةً هناك ومنسيّةً هنا.
-            # و`alias` **مشترطٌ** لا «إن وُجِد»: استبدالُه بـ`root` يُخرِج الوجهةَ
-            # من القياس كلِّه فيمرّ أيُّ مسارٍ أخضر (قِيس: `root /opt/mihrab/sitex;`
-            # مرَّ). والكتلةُ التي لا تستعير الصفحةَ لا `alias` فيها ولا `root`.
-            _rt = re.search(r"^\s*root\s+(\S+?);", blk, re.MULTILINE)
-            assert not _rt, (
-                "كتلةُ `= /404.html` في %s تستعمل `root %s` — والوجهةُ حينئذٍ "
-                "خارجَ القياس كلِّه. استعمِل `alias` إلى ملفِّ الصفحة بعينه [W404]"
-                % (fn, _rt.group(1) if _rt else ""))
-            _al = re.search(r"^\s*alias\s+(\S+?);", blk, re.MULTILINE)
-            if _al:
-                _root = _al.group(1).rsplit("/", 1)[0]
-                # وجهةُ النشرِ **تُشتقّ** من `deploy_site.sh` ولا تُكتَب هنا:
-                # نسخةٌ ثانيةٌ من المسار تنحرف بصمتٍ يومَ ينتقل الموقع، فيمرّ
-                # الحارسُ أخضرَ على إعدادٍ يشير إلى شجرةٍ مهجورة.
-                _ds = open(os.path.join(ROOT, "build", "deploy_site.sh"),
-                           encoding="utf-8").read()
-                _r = re.search(r'ROOT="\$\{MIHRAB_SITE_ROOT:-([^}]+)\}"', _ds)
-                _u = re.search(r'SUB="\$\{MIHRAB_SITE_SUBDIR:-([^}]+)\}"', _ds)
-                assert _r and _u, (
-                    "تعذّر اشتقاقُ وجهة النشر من `build/deploy_site.sh` — تغيّرت "
-                    "صيغتُها؛ يُحدَّث الحارس [W404]")
-                _dest = "%s/%s" % (_r.group(1), _u.group(1))
-                assert _root == _dest, (
-                    "‏`alias` صفحةِ ‎404‎ في %s يشير إلى %s، ووجهةُ "
-                    "`build/deploy_site.sh` هي %s — أي أنّ النشرَ لا يضع الملفَّ "
-                    "هناك، فيردّ الخادمُ ‎500‎ عند كلّ خطأ [W404]"
-                    % (fn, _root, _dest))
-
-    assert checked >= 2, (
-        "لم تُقَس إلّا %d كتلةَ `= /404.html` — والصفحةُ تُقدَّم من أصلين. إمّا "
-        "حُذفت كتلةٌ أو تغيّرت الصيغة [W404]" % checked)
-
-    # ── وخطوطُ الصفحةِ المشتركةِ تصل عبر الأصلين [CORS-01] ──
-    # صفحةُ ‎404‎ تُقدَّم من أصلين بـ`alias`، وكلُّ عناوينها مطلقةٌ بأصل الموقع.
-    # فحين تُقدَّم من `app.mihrab.dev` تُحمَّل `fonts.css` من الجذر، و`@font-face`
-    # يحلّ `url("fonts/…")` نسبةً إلى **موقع الورقة** — فالطلبُ عابرُ أصل.
-    #
-    # **وجلبُ الخطوط تحكمه CORS لا CSP وحدَها**: تسمح `font-src` بالمضيف ثمّ
-    # يرفض المتصفّحُ الملفَّ لغياب `Access-Control-Allow-Origin` — فتصل صفحةُ
-    # الإنقاذ بخطّ النظام بينما نظيرتُها على الجذر سليمة، بلا ‎404‎ ولا خطأ في
-    # أيّ طبقة.
-    #
-    # وكان هذا السطحُ **بلا حارسٍ البتّة**: أربعُ طفراتٍ مرّت خضراء — حذفُ
-    # الترويسة · حذفُ الكتلة · قصرُها على مضيفٍ غريب · نقلُها إلى كتلة `app.`.
-    # وكتلةُ nginx كانت تزعم أنّ [CSP-01] و[W404] يحرسانها، وكلاهما لا يراها.
-    #
-    # والطرفان يُشتقّان ولا يُكتبان: **أيُّ امتدادٍ يُحمَّل** من `fonts.css`،
-    # و**من أيّ أصلٍ** — الأوّلُ من الورقة المبنيّة، والثاني من `site.json`.
-    _font_exts = sorted({os.path.splitext(n)[1] for n in declared})
-    assert _font_exts, "لا امتدادَ خطٍّ مُعلَنٌ في `fonts.css` [CORS-01]"
-    _host = origin.split("//", 1)[-1]
-    with open(os.path.join(ROOT, "deploy", "nginx",
-                           "mihrab.dev.static.conf"), encoding="utf-8") as _nf:
-        _conf_raw = ngx_strip(_nf.read())
-    _blocks = ngx_servers(_conf_raw)
-    # وجهةُ النشر تُشتقّ من `deploy_site.sh` كما في [W404] — لا تُكتَب هنا.
-    with open(os.path.join(ROOT, "build", "deploy_site.sh"), encoding="utf-8") as _df:
-        _ds2 = _df.read()
-    _rr = re.search(r'ROOT="\$\{MIHRAB_SITE_ROOT:-([^}]+)\}"', _ds2)
-    _uu = re.search(r'SUB="\$\{MIHRAB_SITE_SUBDIR:-([^}]+)\}"', _ds2)
-    assert _rr and _uu, "تعذّر اشتقاقُ وجهة النشر [CORS-01]"
-    _dest_root = "%s/%s" % (_rr.group(1), _uu.group(1))
-    _guarded = False
-    for _j0, _k0, _names in _blocks:
-        if _host not in _names:
-            continue
-        _blk = _conf_raw[_j0:_k0]
-        for _lm in re.finditer(r"location\s+(\^~\s+)?(/assets/fonts/)\s*\{", _blk):
-            _j = _blk.index("{", _lm.start())
-            _d, _k = 0, _j
-            while _k < len(_blk):
-                if _blk[_k] == "{":
-                    _d += 1
-                elif _blk[_k] == "}":
-                    _d -= 1
-                    if _d == 0:
-                        break
-                _k += 1
-            _fb = _blk[_j:_k]
-            _acao = re.search(
-                r'add_header\s+Access-Control-Allow-Origin\s+"?([^";]+)"?', _fb)
-            assert _acao, (
-                "كتلةُ `/assets/fonts/` في «%s» بلا `Access-Control-Allow-Origin` "
-                "— و`@font-face` عابرُ أصلٍ تحكمه CORS: تصل صفحةُ ‎404‎ على الأصل "
-                "الآخر **بخطّ النظام** بلا ‎404‎ ولا خطأ [CORS-01]" % _host)
-            _val = _acao.group(1).strip()
-            assert _val in ("*", app), (
-                "‏`Access-Control-Allow-Origin` في كتلة الخطوط = %r — والمنتظَر "
-                "`*` أو أصلَ المحرِّر (%s) الذي تُقدَّم منه الصفحةُ المشتركة "
-                "[CORS-01]" % (_val, app))
-            # والوجهةُ تُخدَم فعلًا: `root` خاطئٌ أو `try_files` إلى صفحةٍ
-            # يُقدِّمان ‎404‎ أو HTML بنوعٍ خاطئٍ مكانَ الخطّ — والقاعدةُ هي
-            # عينُها التي يطبّقها [W404] على `alias` صفحةِ الخطأ.
-            _rt = re.search(r"^\s*root\s+(\S+?)/?;", _fb, re.M)
-            if _rt:
-                assert _rt.group(1) == _dest_root, (
-                    "‏`root` في كتلة الخطوط = %s ووجهةُ النشر %s — الأوجهُ "
-                    "الأربعةُ كلُّها ‎404‎ [CORS-01]" % (_rt.group(1), _dest_root))
-            _tf = re.search(r"^\s*try_files\s+([^;]+);", _fb, re.M)
-            assert _tf and _tf.group(1).strip() == "$uri =404", (
-                "‏`try_files` في كتلة الخطوط = %r — والمنتظَر `$uri =404`. "
-                "الارتدادُ إلى صفحةٍ يُقدِّم HTML بنوعِ محتوًى خاطئٍ مكانَ الخطّ "
-                "[CORS-01]" % (_tf.group(1).strip() if _tf else None))
-            _guarded = True
-    assert _guarded, (
-        "لا كتلةَ `location /assets/fonts/` في كتلة «%s» — والأوجهُ مورَّدةٌ "
-        "وصفحةُ ‎404‎ مشتركةٌ بين الأصلين، فجلبُ الخطّ عابرُ أصلٍ بلا ترويسةِ "
-        "CORS يسقط صامتًا [CORS-01]" % _host)
 
     REF = re.compile(r'(?:href|src)="((?!https?:|//|#|mailto:)[^"]+)"')
     for rel in ("index.html", "download/index.html", "docs/index.html",

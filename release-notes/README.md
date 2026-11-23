@@ -9,7 +9,7 @@
 release-notes/v1_126.md
    │  build/publish_release_notes.sh 1.126
    ▼
-app.mihrab.dev:/opt/mihrab/notes/v1_126.md    ← location /notes/ في deploy/nginx/mihrab.dev.static.conf
+app.mihrab.dev:/opt/mihrab/notes/v1_126.md    ← location /notes/ في كتل nginx
                                                  (كتلتان: app هي الأصل، وكتلةُ mihrab.dev
                                                   تبقى للثنائيّات المشحونة قبل الانتقال)
    │  المحرِّر يطلب <releaseNotesBaseUrl>/v1_126.md
@@ -23,7 +23,7 @@ app.mihrab.dev:/opt/mihrab/notes/v1_126.md    ← location /notes/ في deploy/n
 خمسةُ مواضعَ لا يعرف بعضُها بعضًا، وفشلُ أيٍّ منها كان **صامتًا عند القارئ**: جلبٌ يسقط
 ولا شيءَ يقع، ثمّ يفتح المتصفّحُ صفحةً أخرى بلا كلمة. صار المحرِّرُ يسأل قبل أن يخرج بك من
 التطبيق، ويقيس **الحارس ‏`[RN-01]` في `tests/static/lint_patchers.py`** العقدَ بين المواضع
-كلِّها — مع الرقعةِ نفسِها، ومجلّدِ `alias` في nginx، وترويسةِ CORS.
+كلِّها مع الرقعةِ نفسِها.
 
 ## قيودٌ مقيسةٌ لا مفترَضة
 
@@ -49,8 +49,7 @@ app.mihrab.dev:/opt/mihrab/notes/v1_126.md    ← location /notes/ في deploy/n
   قارئٍ إلى خادمٍ لا نملكه — وهو ما تُبعده رقعُ محرابٍ الأخرى عمدًا. فالترجمةُ نصٌّ، وما
   لا يُفهَم بلا صورةٍ يُوصَف بالكلمات.
 * **العنوانُ المُعلَن في الهويّة يجب أن يخدمه الخادم.** من غيّر النطاق فليغيّر معه كتلةَ
-  `location` في إعداد nginx — والحارسُ يشتقّ اسمَ ملفّ الإعداد من النطاق نفسِه، فيحمرّ إن
-  افترقا.
+  `location` في إعداد nginx، وإلّا جلب المحرِّرُ ‎404‎.
 
 ## كتابةُ إصدارٍ جديد
 

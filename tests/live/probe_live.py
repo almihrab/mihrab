@@ -78,7 +78,7 @@ try:
             cert = ss.getpeercert()
     exp = _dt.datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(tzinfo=_dt.timezone.utc)
     days = (exp - _dt.datetime.now(_dt.timezone.utc)).days
-    check(days >= 30, "شهادةُ %s تنتهي بعد %d يومًا (%s) — التجديدُ يُفحَص بـ`deploy/preflight.sh` [LIVE-01]"
+    check(days >= 30, "شهادةُ %s تنتهي بعد %d يومًا (%s) — التجديدُ يُفحَص على الخادم [LIVE-01]"
           % (HOST, days, exp.date()))
 except (OSError, ssl.SSLError, KeyError, ValueError) as e:
     fails.append("❌ تعذّر قراءةُ شهادة %s: %s [LIVE-01]" % (HOST, e))

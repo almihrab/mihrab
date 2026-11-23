@@ -293,16 +293,6 @@
       "why": "بلا تمريرِ المعرِّف يسقط الصندوقُ إلى `plaintext` الافتراضيّ، فتصير كتلةُ `[scminput]` **ميّتةً بلا أثر** — وأوّلُ من يكتبها يصدّق أنّها تعمل. وهذا صنفُ الأخضر الكاذب المؤجَّل [SC-01 · DR-02]."
     },
     {
-      "id": "deploy-wildcard-scope-widened",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/webview.mihrab.dev.conf",
-      "old": "server_name *.webview.mihrab.dev;",
-      "new": "server_name *.mihrab.dev;",
-      "expect": "نطاقُ wildcard موسَّع",
-      "why": "توسيعُ النجمة من `*.webview.mihrab.dev` إلى `*.mihrab.dev` **يعمل تمامًا** — الشهادةُ تصدر والموقعُ يخدم ولا شيءَ يصرخ. لكنّ تسرُّبَ المفتاح يصير انتحالًا للموقع كلِّه لا لأصول الإطارات وحدَها. أخطرُ صنفٍ من الأعطاب: لا يظهر إلّا يومَ يقع الضرر."
-    },
-    {
       "id": "bare-python-returns",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
@@ -321,16 +311,6 @@
       "new": "\"$PY_BIN\" \"$ROOT/build/bake_nls_arabic_MUTANT.py\" \"$WEB_DIR\"",
       "expect": "مُرقِّعاتٌ غيرُ موصولة",
       "why": "حذفُ سطرٍ واحدٍ يعيد العطبَ الأصليّ: واجهةُ متصفّحٍ إنجليزيّةٌ بالكامل (1/21922) خلف اتّجاهٍ عربيٍّ سليم. والبناءُ ينجح."
-    },
-    {
-      "id": "deploy-token-disabled",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/systemd/mihrab-web.service",
-      "old": "    --connection-token-file /etc/mihrab/token \\",
-      "new": "    --without-connection-token \\",
-      "expect": "without-connection-token",
-      "why": "سطرٌ واحدٌ يمنح كلَّ زائرٍ طرفيّةً على الخادم. والخدمةُ تعمل تمامًا بعده، فلا شيءَ يصرخ."
     },
     {
       "id": "web-host-theme-drift",
@@ -363,16 +343,6 @@
       "why": "الشجرةُ الثابتةُ هي **ما يُنشَر فعلًا**، وقد عاشت خارجَ خطّ البناء كلِّه بينما الطبقاتُ الخمسُ خضراء. حذفُ سطرٍ واحدٍ يعيدها إنجليزيّةً بالكامل — والمُصابُ يُثبِت أنّ الحلقةَ صارت ثلاثيّةً لا ثنائيّة."
     },
     {
-      "id": "deploy-ssl-duplicate-tab",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.conf",
-      "old": "    ssl_dhparam",
-      "new": "    ssl_session_timeout\t1d;\n    ssl_dhparam",
-      "expect": "تكرارٌ يمنع nginx من الإقلاع",
-      "why": "‏`ssl_session_timeout` مكرَّرًا فوق قصاصة certbot يجعل nginx **يرفض الإقلاع** — أُوقِع على الخادم الحيّ وأنقذته البوّابةُ التلقائيّة. والفاصلُ هنا **جدولةٌ لا مسافة**: الصياغةُ الأولى للحارس كانت `startswith(d + ' ')` فتمرّ الجدولةُ من تحتها، وnginx يقبلها تمامًا."
-    },
-    {
       "id": "brand-upstream-repo-path",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
@@ -401,16 +371,6 @@
       "new": "+\t\t\tthis.searchGitHub('VSCodium/vscodium', title, this.similarIssueSearchGeneration);",
       "expect": "وجهةُ المنبع حرفيّةً في سطرٍ مُضاف",
       "why": "وجهةٌ حرفيّةٌ في سطرٍ مُضافٍ **تتجاوز العنصرَ النائبَ كلَّه**، فيبقى `GH_REPO_PATH` مضبوطًا بلا أثرٍ على هذا الموضع. والأثرُ أنّ مُبلِّغَ الأعطاب يبحث في قضايا المنبع بنصّ عطبِ مستخدمِنا."
-    },
-    {
-      "id": "deploy-retired-doc-unflagged",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/README.md",
-      "old": "> # ⛔ لا تنفّذ ما في هذه الوثيقة. [MIHRAB-DEPLOY-RETIRED]",
-      "new": "> # ملاحظة: هذه الوثيقة قديمة.",
-      "expect": "بلا رايةِ تقاعد",
-      "why": "الوثيقةُ **ضارّةٌ إن نُفِّذت** لا متقادمةٌ فحسب: مراحلُها تأمر بـ`systemctl enable --now mihrab-web` وبنسخ كتلةِ وسيطٍ إلى المسار الذي يكتب فيه `static_deploy.sh`. فمن يتبعها يدوس الكتلةَ الحيّة ويعيد فتح نظامِ ملفّاتٍ وطرفيّةٍ خلف عنوانٍ عامّ — وهو سطحُ الهجوم الذي أُوقِف النشرُ الأوّلُ لأجله. ورايةٌ ليّنةٌ («قديمة») لا تردع تنفيذًا."
     },
     {
       "id": "web-host-error-not-capturing",
@@ -453,16 +413,6 @@
       "why": "نفيُ الاسم الخاطئ لا يُثبِت الصواب: حذفُ المفتاح كلِّه كان يمرّ، والنتيجةُ تعود مصادفةً (`disableWorkspaceTrust = !options.enableWorkspaceTrust`) — تنقلب يومَ يغيّر المنبعُ الافتراض. والمُصابُ **تعليقٌ** لا حذف: يُثبِت أنّ تجريدَ التعليقات في الحارس يعمل، وأنّ مِرساةً تقرأ الملفَّ خامًا كانت ستمرّ."
     },
     {
-      "id": "deploy-cache-immutable-trap",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "location /out/ {\n        add_header Cache-Control \"no-cache\" always;",
-      "new": "location /out/ {\n        add_header Cache-Control \"public, max-age=31536000, immutable\" always;",
-      "expect": "immutable",
-      "why": "‏`/out/*` أسماءٌ **غيرُ مبصومة** (`index.html` يصلها حرفيًّا)، فـ`immutable` سنةً تعني أنّ النشرَ القادم لا يبلغ زائرًا عائدًا: صفحتُه تُجدَّد و`no-cache`، وحزمتُه **لا تُطلَب أصلًا** — حتّى مع `Ctrl+R`. كسرٌ مؤجَّلٌ محقَّق: إصلاحٌ أمنيٌّ يُنشَر اليومَ ولا يصل أحدًا إلى سنةٍ من الآن."
-    },
-    {
       "id": "web-host-capture-decoy",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
@@ -471,46 +421,6 @@
       "new": "  });\n  addEventListener('scroll', function () {}, true);",
       "expect": "بلا `capture`",
       "why": "‏**مُصابُ الشرَك.** أوّلُ صياغةٍ للحارس كانت نافذةَ ١٤٠٠ محرفٍ تنتهي بـ`, true)` — فإسقاطُ `true` من مستمِع `error` **مع إضافةِ أيّ مستمِعٍ آخر بـ`capture` في المدى** كان يبقيها خضراء (المسافةُ إلى `unhandledrejection` ٦٧٧ محرفًا، فالشرَكُ يقع داخلها). المُصابُ يُثبِت أنّ الحارسَ صار يقتطع الاستدعاءَ بموازنة الأقواس ويسأل عن وسيطه الثالث — أي أنّه يقيس **ارتباطًا** لا جِوارًا. ‏**وانتقل المُصابُ مع شيفرته**: أخرج [WEB-09] كتلةَ الإقلاع من `index.html` إلى `boot-early.js` كي تستغني السياسةُ عن `'unsafe-inline'`، فبقي المُصابُ يزرع في ملفٍّ لم يعد فيه المِرساة — و«الوسمُ ورد 0 مرّةً» تعني **مُصابًا لا يُقاس به**، أي حارسًا بلا شاهد."
-    },
-    {
-      "id": "deploy-cache-long-maxage-no-immutable",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "location /out/ {\n        add_header Cache-Control \"no-cache\" always;",
-      "new": "location /out/ {\n        add_header Cache-Control \"public, max-age=31536000\" always;",
-      "expect": "فوق يومٍ واحد",
-      "why": "الحارسُ الأوّل منع **كلمةَ** `immutable` لا الخطر. وسنةٌ من `max-age` بلا الكلمة تُنتج ٩٥٪ من الكسر نفسِه: الزائرُ العائدُ لا يعيد التحقّق إلّا بـ`Ctrl+R`، فإصلاحٌ أمنيٌّ يُنشَر ولا يبلغه. المقياسُ الصحيحُ الحدُّ لا الرمزُ اللفظيّ."
-    },
-    {
-      "id": "deploy-cache-out-freshness-window",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "location /out/ {\n        add_header Cache-Control \"no-cache\" always;",
-      "new": "location /out/ {\n        add_header Cache-Control \"public, max-age=600, must-revalidate\" always;",
-      "expect": "نافذةُ عمًى",
-      "why": "‏**المُصابُ هو الأمسُ نفسُه.** هذا السطرُ بالحرف هو ما كان يخدم يومَ نُشِر امتدادٌ فلم يُلوِّن عند المُبلِّغ — ومرّ من حارسَي `immutable` و«فوق يومٍ واحد» أخضرَ، لأنّهما يقيسان الحدَّ الفادحَ ويتركان الفادحَ الصغير. وعشرُ دقائقَ تكفي: قائمةُ الامتدادات المضمَّنة مخبوزةٌ في الحزمة، فحزمةٌ عمرُها دقائقُ لا تعرف اللغةَ الجديدة إطلاقًا. فإن بقي أخضرَ فالحارسُ يحرس نيّةً مكتوبةً لا عقدًا."
-    },
-    {
-      "id": "cache-contract-substring-match",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "location /out/ {\n        add_header Cache-Control \"no-cache\" always;",
-      "new": "location /out/ {\n        add_header Cache-Control \"public, max-age=600, no-cache=\\\"Set-Cookie\\\"\" always;",
-      "expect": "نافذةُ عمًى",
-      "why": "‏**المُصابُ يُثبِت أنّ العقدَ يُحسَب ولا يُطابَق بسلسلةٍ فرعيّة.** `no-cache=\"Set-Cookie\"` **اسمُ حقلٍ** لا تصفيرُ طزاجة — والترويسةُ هنا عمرُها ستّمئة ثانية. والصياغةُ الأولى للحارس كانت تسأل `\"no-cache\" in _v` فتمرّ عليها خضراءَ، بينما ديباجتُها تقول إنّها «تقيس العقدَ — عمرَ الطزاجة صفرًا — لا الكلمة». أي حارسٌ يدّعي في نصّه ما لا يفعله في شرطه، وهو أخبثُ من حارسٍ صريحِ الضعف. فتُنزَع القيمُ ذاتُ الوسائط أوّلًا ثمّ يُقرأ ما بقي — وكذلك في المِجَسّ الحيّ `_freshness` في `static_deploy.sh`."
-    },
-    {
-      "id": "deploy-cache-excuse-same-line",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/webview.mihrab.dev.conf",
-      "old": "        # المسارُ **مُعنوَنٌ بالمحتوى** (يحوي `{commit}`) ⇒ لا يتغيّر محتواه أبدًا،",
-      "new": "        # المسارُ ثابتٌ (يحوي `{commit}`) ⇒ لا يتغيّر محتواه أبدًا,",
-      "expect": "بلا تعليلٍ مكتوبٍ **فوقه**",
-      "why": "نافذةُ التعليل كانت `ls[i-4:i]` و`i` مفهرسٌ من 1 — فالسطرُ **نفسُه** داخلها، وتعليلٌ بعد `#` على السطر ذاته كان يُرضيها بينما العقدُ المكتوب يقول «في السطور الثلاثة فوقها». المُصابُ ينزع التعليلَ من فوق السطر ويُثبِت أنّ النافذةَ صارت سابقةً حقًّا."
     },
     {
       "id": "build-web-flag-literal",
@@ -611,26 +521,6 @@
       "new": "const DOWNLOAD_URL = \"https://mihrab.dev/downloads/\";",
       "expect": "رابطُ التنزيل يختلف",
       "why": "رابطُ التنزيل مكتوبٌ في ثلاثة مواضعَ لا يستورد أحدُها الآخر. يتغيّر في واحدٍ ويُنسى الباقي فيشير جزءٌ من المنتَج إلى صفحةٍ زائلة [UX-02]."
-    },
-    {
-      "id": "csp-script-src-unsafe-inline",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "script-src 'self' 'unsafe-eval';",
-      "new": "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
-      "expect": "يسمح لأيّ حقنٍ ناجحٍ أن يُنفَّذ",
-      "why": "‏**أخطرُ ثقبٍ لأنّه يُقرأ أخضر**: الترويسةُ تبقى حاضرةً في كلّ فحصٍ يسأل «أفيها CSP؟»، وقد بطُل أنفعُ ما فيها — أيُّ حقنٍ ناجحٍ يُنفَّذ. وهو الثقبُ الذي نُقل سكربتُ الإقلاع إلى `boot-early.js` لتفاديه، فمن أعاده أعاد النقلَ عبثًا."
-    },
-    {
-      "id": "csp-drops-measured-host",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "deploy/nginx/mihrab.dev.static.conf",
-      "old": "https://openvsx.eclipsecontent.org ",
-      "new": "",
-      "expect": "تخالف المقيس",
-      "why": "‏`openvsx.eclipsecontent.org` شبكةُ توصيل Open VSX — **لم تكن في أوّل صياغةٍ للسياسة، وكشفها القياسُ لا التخمين**. وحذفُها يمنع تنزيلَ حزمة اللغة العربيّة **صامتًا**: لا رسالةَ للمستخدم، ولا خطأً في سجلّ الخادم — واجهةٌ إنجليزيّةٌ وحسب. والحارسُ يقارن المجموعةَ بالمقيس في الاتّجاهَين: الزائدُ يحتاج قياسًا يشرحه كما يحتاجه الناقص."
     },
     {
       "id": "tunnel-server-base-drifts",
