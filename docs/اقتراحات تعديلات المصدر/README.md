@@ -1815,8 +1815,6 @@ const TYPESCRIPT_LIB_SOURCE = path.dirname(fileURLToPath(import.meta.resolve('ty
 كان `build/patch_esbuild_fileurl.py` يُجريه قبل البناء، فلمّا لم يعد يغيّر شيئًا أمسكه
 L1 («لم يتغيّر أيّ ملفّ») وأُزيل.
 
-**وما يُسقطه عندنا.** ذلك المُرقِّعَ كلَّه.
-
 ## م-٣٤) سكربت تحييد القياس يبتلع فشل rg في البناء المتقاطع
 
 **العطب.** `undo_telemetry.sh` يستبدل `//*.data.microsoft.com` بـ`//0.0.0.0`، ويبحث

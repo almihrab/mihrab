@@ -45,6 +45,7 @@ xterm يترجم بين البكسل والعمود بمقدارٍ من **يسا
 الاتّجاه. والسطورُ اللاتينيّةُ الخالصةُ لا تُمَسّ إطلاقًا (تبقى يساريّةً وحسابُها كما هو).
 
 الاستعمال:  python build/patch_xterm_bidi.py <APP_DIR>
+            python build/patch_xterm_bidi.py --verify-asar <APP_DIR>   (شاهدٌ لا يرقّع)
 """
 import io
 import json

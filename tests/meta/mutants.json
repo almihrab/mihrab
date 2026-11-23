@@ -153,6 +153,26 @@
       "why": "أخطرُ حالةٍ في DR-08 ليست غيابَ الطرفين بل **وجودَ الورقة بلا الرقعة**: نصٌّ يُقرأ صحيحًا ويُحدَّد خطأً. فالمُصابُ يفصل الرقعةَ عن البناء ويُبقي الورقة."
     },
     {
+      "id": "terminal-bidi-asar-copy-dropped",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/build.sh",
+      "old": "[[ -f \"$ROOT/build/patch_xterm_bidi.py\" ]] && cp -f \"$ROOT/build/patch_xterm_bidi.py\" \"$UP/.mihrab-patch-xterm-bidi.py\"",
+      "new": ": # xterm-before-packaging dropped",
+      "expect": "اقترانُ [DR-08] قبل التحزيم مكسور",
+      "why": "منذ 1.143 لا يبلغ ترقيعُ ما بعد البناء xterm المكتبيَّ: هو داخل node_modules.asar، فيُرقَّع في شجرة vscode قبل التحزيم. فصلُ تلك الخطوة لا يكسر شيئًا حتّى يحمرّ الشاهدُ داخل الأرشيف بعد بناءٍ كامل — والمُصابُ يُثبت أنّ L0 يُمسكه قبل ذلك [DR-08]."
+    },
+    {
+      "id": "terminal-bidi-asar-inject-dropped",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "build/patch_bundle_extensions.py",
+      "old": "\"${_MIHRAB_PY}\" ../.mihrab-patch-xterm-bidi.py . ||",
+      "new": "true ||",
+      "expect": "اقترانُ [DR-08] قبل التحزيم مكسور",
+      "why": "منذ 1.143 لا يبلغ ترقيعُ ما بعد البناء xterm المكتبيَّ: هو داخل node_modules.asar، فيُرقَّع في شجرة vscode قبل التحزيم. فصلُ تلك الخطوة لا يكسر شيئًا حتّى يحمرّ الشاهدُ داخل الأرشيف بعد بناءٍ كامل — والمُصابُ يُثبت أنّ L0 يُمسكه قبل ذلك [DR-08]."
+    },
+    {
       "id": "unicode-script-mixing-reverted",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",

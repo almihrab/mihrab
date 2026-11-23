@@ -3876,6 +3876,26 @@ def _terminal_direction_sheet_and_patch_are_paired():
             "رقعةُ xterm بلا حارسِ إصدار — ترقيعُ نصٍّ مصغَّرٍ بلا تثبيتِ نسخةٍ مقامرة.")
         assert "لا مرّةً واحدة" in body, (
             "رقعةُ xterm لا تشترط وقوعَ كلّ مِرساةٍ مرّةً واحدة — قد تُرقّع موضعًا لم يُقرأ.")
+        # ‏**ومنذ 1.143 يُحزَم xterm المكتبيُّ في node_modules.asar**، فلا يبلغه نداءُ
+        # ‏"$APP_DIR" أعلاه (يبقى لشجرةٍ تشحنه مجلّدًا مفتوحًا). الطريقُ الحقيقيُّ قبل
+        # التحزيم، وحلقاتُه ثلاث: نسخُ المرقِّع إلى ما ينجو من reset، ونداؤه في كتلة الحقن،
+        # والشاهدُ داخل الأرشيف بعد البناء. سقوطُ الأولى أو الثانية يمرّ هنا أخضرَ ولا
+        # يحمرّ إلّا في (ط-0أ2) بعد بناءٍ كامل — والحارسُ الرخيصُ يُمسكه قبل ذلك.
+        def _code(txt):
+            return "\n".join(ln for ln in txt.splitlines() if not ln.lstrip().startswith("#"))
+        _bsh_code = _code(_bsh)
+        _inj_code = _code(_read(os.path.join(BUILD, "patch_bundle_extensions.py")))
+        _asar_missing = [what for what, ok in (
+            ("نسخُ المرقِّع إلى .mihrab-patch-xterm-bidi.py في build.sh",
+             '"$UP/.mihrab-patch-xterm-bidi.py"' in _bsh_code),
+            ("نداؤه قبل التحزيم في كتلة الحقن (patch_bundle_extensions.py)",
+             "../.mihrab-patch-xterm-bidi.py ." in _inj_code),
+            ("الشاهدُ داخل الأرشيف (--verify-asar) في build.sh",
+             'patch_xterm_bidi.py" --verify-asar "$APP_DIR"' in _bsh_code),
+        ) if not ok]
+        assert not _asar_missing, (
+            "اقترانُ [DR-08] قبل التحزيم مكسور — xterm المكتبيُّ يُشحَن داخل node_modules.asar "
+            "منذ 1.143، والناقص: " + " · ".join(_asar_missing))
         return
 
     missing = [k for k in parts if k not in have_sheet]
