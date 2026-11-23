@@ -44,6 +44,30 @@
       ]
     },
     {
+      "id": "محراب",
+      "title": "محراب",
+      "items": [
+        {
+          "ar": "مساعدة محراب — المصطلحات والاختصارات",
+          "win": "Alt+F1",
+          "mac": "Alt+F1",
+          "id": "mihrab.openHelp"
+        },
+        {
+          "ar": "انسخ التحديدَ ليُعرَض صحيحًا خارج محراب",
+          "win": "Ctrl+Alt+C",
+          "mac": "⌥⇧⌘C",
+          "id": "mihrab.copyForSharing"
+        },
+        {
+          "ar": "أزِل عزلَ النشر من هذا الملفّ",
+          "win": "—",
+          "mac": "—",
+          "id": "mihrab.stripSharingIsolates"
+        }
+      ]
+    },
+    {
       "id": "تحرير-النصّ",
       "title": "تحرير النصّ",
       "items": [
