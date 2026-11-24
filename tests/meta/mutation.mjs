@@ -31,11 +31,13 @@
 // وحارسٌ بطيءٌ يُعطَّل — والمعطَّلُ أسوأُ من الغائب.
 //   node tests/meta/mutation.mjs            # كلّ المُصابات
 //   node tests/meta/mutation.mjs --only <id>
+//   node tests/meta/mutation.mjs --guard check_site --dump-failures <مجلّد>
 // خرج 0 = كلُّ حارسٍ يستطيع أن يحمرّ · 1 = حارسٌ لا يفشل، أو تغطيةٌ ناقصة · 2 = خطأٌ تشغيليّ.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -46,6 +48,12 @@ const SPEC = join(HERE, "mutants.json");
 const argv = process.argv.slice(2);
 const val = (f, d) => { const i = argv.indexOf(f); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
 const ONLY = val("--only", null);
+// ‏`--guard <جزء من الأمر>`: مُصاباتُ حارسٍ واحد (كـ`check_site`) بلا بقيّة الحرّاس.
+const GUARD = val("--guard", null);
+// ‏`--dump-failures <مجلّد>`: سطورُ فشلِ كلِّ مُصابٍ في `<id>.txt` — فيُقارَن **سببُ** الاحمرار
+// قبل تغييرٍ «لا يغيّر السلوك» وبعده (`diff -r`)، لا الاحمرارُ وحده: إعادةُ تنظيمٍ تُبدّل
+// رسالةً أو تُخفي فحصًا خلف `need` يبقى مُصابُها أحمرَ ويتغيّر ما يقوله.
+const DUMP = val("--dump-failures", null);
 
 if (!existsSync(SPEC)) { console.error(`❌ لا ${SPEC}`); process.exit(2); }
 const spec = JSON.parse(readFileSync(SPEC, "utf8"));
@@ -197,12 +205,26 @@ const runGuard = (cmd) => {
   return { code: r.status, out };
 };
 
-const selected = spec.mutants.filter(m => !ONLY || m.id === ONLY);
-if (ONLY && !selected.length) {
+const selected = spec.mutants.filter(m => (!ONLY || m.id === ONLY) && (!GUARD || m.guard.includes(GUARD)));
+if ((ONLY || GUARD) && !selected.length) {
   // مرشِّحٌ لا يطابق شيئًا كان يطبع اللافتةَ الخضراء ويخرج بـ0 — أخضرُ لم يقِس شيئًا.
-  console.log(`\n  ❌ لا مُصابَ بالمعرِّف «${ONLY}»`);
+  console.log(`\n  ❌ لا مُصابَ يطابق المرشِّح (${ONLY ? "--only " + ONLY : "--guard " + GUARD})`);
   process.exit(2);
 }
+// المساراتُ تُطبَّع ليُقارَن ما يُكتب بين مجلّدَي عملٍ مختلفين: جذرُ المستودع ثمّ المؤقّت
+// (بأيّ فاصل، فالحرّاسُ تطبع `\` و`/`).
+const escRe = p => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\\|\//g, "[\\\\/]");
+const ROOT_RE = new RegExp(escRe(ROOT), "gi");
+const TMP_RE = new RegExp(escRe(tmpdir()) + "[\\\\/][^\\s\"'»)]*", "gi");
+// و[OUT-01] يزرع بوائتَ بأسماءٍ عشوائيّةٍ عمدًا (‏`stale-2f548b84`) كي لا يمرّ محوٌ بالاسم —
+// فيُطبَّع الجزءُ العشوائيّ وحدَه.
+const norm = t => t.replace(ROOT_RE, "<ROOT>").replace(TMP_RE, "<TMP>")
+  .replace(/(stale(?:-dir)?)-[0-9a-f]{8}\b/g, "$1-<RAND>");
+const dump = (m, text) => {
+  if (!DUMP) { return; }
+  mkdirSync(DUMP, { recursive: true });
+  writeFileSync(join(DUMP, m.id + ".txt"), norm(text).replace(/\r\n/g, "\n").trimEnd() + "\n", "utf8");
+};
 
 for (const m of selected) {
   const file = join(ROOT, m.file);
@@ -260,6 +282,7 @@ for (const m of selected) {
     rmSync(JOURNAL, { force: true });
   }
 
+  dump(m, res.code === null ? "‹لم ينتهِ: " + res.why + "›" : res.code === 0 ? "‹أخضر›" : failureText(res.out));
   if (res.code === null) {
     console.log(`  ❌ ${m.id}: الحارسُ لم ينتهِ (${res.why}) — لا يُقرأ أحمرَ`);
     rc = 1;
