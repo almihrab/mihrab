@@ -851,6 +851,386 @@
       "new": "\"releaseNotesUrl\": \"https://github.com/mihrab-org/mihrab/releases\"",
       "expect": "ليست** منظّمتَه",
       "why": "‏**منظّمةٌ ليست منظّمتَنا.** رابطٌ يصل المستخدمَ من «ملاحظات الإصدار» إلى مسارٍ على منظّمةٍ غيرِ مسجَّلة — اسمٌ يستطيع أيُّ أحدٍ تسجيلَه ثمّ رفعَ ما يشاء تحته [ORG-01]."
+    },
+    {
+      "id": "site-capture-blur-commented",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "captureField.addEventListener('blur', dropPending);",
+      "new": "// captureField.addEventListener('blur', dropPending);",
+      "expect": "فقدانُ البؤرة بعد Ctrl+K لا يُسقِط",
+      "why": "السطرُ تعليقٌ والنصُّ باقٍ: الفحصُ النصّيُّ يجده ويمرّ. الصندوقُ يُفقِد الحقلَ بؤرتَه ويقرأ ما يراه الزائر."
+    },
+    {
+      "id": "site-capture-escape-no-reset",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (e.key === 'Escape') { resetOut();",
+      "new": "if (e.key === 'Escape') { if (false) resetOut();",
+      "expect": "Escape لا يعيد سطرَ النتيجة",
+      "why": "‏`resetOut` موجودٌ نصًّا ولا يُستدعى: إعادةُ الفتح تُري «لم تصل الضغطةُ الثانية» — طلبًا لا ينتظره أحد."
+    },
+    {
+      "id": "site-capture-wait-zero-call",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "pendingTimer = setTimeout(dropPending, CHORD_WAIT_MS);",
+      "new": "pendingTimer = setTimeout(dropPending, 0);",
+      "expect": "مهلةُ التعليق ليست مؤقّتًا",
+      "why": "‏`CHORD_WAIT_MS` معرَّفٌ ‎5000‎ ولا يُستعمل: التعليقُ يسقط فورًا فلا يُلتقَط تسلسلٌ أبدًا، والفحصُ يقرأ التعريف."
+    },
+    {
+      "id": "site-capture-ime-keeps-pending",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "\t\t\t\tclearPending();\n\t\t\t\tcaptureOut.textContent = 'لم تصل ضغطةٌ مفهومة",
+      "new": "\t\t\t\tcaptureOut.textContent = 'لم تصل ضغطةٌ مفهومة",
+      "expect": "ضغطةُ IME لم تُسقِط التعليق",
+      "why": "ضغطةٌ لا تُفهَم بعد Ctrl+K تُبقي البادئةَ حيّةً فتُدمَج المفهومةُ التالية في تسلسلٍ لم يُقصَد."
+    },
+    {
+      "id": "site-capture-hit-unmarked",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "found.classList.add('kbd-hit');",
+      "new": "found.classList.add('kbd-seen');",
+      "expect": "لم يُعلَّم `kbd-hit`",
+      "why": "الصفُّ المُلتقَط لا يُعلَّم فيضيع وسطَ خمسة صفوفٍ على الهاتف."
+    },
+    {
+      "id": "site-results-arrowup-dead",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') { return; }",
+      "new": "if (e.key !== 'ArrowDown') { return; }",
+      "expect": "↑ بين النتائج لا يعود",
+      "why": "↑ داخل نتائج البحث ميّت؛ الفحصُ النصّيُّ كان يقرأ الثلاثيَّ لا الشرط."
+    },
+    {
+      "id": "site-filter-query-unnormalised",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "q = plain((q || '').trim().toLowerCase());",
+      "new": "q = (q || '').trim().toLowerCase();",
+      "expect": "السؤالُ لا يُطبَّع",
+      "why": "من كتب «الأوامر» بهمزتها لا يجد «لوحة الأوامر»: المتنُ مطبَّعٌ والسؤالُ لا."
+    },
+    {
+      "id": "site-filter-prefix-only",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "var match = !q || hay.indexOf(q) !== -1;",
+      "new": "var match = !q || hay.indexOf(q) === 0;",
+      "expect": "من وسط الاسم",
+      "why": "الترشيحُ يطابق بدايةَ الصفّ وحدَها: «الأوامر» لا تجد «لوحة الأوامر»."
+    },
+    {
+      "id": "site-escape-pd-conditional",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "e.preventDefault(); show(b, false); announce(b, '');",
+      "new": "if (e.shiftKey) { e.preventDefault(); } show(b, false); announce(b, '');",
+      "expect": "Escape والنتائجُ ظاهرةٌ لا يمنع",
+      "why": "يُبقي النصَّ الذي يقرؤه الفحصُ النصّيّ ويكسر السلوك: Escape يمسح السؤال (عطبُ الجولة ‎15‎)."
+    },
+    {
+      "id": "site-capture-ime-process-only",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": " || e.key === 'Process' || e.keyCode === 229",
+      "new": " || e.keyCode === 229",
+      "expect": "ضغطةُ IME لا تقول إنّها لم تُفهَم (Process",
+      "why": "‏`Process` بلا keyCode 229 (فايرفوكس أثناء التركيب) يُقرأ اختصارًا: ضغطةٌ تحمل الأضلاعَ الأربعة معًا لا ترى ضلعًا محذوفًا."
+    },
+    {
+      "id": "site-results-escape-focus-lost",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (b.results.contains(document.activeElement)) { b.input.focus(); }",
+      "new": "if (b.results.contains(document.body)) { b.input.focus(); }",
+      "expect": "Escape على نتيجةٍ مركَّزة",
+      "why": "Escape والبؤرةُ على نتيجةٍ يطوي القائمةَ والبؤرةُ داخلها: تسقط إلى body وTab التالي يبدأ من رأس الصفحة."
+    },
+    {
+      "id": "man-prerelease-case-sensitive",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "t.lower(), re.ASCII",
+      "new": "t, re.ASCII",
+      "expect": "[MAN-01]",
+      "why": "‏`beta` يُحسَب أحدثَ من `RC1` (‏b > R): المرشَّحُ الأحدثُ يُمحى بالأقدم."
+    },
+    {
+      "id": "man-asset-clash-silent",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "    if clash:",
+      "new": "    if False:",
+      "expect": "ببصمتين",
+      "why": "الأصلُ نفسُه ببصمتين في الإصدار نفسِه يُحسَم صامتًا — أعيد رفعُه أم صُحِّح؟ لا يُعرَف."
+    },
+    {
+      "id": "man-duplicate-id-silent",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "        if k in out:\n",
+      "new": "        if False:\n",
+      "expect": "معرِّفٌ مكرَّرٌ أو متصادمٌ",
+      "why": "معرِّفٌ مكرَّرٌ في مانيفستٍ واحد يُطوى إلى آخرهما صامتًا، وأصلان بلا `id` يصيران واحدًا."
+    },
+    {
+      "id": "man-arabic-digits",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "$\", re.ASCII)",
+      "new": "$\")",
+      "expect": "أرقامًا غيرَ لاتينيّة",
+      "why": "‏`\\d` بلا `re.ASCII` يقبل `١.٣.٠` إصدارًا."
+    },
+    {
+      "id": "priv-claim-extra-beside",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة.</p>",
+      "new": "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة. ولا نتتبّعك أبدًا.</p>",
+      "expect": "[PRIV-02] index.html يذكر",
+      "why": "الدعوى العامّةُ بجانب المضبوطة لا بدلها — ‏[PRIV-01] الحرفيُّ لا يراها."
+    },
+    {
+      "id": "priv-cookie-set",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/site.js",
+      "old": "\tfunction fmtSize(bytes) {",
+      "new": "\tdocument.cookie = 'mihrab_seen=1; max-age=31536000';\n\tfunction fmtSize(bytes) {",
+      "expect": "يكتب كعكةً",
+      "why": "الصفحةُ تقول «بلا كعكة» وsite.js يكتب واحدة."
+    },
+    {
+      "id": "priv-external-beacon",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/site.js",
+      "old": "\tfunction fmtSize(bytes) {",
+      "new": "\tfetch('https://stats.example/hit');\n\tfunction fmtSize(bytes) {",
+      "expect": "عنوانٌ مطلقٌ إلى أصلٍ آخر",
+      "why": "زيارةٌ تُبلَّغ إلى أصلٍ آخر من صفحةٍ تدّعي «بلا سكربت تتبّع»."
+    },
+    {
+      "id": "priv-storage-identity",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "try { localStorage.setItem('mihrab-docs-theme', next); } catch (e) {}",
+      "new": "try { localStorage.setItem('mihrab-docs-theme', next); localStorage.setItem('mihrab-visitor', String(Math.random())); } catch (e) {}",
+      "expect": "مفتاحًا غيرَ التفضيلَين",
+      "why": "معرِّفُ زائرٍ في localStorage: كعكةٌ باسمٍ آخر."
+    },
+    {
+      "id": "out-fonts-css-import",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "f.write(header + \"\\n\".join(faces) + \"\\n\")",
+      "new": "f.write(\"@import url(https://fonts.example/x.css);\\n\" + header + \"\\n\".join(faces) + \"\\n\")",
+      "expect": "fonts.css يحمّل من خارجه",
+      "why": "المولَّدُ لا مصدرَ له يُقابَل به في [OUT-02]: استيرادٌ خارجيٌّ فيه يُشحَن ويكذّب الخصوصيّة."
+    },
+    {
+      "id": "out-stale-asset",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "    write_fonts_css(dst_assets)\n",
+      "new": "    write_fonts_css(dst_assets)\n    open(os.path.join(dst_assets, \"stale-old.js\"), \"w\").close()\n",
+      "expect": "بلا مصدرٍ في `site/assets`",
+      "why": "ملفٌّ في public/assets بلا مصدرٍ ولا إعلانٍ يُحزَم ويُنشَر."
+    },
+    {
+      "id": "out-external-script",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>",
+      "new": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<script src=\"https://cdn.example/a.js\"></script>\n<title>",
+      "expect": "يحمّل موردًا من أصلٍ آخر",
+      "why": "سكربتٌ من أصلٍ آخر في كلّ صفحة — نقيضُ «بلا سكربت تتبّع»."
+    },
+    {
+      "id": "site-print-has-bypass",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-docs.css",
+      "old": "\t.content:has([data-kbd-table]) > pre { display: none !important; }",
+      "new": "\t.content:has([data-kbd-table]) > pre { display: none !important; }\n\t.content:has(h1) > p { display: none !important; }",
+      "expect": "القيدُ الوحيدُ المقبول",
+      "why": "التتالي المصغَّرُ يتجاهل `:has` فيمرّ إخفاءُ متن كلّ صفحةٍ من الورق."
+    },
+    {
+      "id": "and01-copy-btn-touch",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-home.css",
+      "old": ".copy-btn { min-height: 44px; min-width: 44px; opacity: 1; }",
+      "new": ".copy-btn { min-height: 40px; min-width: 44px; opacity: 1; }",
+      "expect": "زرُّ النسخ على اللمس",
+      "why": "زرُّ النسخ تحت حدّ اللمس ‎44‎ — [AND-01] كان بلا مُصاب."
+    },
+    {
+      "id": "and02-ime-no-return",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "captureOut.textContent = 'لم تصل ضغطةٌ مفهومة — ' + NO_SOFT_KEY;\n\t\t\t\treturn;",
+      "new": "captureOut.textContent = 'لم تصل ضغطةٌ مفهومة — ' + NO_SOFT_KEY;",
+      "expect": "فرعُ IME لا يعود",
+      "why": "فرعُ IME يكتب رسالته ثمّ يمضي إلى `chordFromEvent` فيكتب فوقها «Unidentified — لا أمرَ معروفًا»."
+    },
+    {
+      "id": "and03-ios-reads-android",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/site.js",
+      "old": "meta.textContent = IS_IOS ? MOBILE_META_IOS : MOBILE_META;",
+      "new": "meta.textContent = MOBILE_META;",
+      "expect": "لا تختار نصَّ iOS",
+      "why": "‏iPhone يقرأ «يعمل على جهازك» ولم يُقَس عليه شيء."
+    },
+    {
+      "id": "and04-nav-link-touch",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-docs.css",
+      "old": ".site-nav a { padding: 10px var(--s3); min-height: 44px; }",
+      "new": ".site-nav a { padding: 10px var(--s3); min-height: 40px; }",
+      "expect": "روابطُ الدرج على اللمس",
+      "why": "روابطُ الدرج تحت حدّ اللمس والإبهامُ يخطئها."
+    },
+    {
+      "id": "and05-readme-boot-number",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "README.md",
+      "old": "٢٠ م.ب قبل الضغط",
+      "new": "١٩ م.ب قبل الضغط",
+      "expect": "بلا الأرقام المقيسة",
+      "why": "‏README يعود إلى رقمٍ غيرِ مقيس لأوّل إقلاعٍ للمحرّر في المتصفّح."
+    },
+    {
+      "id": "sb-contract-capture-btn",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "id=\"capture-btn\"",
+      "new": "id=\"capture-button\"",
+      "expect": "عقدُ الصفحة",
+      "why": "‏`build.py` يسمّي الزرَّ باسمٍ لا يبحث عنه docs.js: الالتقاطُ ميّتٌ في الموقع. وكان الصندوقُ يصنع الاسمَ القديم بنفسه فيبقى أخضر."
+    },
+    {
+      "id": "sb-contract-result-class",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "<div class=\"result dim\">",
+      "new": "<div class=\"outcome dim\">",
+      "expect": "عقدُ الصفحة",
+      "why": "‏`captureOut` يصير null في الصفحة الحقيقيّة فيرمي المعالجُ عند أوّل ضغطة."
+    },
+    {
+      "id": "sb-tree-p-implicit-close",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "'<div class=\"capture-box\" hidden>'",
+      "new": "'<p class=\"capture-box\" hidden>'",
+      "expect": "داخل <p> مفتوح",
+      "why": "المتصفّحُ يُغلق `<p>` عند `<div class=\"result\">` فلا يجد docs.js ‏`.capture-box .result` والالتقاطُ ميّت؛ و`HTMLParser` لا يُغلق شيئًا ضمنيًّا فكان الصندوقُ يجده ويبقى أخضر."
+    },
+    {
+      "id": "site-filter-hides-nothing",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "tr.hidden = !match;",
+      "new": "tr.hidden = false;",
+      "expect": "لا يُخفي صفًّا لا يطابقه",
+      "why": "الترشيحُ لا يُخفي شيئًا؛ كان السيناريو يسأل عن ظهور المطابق وحدَه فيمرّ."
+    },
+    {
+      "id": "site-filter-count-wrong",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "total += shown;",
+      "new": "total += shown ? 1 : 0;",
+      "expect": "العددُ المنطوقُ",
+      "why": "قارئُ الشاشة يسمع عددَ الأقسام لا عددَ الصفوف."
+    },
+    {
+      "id": "out-css-import-uppercase",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "f.write(header + \"\\n\".join(faces) + \"\\n\")",
+      "new": "f.write(\"@IMPORT url(https://fonts.example/x.css);\\n\" + header + \"\\n\".join(faces) + \"\\n\")",
+      "expect": "fonts.css يحمّل من خارجه",
+      "why": "قواعدُ `@` في CSS لا تفرّق بين الأحرف، والنمطُ كان يفرّق."
+    },
+    {
+      "id": "sb-tree-dup-attr-id",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "id=\"capture-btn\" type=\"button\"",
+      "new": "id=\"capture-go\" id=\"capture-btn\" type=\"button\"",
+      "expect": "سمةٌ مكرّرة",
+      "why": "المتصفّحُ يأخذ السمةَ الأولى فلا `#capture-btn`، والمحلِّلُ كان يأخذ الأخيرة فيجده الصندوق."
+    },
+    {
+      "id": "sb-tree-dup-attr-class",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "<div class=\"result dim\">",
+      "new": "<div class=\"out\" class=\"result dim\">",
+      "expect": "سمةٌ مكرّرة",
+      "why": "لا `.result` في المتصفّح فيرمي docs.js عند أوّل ضغطة، والصندوقُ يجده."
+    },
+    {
+      "id": "sb-tree-selfclose-div",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "aria-live=\"polite\"></div>",
+      "new": "aria-live=\"polite\"/>",
+      "expect": "الشرطةُ لا تُغلق",
+      "why": "‏`<div …/>` يبقى مفتوحًا في HTML: الأقسامُ كلُّها داخل `.sr-only` ثمّ يمحوها أوّلُ ترشيح."
+    },
+    {
+      "id": "sb-tree-rawtext",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "<div class=\"grow\"><input type=\"search\" id=\"kbd-filter\" ",
+      "new": "<div class=\"grow\"><textarea hidden><input type=\"search\" id=\"kbd-filter\" ",
+      "expect": "داخل <textarea>",
+      "why": "‏`textarea` نصٌّ خامّ في المتصفّح: تُبتلَع بقيّةُ الصفحة، والمحلِّلُ يبنيها عناصر."
     }
   ],
   "uncovered": [

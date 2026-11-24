@@ -12,8 +12,9 @@
     **خطأٌ بصوت** (خروج 2) لا صفرٌ صامت. والأقصرُ يُحشى بأصفار، و`05803` = `5803`.
   - ما حمل لاحقةً أقدمُ من مثيله بلا لاحقة: لا يحلّ مرشَّحٌ محلَّ نهائيّ.
   - الحيُّ الغائبُ أو التالفُ يأخذ المخبوز (مرآةٌ جديدة، أو إصلاحُ ملفٍّ معطوب).
-  - **وعند تساوي الإصدار** يبقى الحيُّ إن كان فيه أصلٌ (‏`id`+`file`+`sha256`) ليس في
-    المخبوز — رُفع بعد آخر مزامنة — وإلّا فالمخبوزُ (يحمل أصلًا مصحَّحًا لا ينقص شيئًا).
+  - **وعند تساوي الإصدار** يبقى الحيُّ إن كان فيه أصلٌ (‏`id`) ليس في المخبوز — رُفع بعد
+    آخر مزامنة — وإلّا فالمخبوز. وأصلٌ واحدٌ بملفّين أو بصمتين خطأٌ بصوت: لا يُعرَف أيُّهما
+    الأحدث.
 
     printf '%s' "$live_json" | python build/lib/manifest_pick.py site/public/dl/releases.json
     ⇒ يطبع `baked` أو `live`، وسببَه على stderr.
@@ -22,7 +23,8 @@ import json
 import re
 import sys
 
-_V = re.compile(r"^v?(\d+(?:\.\d+)*)(?:-([0-9A-Za-z][0-9A-Za-z.-]*))?$")
+# ‏`re.ASCII`: ‏`\d` بلا هذا يقبل الأرقامَ العربيّةَ الهنديّة (‏`١.٣.٠`) إصدارًا.
+_V = re.compile(r"^v?(\d+(?:\.\d+)*)(?:-([0-9A-Za-z][0-9A-Za-z.-]*))?$", re.ASCII)
 
 
 def parse_version(v):
@@ -48,20 +50,36 @@ def compare(a, b):
 
 
 def _cmp_pre(pa, pb):
-    """اللاحقتان قطعةً قطعة، والقطعةُ الرقميّةُ عددٌ لا نصّ (‏`rc10` أحدثُ من ‏`rc2`).
+    """اللاحقتان بترتيب semver: معرِّفًا معرِّفًا (يفصلها `.`)، والأكثرُ معرِّفاتٍ أحدثُ عند
+    تساوي ما قبله. وفي كلّ معرِّفٍ تُقارَن القطعُ الرقميّةُ عددًا لا نصًّا (‏`rc10` أحدثُ من
+    ‏`rc2`، و`rc.10` من `rc.9`)، والأحرفُ بلا حالة (‏`RC1` = `rc1`) — فيصحّ
+    `alpha < beta < rc` أيًّا كُتبت.
 
-    المقارنةُ النصّيّةُ المجرَّدة كانت تجعل ‏`rc10` أقدمَ من ‏`rc2` فيُترَك الحيُّ الأقدم.
+    المقارنةُ النصّيّةُ المجرَّدة كانت تجعل `rc10` أقدمَ من `rc2`، و`beta` أحدثَ من `RC1`
+    (‏`b` > ‏`R`)، فيُترَك الحيُّ الأقدم أو يُمحى الأحدث.
     """
-    def key(p):
-        return [(0, int(t), "") if t.isdigit() else (1, 0, t)
-                for t in re.findall(r"\d+|[^\d.]+", p)]
-    ka, kb = key(pa), key(pb)
+    def ident(t):
+        return [(0, int(x), "") if x.isdigit() else (1, 0, x)
+                for x in re.findall(r"\d+|\D+", t.lower(), re.ASCII)]
+    ka = [ident(t) for t in pa.split(".")]
+    kb = [ident(t) for t in pb.split(".")]
     return 0 if ka == kb else (-1 if ka < kb else 1)
 
 
 def _assets(doc):
-    return {(a.get("id"), a.get("file"), a.get("sha256"))
-            for a in (doc.get("assets") or []) if isinstance(a, dict)}
+    """{معرِّفُ الأصل: (الملفّ، البصمة)} — وما ليس قاموسًا يُتجاهَل.
+
+    ومعرِّفٌ مكرَّرٌ في المانيفست الواحد خطأٌ بصوت: القاموسُ كان يُبقي آخرَهما صامتًا، وأصلان
+    بلا `id` يصيران أصلًا واحدًا (كانت المجموعةُ بالثلاثيّ تُبقيهما اثنين)."""
+    out = {}
+    for a in (doc.get("assets") or []):
+        if not isinstance(a, dict):
+            continue
+        k = a.get("id")
+        if k in out:
+            raise ValueError("المعرِّفُ %r مكرَّرٌ في مانيفستٍ واحد — لا يُعرَف أيُّ الأصلين يُقصَد" % (k,))
+        out[k] = (a.get("file"), a.get("sha256"))
+    return out
 
 
 def pick(baked, live):
@@ -76,10 +94,17 @@ def pick(baked, live):
         return "baked", "المخبوزُ (%s) أحدثُ من الحيّ (%s)" % (bv, lv)
     if c < 0:
         return "live", "الحيُّ (%s) أحدثُ من المخبوز (%s)" % (lv, bv)
-    extra = _assets(live) - _assets(baked)
+    la, ba = _assets(live), _assets(baked)
+    # معرِّفٌ واحدٌ ببصمتين: أصلٌ أُعيد رفعُه بعد آخر مزامنة، أو أصلٌ صُحِّح في المخبوز —
+    # لا يُعرَف أيُّهما الأحدث، فلا يُختار صامتًا: النشرُ يتوقّف حتّى يُزامَن المانيفست.
+    clash = sorted((k for k in la.keys() & ba.keys() if la[k] != ba[k]), key=str)
+    if clash:
+        raise ValueError("الإصدارُ واحد (%s) والأصلُ نفسُه بملفٍّ أو بصمةٍ مختلفة في المخبوز "
+                         "والحيّ: %s — زامِن site/data/releases.json مع الخادم" % (lv, ", ".join(map(str, clash))))
+    extra = sorted(la.keys() - ba.keys(), key=str)
     if extra:
         return "live", "الإصدارُ واحد (%s) وفي الحيّ %d أصلًا ليس في المخبوز: %s" % (
-            lv, len(extra), ", ".join(sorted(str(e[1]) for e in extra)))
+            lv, len(extra), ", ".join(str(la[e][0]) for e in extra))
     return "baked", "الإصدارُ واحد (%s) ولا ينقص المخبوزَ أصلٌ من الحيّ" % bv
 
 

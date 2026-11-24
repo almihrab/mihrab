@@ -9,6 +9,7 @@
     python tests/docs/check_site.py          # يبني ثمّ يفحص
     python tests/docs/check_site.py --no-build
 """
+import glob
 import html as _html
 import json
 import os
@@ -33,6 +34,129 @@ fails = []
 
 def bad(msg):
     fails.append(msg)
+
+
+class _Stop(Exception):
+    """فشلٌ لا يُكمَل بعده: ما يليه يستعمل ما لم يتحقّق (مطابقةً، أو عمليّةً، أو ملفًّا)."""
+
+
+def check(cond, msg):
+    """يُسجَّل الفشلُ ويُكمَل — فيُرى كلُّ عطبٍ في تشغيلةٍ واحدة، لا أوّلُها وحدَه.
+    والرسالةُ دالّةٌ تُحسَب عند الفشل وحدَه كما كانت مع `assert` (بعضُها يحسب ما لا
+    يصحّ إلّا حينها، كـ`min()` على ما يُفترَض ألّا يكون فارغًا).
+
+    كانت `assert`: أوّلُ فشلٍ يُخفي كلَّ ما بعده (قِيس: مُصابُ W404 احمرّ على FNT-01 قبله
+    فلم يُرَ W404 قطّ)، و`python -O` ينزعها كلَّها فيصير الحارسُ أخضرَ بلا قياس."""
+    if not cond:
+        bad(msg() if callable(msg) else msg)
+    return bool(cond)
+
+
+def need(cond, msg):
+    """كـ`check` لكنّ ما بعده لا يُقاس بلاه: يُسجَّل ويوقف الحارسَ بعد عرض ما جُمع."""
+    if not cond:
+        raise _Stop(msg() if callable(msg) else msg)
+    return True
+
+
+
+def _page_tree(src):
+    """صفحةٌ مبنيّةٌ شجرةً `[وسم، سمات، أبناء]` والنصُّ سلاسل — يبنيها الصندوقُ [CAP-04]
+    ‏`El` ويجد فيها ما يجده docs.js في المتصفّح. ومحتوى `script`/`style`/`noscript` لا يُنقَل
+    (‏`noscript` نصٌّ خامٌ في متصفّحٍ يشغّل السكربت).
+
+    ⇒ ‏`(الشجرة، العيوب)`. ‏`HTMLParser` لا يُغلق شيئًا ضمنيًّا والمتصفّحُ يُغلق: ‏`<p>` يُغلَق
+    عند أوّل `<div>`، و`<li>` عند `<li>` التالي… فصفحةٌ تعتمد ذلك تُبنى هنا شجرةً غيرَ شجرة
+    المتصفّح، وقد يجد الصندوقُ `.capture-box .result` والمتصفّحُ لا يجده (قِيس بالزرع: ‏`div`
+    الصندوق ‏`p` ⇒ أخضر والالتقاطُ ميّتٌ في الموقع). فكلُّ موضعٍ يفترق فيه الاثنان عيبٌ يُسمّى
+    لا تخمينٌ يُصلَح: وسمٌ يُغلَق في غير مكانه، وكتلةٌ داخل `<p>`، و`<div/>` (مفتوحٌ في HTML)،
+    و`<template>` (محتواه خارجَ الوثيقة)."""
+    from html.parser import HTMLParser
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+            "source", "track", "wbr"}
+    RAW = {"script", "style", "noscript"}
+    # ما يُغلق `<p>` مفتوحًا (‏HTML §13.2.6.4.7، مختصرًا) وما يحدّ نطاقَه
+    P_CLOSERS = {"address", "article", "aside", "blockquote", "details", "dialog", "div", "dl",
+                 "dd", "dt", "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2",
+                 "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "li", "main", "menu", "nav",
+                 "ol", "p", "pre", "section", "table", "ul"}
+    P_SCOPE = {"button", "table", "td", "th", "caption", "svg", "math"}
+
+    class _P(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.root = ["html", {}, []]
+            self.stack = [self.root]
+            self.errs = []
+
+        def _raw(self):
+            return any(n[0] in RAW for n in self.stack)
+
+        def _where(self):
+            return "السطر %d" % self.getpos()[0]
+
+        def _attrs_ok(self, tag, attrs):
+            # سمةٌ مكرّرة: المتصفّحُ يأخذ **الأولى** والقاموسُ هنا الأخيرة — `id="a" id="capture-btn"`
+            # يجده الصندوقُ ولا يجده docs.js (قِيس بالزرع وبـEdge).
+            names = [k for k, _ in attrs]
+            for k in sorted({k for k in names if names.count(k) > 1}):
+                self.errs.append("<%s %s=… %s=…> (%s): سمةٌ مكرّرة — المتصفّحُ يأخذ الأولى"
+                                 % (tag, k, k, self._where()))
+
+        def handle_starttag(self, tag, attrs):
+            self._attrs_ok(tag, attrs)
+            if tag == "html":
+                self.root[1] = {k: (v or "") for k, v in attrs}
+                return
+            # ‏`textarea` و`title` نصٌّ خامّ (RCDATA) في المتصفّح: ما فيها من وسومٍ نصٌّ، فتُبتلَع
+            # بقيّةُ الصفحة إن لم تُغلَق — و`HTMLParser` يبنيها عناصر.
+            for n in self.stack:
+                if n[0] in ("textarea", "title"):
+                    self.errs.append("<%s> داخل <%s> (%s): المتصفّحُ يقرؤه نصًّا لا عنصرًا"
+                                     % (tag, n[0], self._where()))
+                    break
+            if tag == "template":
+                self.errs.append("<template> (%s): محتواه خارجَ الوثيقة في المتصفّح" % self._where())
+            if tag in P_CLOSERS:
+                for n in reversed(self.stack):
+                    if n[0] in P_SCOPE:
+                        break
+                    if n[0] == "p":
+                        self.errs.append("<%s> داخل <p> مفتوح (%s): المتصفّحُ يُغلق <p> قبله"
+                                         % (tag, self._where()))
+                        break
+            node = [tag, {k: (v or "") for k, v in attrs}, []]
+            if not self._raw():
+                self.stack[-1][2].append(node)
+            if tag not in VOID:
+                self.stack.append(node)
+
+        def handle_startendtag(self, tag, attrs):
+            self._attrs_ok(tag, attrs)
+            if tag not in VOID and not any(n[0] in ("svg", "math") for n in self.stack):
+                self.errs.append("<%s/> (%s): الشرطةُ لا تُغلق وسمًا في HTML — يبقى مفتوحًا"
+                                 % (tag, self._where()))
+            if not self._raw():
+                self.stack[-1][2].append([tag, {k: (v or "") for k, v in attrs}, []])
+
+        def handle_endtag(self, tag):
+            if tag in VOID or tag == "html":
+                return
+            if self.stack[-1][0] != tag:
+                self.errs.append("</%s> (%s) والمفتوحُ <%s>: إغلاقٌ ضمنيٌّ يُبنى في المتصفّح غيرَ ما يُبنى هنا"
+                                 % (tag, self._where(), self.stack[-1][0]))
+            for i in range(len(self.stack) - 1, 0, -1):
+                if self.stack[i][0] == tag:
+                    del self.stack[i:]
+                    return
+
+        def handle_data(self, data):
+            if data and not self._raw():
+                self.stack[-1][2].append(data)
+
+    _p = _P()
+    _p.feed(src)
+    return _p.root, _p.errs
 
 
 def read(rel):
@@ -63,7 +187,7 @@ def css_strip_comments(raw, name="?"):
         ch2 = raw[pos:pos + 2]
         if depth == 1:
             if ch2 == "/*":
-                raise AssertionError(
+                raise _Stop(
                     "‏`/*` داخل تعليقٍ مفتوحٍ في %s:%d — تعليقٌ متداخلٌ يُغلَق مبكّرًا "
                     "ويترك بقيّتَه نصًّا طليقًا [CSS-01]"
                     % (name, raw.count("\n", 0, pos) + 1))
@@ -76,7 +200,7 @@ def css_strip_comments(raw, name="?"):
             depth, pos = 1, pos + 2
             continue
         if ch2 == "*/":
-            raise AssertionError(
+            raise _Stop(
                 "‏`*/` بلا `/*` يسبقه في %s:%d — ما بعده حتّى أوّل `;` نصٌّ طليقٌ "
                 "يبتلع الإعلانَ التالي صامتًا (وقع: الموقعُ كلُّه بخطّ المتصفّح "
                 "الافتراضيّ) [CSS-01]" % (name, raw.count("\n", 0, pos) + 1))
@@ -99,7 +223,7 @@ def css_strip_comments(raw, name="?"):
                 continue
         out.append(raw[pos])
         pos += 1
-    assert depth == 0, "تعليقٌ لم يُغلَق في %s [CSS-01]" % name
+    check(depth == 0, lambda: "تعليقٌ لم يُغلَق في %s [CSS-01]" % name)
     return "".join(out)
 
 
@@ -152,8 +276,7 @@ def main():
                     pass
             print("❌ فشل بناءُ الموقع.")
             return 1
-        assert not _survived, (
-            "بوائتُ في `site/public/` نجت البناءَ الحقيقيّ: %s — وهذا المجلّدُ بعينه "
+        check(not _survived, lambda: "بوائتُ في `site/public/` نجت البناءَ الحقيقيّ: %s — وهذا المجلّدُ بعينه "
             "ما يحزمه `deploy_site.sh` [OUT-01]" % "، ".join(_survived))
 
     with open(os.path.join(SITE, "data", "site.json"), encoding="utf-8") as f:
@@ -246,6 +369,71 @@ def main():
         bad("[PRIV-01] الصفحةُ الأولى بلا الدعوى المضبوطة — وهي التي تُفحَص فعلًا "
             "بحارسِ «لا سكربتَ داخليًّا في مخرَج الموقع»")
 
+    # ── [PRIV-02] لا دعوى خصوصيّةٍ إلّا المضبوطة، ولا ما يكذّبها في المخرَج ──
+    # ‏[PRIV-01] يطابق جملةً واحدةً حرفيًّا، فكانت تمرّ (قِيس بالزرع): دعوى عامّةٌ **بجانب**
+    # المضبوطة («… في هذه الصفحة. ولا نتتبّعك أبدًا.»)، وكعكةٌ تُكتب في site.js تكذّب
+    # «بلا كعكة» نفسَها. فيُقاس الطرفان: كلُّ ذكرٍ للتتبّع أو الكعكة في نصّ **أيّ** صفحةٍ
+    # خارجَ الجملة المضبوطة عطب، وJS المخرَج لا يكتب كعكةً ولا يبلّغ أصلًا آخر، و
+    # `localStorage` لمفتاحَي التفضيل وحدَهما (السمةُ والنظام: اختيارٌ لا هويّة).
+    _PRIV_OK = "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة"
+    _PRIV_WORD = re.compile(r"[نيت]?تتب[ً-ْ]*ع|كعك|كوكي|cookie", re.I)
+    for _pf in sorted(glob.glob(os.path.join(OUT, "**", "*.html"), recursive=True)):
+        with open(_pf, encoding="utf-8") as _pff:
+            _pt = re.sub(r"<(script|style)\b.*?</\1>", " ", _pff.read(), flags=re.S)
+        _pt = _html.unescape(re.sub(r"<[^>]+>", " ", _pt)).replace(_PRIV_OK, " ")
+        _pt = " ".join(_pt.split())
+        for _pm in _PRIV_WORD.finditer(_pt):
+            bad("[PRIV-02] %s يذكر «%s» خارج الدعوى المضبوطة: «…%s…»"
+                % (os.path.relpath(_pf, OUT).replace(os.sep, "/"), _pm.group(0),
+                   _pt[max(0, _pm.start() - 40):_pm.end() + 40]))
+    _PRIV_KEYS = {"mihrab-docs-theme", "mihrab-docs-platform"}
+    for _jf in sorted(glob.glob(os.path.join(OUT, "assets", "*.js"))):
+        with open(_jf, encoding="utf-8") as _jff:
+            _jt = _jff.read()
+        _jn = "assets/" + os.path.basename(_jf)
+        for _pat, _why in ((r"document\.cookie", "يكتب كعكةً أو يقرؤها"),
+                           (r"navigator\.sendBeacon|new\s+Image\s*\(|XMLHttpRequest|WebSocket|EventSource",
+                            "يبلّغ بقناةٍ غيرِ `fetch` النسبيّ"),
+                           (r"""["'`](?:https?:)?//(?!mihrab\.dev[/"'`])""", "فيه عنوانٌ مطلقٌ إلى أصلٍ آخر")):
+            for _jm in re.finditer(_pat, _jt):
+                bad("[PRIV-02] %s %s: «%s»" % (_jn, _why, _jt[_jm.start():_jm.start() + 60].split("\n")[0]))
+        for _km in re.finditer(r"""localStorage\.setItem\(\s*['"]([^'"]*)['"]""", _jt):
+            if _km.group(1) not in _PRIV_KEYS:
+                bad("[PRIV-02] %s يحفظ في localStorage مفتاحًا غيرَ التفضيلَين: %r" % (_jn, _km.group(1)))
+
+    # ── [OUT-03] المخرَجُ لا يحمل ما ليس من المصدر، ولا يحمّل من أصلٍ آخر ──
+    # ‏[OUT-02] يقابل كلَّ أصلٍ بمصدره، لكنّه لا يرى ما **زاد**: ملفٌّ بائتٌ في
+    # `public/assets` بلا مصدر يُشحَن، والمولَّدان (`fonts.css`، `preview-alif.js`) لا
+    # مصدرَ لهما يُقابَلان به. فكلُّ ملفٍّ هناك إمّا له مصدرٌ أو هو مولَّدٌ معلَن، ولا CSS
+    # مخرَجٌ يستورد (`@import`) أو يحمّل `url()` من أصلٍ آخر، ولا صفحةٌ تحمّل موردًا من غير
+    # أصلها — فـ`@import url(https://…)` في مولَّدٍ معطوبٍ كان يُشحَن ويكذّب الخصوصيّة.
+    _GENERATED = {"fonts.css", "preview-alif.js"}
+    _src_root = os.path.join(SITE, "assets")
+    for _dp, _dn, _fn in os.walk(os.path.join(OUT, "assets")):
+        for _f in _fn:
+            _rel = os.path.relpath(os.path.join(_dp, _f), os.path.join(OUT, "assets")).replace(os.sep, "/")
+            if _rel not in _GENERATED and not os.path.isfile(os.path.join(_src_root, _rel)):
+                bad("[OUT-03] ‏`public/assets/%s` بلا مصدرٍ في `site/assets` وليس مولَّدًا معلَنًا — بائتٌ يُشحَن" % _rel)
+    for _cf in sorted(glob.glob(os.path.join(OUT, "**", "*.css"), recursive=True)):
+        with open(_cf, encoding="utf-8") as _cff:
+            _ct = _cff.read()
+        _cn = os.path.relpath(_cf, OUT).replace(os.sep, "/")
+        # بلا تعليقات: «لا ‎@import‎ هنا» في تعليقٍ ليس استيرادًا (والماسحُ يحفظ السلاسلَ و`url(`).
+        _ct = css_strip_comments(_ct, _cn)
+        # ‏`re.I`: قواعدُ `@` وأسماءُ الدوالّ في CSS لا تفرّق بين الأحرف — `@IMPORT` و`URL(`
+        # تُحمَّل كما تُحمَّل الصغيرة، وكانت تمرّ (قِيس بالزرع).
+        for _cm in re.finditer(r"@import\b|url\(\s*['\"]?(?:https?:)?//", _ct, re.I):
+            bad("[OUT-03] %s يحمّل من خارجه: «%s»" % (_cn, _ct[_cm.start():_cm.start() + 70].split("\n")[0]))
+    _RES = re.compile(r"""<(script|link|img|iframe|source|video|audio|embed|object)\b[^>]*?\b(src|href|data)\s*=\s*["']((?:https?:)?//[^"'/]+)""", re.I)
+    for _pf in sorted(glob.glob(os.path.join(OUT, "**", "*.html"), recursive=True)):
+        with open(_pf, encoding="utf-8") as _pff:
+            _ph = _pff.read()
+        for _rm in _RES.finditer(_ph):
+            # الأصلُ من `site.json` لا مكتوبًا هنا — كما في [W404]: يُغيَّر في مكانٍ واحد.
+            if _rm.group(3).lower() != data["canonical"].rstrip("/").lower():
+                bad("[OUT-03] %s يحمّل موردًا من أصلٍ آخر: <%s %s=\"%s…\">"
+                    % (os.path.relpath(_pf, OUT).replace(os.sep, "/"), _rm.group(1), _rm.group(2), _rm.group(3)))
+
     # docs.js يخرج مبكّرًا بلا هذا الوسم، فيموت مبدّلُ النظام والترشيحُ والالتقاط.
     if "data-kbd-table" not in kbd:
         bad("keyboard/index.html بلا data-kbd-table — سلوكُ صفحة الاختصارات ميّتٌ صامتًا.")
@@ -319,8 +507,7 @@ def main():
         for _rm in re.finditer(r":root(?:[^{]*)\{([^}]*)\}", _bare):
             for _stmt in _rm.group(1).split(";"):
                 _st = _stmt.strip()
-                assert not _st or re.match(r"^[\w-]+\s*:", _st), (
-                    "جملةٌ ليست إعلانًا داخل `:root` في %s: %r — نصٌّ طليقٌ يبتلع "
+                check(not _st or re.match(r"^[\w-]+\s*:", _st), lambda: "جملةٌ ليست إعلانًا داخل `:root` في %s: %r — نصٌّ طليقٌ يبتلع "
                     "الإعلانَ الذي يليه بلا خطأ [CSS-01]" % (_cn, _st[:60]))
                 # ── ولا إعلانَ داخل إعلان ──
                 # نصٌّ طليقٌ يبدأ بـ`كلمة:` (‏`todo: …` بلا علامتَي تعليق) يمرّ من
@@ -329,8 +516,7 @@ def main():
                 # قِيس بالطفرة: خضراءُ والموقعُ بخطّ المتصفّح. فجملةٌ تحمل `--اسم:`
                 # بعد نقطتَيها الأولى هي ابتلاع.
                 _tail = _st[_st.index(":") + 1:] if ":" in _st else ""
-                assert not re.search(r"(?<![\w-])--[\w-]+\s*:", _tail), (
-                    "إعلانٌ مبتلَعٌ داخل جملةٍ أخرى في `:root` في %s: %r — ما قبله "
+                check(not re.search(r"(?<![\w-])--[\w-]+\s*:", _tail), lambda: "إعلانٌ مبتلَعٌ داخل جملةٍ أخرى في `:root` في %s: %r — ما قبله "
                     "نصٌّ طليقٌ يُسقِط الإعلانَ كلَّه بلا خطأ [CSS-01]" % (_cn, _st[:60]))
         # ── وكلُّ `var(--x)` تشير إلى `--x` مُعلَنةٍ في ورقةٍ ما ──
         # `font-family: var(--font-arr)` (خطأُ طباعة) يجعل الإعلانَ **باطلًا وقتَ
@@ -350,23 +536,19 @@ def main():
         for _prop in ("--font-ar", "--font-mono"):
             _n_all = len(re.findall(r"(?<![\w-])%s\s*:" % _prop, _bare))
             _n_root = len(re.findall(r"(?<![\w-])%s\s*:" % _prop, _root_txt))
-            assert _n_all == _n_root and (_cn == "mihrab-docs.css" or _n_all == 0), (
-                "‏`%s` مُعلَنةٌ خارج `:root` أو خارج `mihrab-docs.css` (في %s) — إعلانُ "
+            check(_n_all == _n_root and (_cn == "mihrab-docs.css" or _n_all == 0), lambda: "‏`%s` مُعلَنةٌ خارج `:root` أو خارج `mihrab-docs.css` (في %s) — إعلانُ "
                 "عنصرٍ أو ورقةٍ لاحقةٍ يغلب سلسلةَ الخطّ المورَّد صامتًا [CSS-01]"
                 % (_prop, _cn))
         for _ff in re.findall(r"(?<![\w-])font-family\s*:\s*([^;}]+)", _bare):
-            assert re.fullmatch(r"var\(--font-(ar|mono)\)|inherit", _ff.strip()), (
-                "‏`font-family: %s` في %s لا تشير إلى `--font-ar`/`--font-mono` — خطٌّ "
+            check(re.fullmatch(r"var\(--font-(ar|mono)\)|inherit", _ff.strip()), lambda: "‏`font-family: %s` في %s لا تشير إلى `--font-ar`/`--font-mono` — خطٌّ "
                 "خارج السلسلة المورَّدة [CSS-01]" % (_ff.strip()[:50], _cn))
-        assert not re.search(r"(?<![\w-])font\s*:", _bare), (
-            "مختصَرُ `font:` في %s يُعيد `font-family` إلى قيمةٍ بلا `var()` فيُسقِط "
+        check(not re.search(r"(?<![\w-])font\s*:", _bare), lambda: "مختصَرُ `font:` في %s يُعيد `font-family` إلى قيمةٍ بلا `var()` فيُسقِط "
             "الخطَّ المورَّد صامتًا — يُكتَب `font-family`/`font-size` مفصَّلةً [CSS-01]" % _cn)
         if _cn == "mihrab-docs.css":
             _fa = re.findall(r"--font-ar\s*:\s*([^;}]+)[;}]", _bare)
-            assert _fa, "لا `--font-ar` صالحٌ في `mihrab-docs.css` بعد نزع التعليقات [CSS-01]"
+            need(_fa, lambda: "لا `--font-ar` صالحٌ في `mihrab-docs.css` بعد نزع التعليقات [CSS-01]")
             _fa0 = _fa[-1].strip().split(",")[0].strip().strip("\"'")
-            assert _fa0 == "IBM Plex Sans Arabic", (
-                "أوّلُ `--font-ar` الفعليُّ هو %r — الخطُّ المورَّد لا يصل أحدًا "
+            check(_fa0 == "IBM Plex Sans Arabic", lambda: "أوّلُ `--font-ar` الفعليُّ هو %r — الخطُّ المورَّد لا يصل أحدًا "
                 "[CSS-01]" % _fa0)
             # ── والقائمةُ كلُّها قائمةُ خطوطٍ صالحة، لا أوّلُها وحدَه ──
             # الخاصّيّةُ المخصَّصة تقبل أيَّ رموز، والبطلانُ لا يظهر إلّا حين تُستبدَل
@@ -379,19 +561,17 @@ def main():
             _css_wide = {"inherit", "initial", "unset", "revert", "revert-layer", "default"}
             for _prop in ("--font-ar", "--font-mono"):
                 _vals = re.findall(r"%s\s*:\s*([^;}]+)[;}]" % _prop, _bare)
-                assert _vals, "لا `%s` في `mihrab-docs.css` [CSS-01]" % _prop
+                need(_vals, lambda: "لا `%s` في `mihrab-docs.css` [CSS-01]" % _prop)
                 for _item in _vals[-1].split(","):
                     _it = _item.strip()
                     _ok_item = bool(_it) and _it.lower() not in _css_wide and bool(
                         re.fullmatch(r'"[^"]+"|\'[^\']+\'', _it)
                         or re.fullmatch(r"-?[A-Za-z_][\w-]*(\s+-?[A-Za-z_][\w-]*)*", _it))
-                    assert _ok_item, (
-                        "عنصرٌ ليس اسمَ خطٍّ صالحًا في `%s`: %r — يُبطِل `font-family` "
+                    need(_ok_item, lambda: "عنصرٌ ليس اسمَ خطٍّ صالحًا في `%s`: %r — يُبطِل `font-family` "
                         "كلَّها وقتَ الحساب فيسقط الموقعُ إلى خطّ المتصفّح الافتراضيّ "
                         "بلا خطأ [CSS-01]" % (_prop, _it[:60]))
     _undef = sorted(_css_refs - _css_decl)
-    assert not _undef, (
-        "‏`var()` تشير إلى خاصّيّةٍ لا تُعلِنها أيُّ ورقة: %s — الإعلانُ المستعمِلُ "
+    check(not _undef, lambda: "‏`var()` تشير إلى خاصّيّةٍ لا تُعلِنها أيُّ ورقة: %s — الإعلانُ المستعمِلُ "
         "يبطل وقتَ الحساب ويصير `unset` بلا خطأ [CSS-01]" % "، ".join(_undef))
 
     # ── ٥أ) أوجهُ الخطّ مورَّدةٌ وكاملةٌ ومتوازنة [FNT-01] ──
@@ -444,7 +624,7 @@ def main():
     MONO_AR_FAMILY = "Mihrab Code Arabic"
 
     css_path = os.path.join(OUT, "assets", "fonts.css")
-    assert os.path.isfile(css_path), "لا `assets/fonts.css` في المخرَج [FNT-01]"
+    need(os.path.isfile(css_path), lambda: "لا `assets/fonts.css` في المخرَج [FNT-01]")
     with open(css_path, encoding="utf-8") as _f:
         fcss = _f.read()
 
@@ -458,44 +638,38 @@ def main():
         _blk = _bf.read()
     _i = _blk.index("FONT_FACES = [")
     wanted = re.findall(r'\("([^"]+\.woff2)"', _blk[_i:_blk.index("]", _i)])
-    assert len(wanted) >= 2, (
-        "تعذّر قراءةُ `FONT_FACES` من `site/build.py` — تغيّرت صيغتُها؛ "
+    check(len(wanted) >= 2, lambda: "تعذّر قراءةُ `FONT_FACES` من `site/build.py` — تغيّرت صيغتُها؛ "
         "يُحدَّث الحارس [FNT-01]")
     # والوعدُ يُقابَل بالجرد المستقلّ: تقليصُ `FONT_FACES` عطبٌ لا إعفاء.
     _shrunk = [n for n, _f, _w, _h in EXPECT_FACES if n not in wanted]
-    assert not _shrunk, (
-        "وجهٌ يشترطه الجردُ ولا تَعِد به `FONT_FACES` في `site/build.py`: %s — "
+    check(not _shrunk, lambda: "وجهٌ يشترطه الجردُ ولا تَعِد به `FONT_FACES` في `site/build.py`: %s — "
         "وتقليصُ الوعد يُنقِص المُقاسَ والقياسَ معًا فيمرّ أخضر. من أسقط وجهًا "
         "عمدًا يُسقِطه من `EXPECT_FACES` هنا بتعليلٍ مكتوب [FNT-01]"
         % "، ".join(_shrunk))
 
     missing = [n for n in wanted if n not in declared]
-    assert not missing, (
-        "وجهٌ تَعِد به `FONT_FACES` ولا يُعلِنه `fonts.css`: %s. والنقصُ الجزئيُّ "
+    check(not missing, lambda: "وجهٌ تَعِد به `FONT_FACES` ولا يُعلِنه `fonts.css`: %s. والنقصُ الجزئيُّ "
         "**أسوأُ من التامّ**: وجهٌ عربيٌّ بلا نظيرِه اللاتينيِّ يجعل السطرَ المختلَطَ "
         "بخطَّين، بينما النقصُ التامُّ يُبقيه متّسقًا بخطٍّ واحد. ضَع الملفَّ في "
         "`site/assets/fonts/` [FNT-01]" % "، ".join(missing))
 
     for name in declared:
         out_f = os.path.join(OUT, "assets", "fonts", name)
-        assert os.path.isfile(out_f), (
-            "‏`fonts.css` يُعلِن %s ولا وجودَ له في المخرَج — ‎404‎ في كلّ فتحةِ "
+        check(os.path.isfile(out_f), lambda: "‏`fonts.css` يُعلِن %s ولا وجودَ له في المخرَج — ‎404‎ في كلّ فتحةِ "
             "صفحة ثمّ سقوطٌ صامتٌ إلى خطّ النظام [FNT-01]" % name)
         with open(out_f, "rb") as _ff:
             raw = _ff.read()
-        assert raw[:4] == b"wOF2", "%s ليس woff2 [FNT-01]" % name
+        check(raw[:4] == b"wOF2", lambda: "%s ليس woff2 [FNT-01]" % name)
         (dlen,) = _struct.unpack(">I", raw[8:12])
-        assert dlen == len(raw), (
-            "%s مبتور: يُعلِن %d بايتًا وعلى القرص %d — يرفضه المتصفّحُ ويسقط "
+        check(dlen == len(raw), lambda: "%s مبتور: يُعلِن %d بايتًا وعلى القرص %d — يرفضه المتصفّحُ ويسقط "
             "صامتًا إلى خطّ النظام [FNT-01]" % (name, dlen, len(raw)))
 
     # ── والبصمةُ والعائلةُ والوزن، لا الوجودُ وحدَه ──
     for _fn, _fam, _wt, _sha in EXPECT_FACES:
         _p = os.path.join(OUT, "assets", "fonts", _fn)
-        assert os.path.isfile(_p), "وجهُ الجرد %s غائبٌ عن المخرَج [FNT-01]" % _fn
+        check(os.path.isfile(_p), lambda: "وجهُ الجرد %s غائبٌ عن المخرَج [FNT-01]" % _fn)
         _got = _hashlib.sha256(open(_p, "rb").read()).hexdigest()
-        assert _got == _sha, (
-            "بصمةُ %s لا تطابق الجرد (%s… بدل %s…) — وفحصُ الطول يمرّ على ملفٍّ "
+        check(_got == _sha, lambda: "بصمةُ %s لا تطابق الجرد (%s… بدل %s…) — وفحصُ الطول يمرّ على ملفٍّ "
             "فاسدِ المحتوى وعلى وجهٍ وُضِع مكانَ آخر. إن كان التغييرُ مقصودًا "
             "فحدِّث `EXPECT_FACES` [FNT-01]" % (_fn, _got[:12], _sha[:12]))
         # الزوجُ (عائلة، ملفّ) لا الملفُّ وحدَه: الملفُّ العربيُّ يُعلَن مرّتين
@@ -503,11 +677,9 @@ def main():
         _fm = re.search(r'@font-face\{font-family:"' + re.escape(_fam)
                         + r'";src:url\("fonts/' + re.escape(_fn)
                         + r'"\)[^}]*?font-weight:(\d+)', fcss)
-        assert _fm, (
-            "لا `@font-face` باسم «%s» لـ%s في `fonts.css` — عائلةٌ غائبةٌ أو "
+        need(_fm, lambda: "لا `@font-face` باسم «%s» لـ%s في `fonts.css` — عائلةٌ غائبةٌ أو "
             "مغايرةٌ لا تصل السلسلةَ أصلًا [FNT-01]" % (_fam, _fn))
-        assert int(_fm.group(1)) == _wt, (
-            "‏%s باسم «%s» مُعلَنٌ بوزن %s والجردُ يقول %d — وزنٌ مكرّرٌ يترك "
+        check(int(_fm.group(1)) == _wt, lambda: "‏%s باسم «%s» مُعلَنٌ بوزن %s والجردُ يقول %d — وزنٌ مكرّرٌ يترك "
             "الغامقَ اصطناعيًّا [FNT-01]" % (_fn, _fam, _fm.group(1), _wt))
 
     # ── وكلُّ صفحةٍ في المخرَج **تحمل** الورقةَ ──
@@ -547,11 +719,9 @@ def main():
                 _sh2 = _sh[len(_canon_pref) - 1:] if _sh.startswith(_canon_pref) else _sh
                 _st = (os.path.normpath(os.path.join(OUT, _sh2.lstrip("/"))) if _sh2.startswith("/")
                        else os.path.normpath(os.path.join(base, _sh2)))
-                assert os.path.isfile(_st), (
-                    "ورقةُ أنماطٍ مربوطةٌ لا تصل: %s ← %s [FNT-01]" % (_relp0, _sh))
+                check(os.path.isfile(_st), lambda: "ورقةُ أنماطٍ مربوطةٌ لا تصل: %s ← %s [FNT-01]" % (_relp0, _sh))
             if not _relp0.startswith("preview/"):
-                assert "mihrab-docs.css" in _t0, (
-                    "صفحةُ قالبٍ بلا `mihrab-docs.css`: %s — تُعرَض عاريةً [FNT-01]" % _relp0)
+                check("mihrab-docs.css" in _t0, lambda: "صفحةُ قالبٍ بلا `mihrab-docs.css`: %s — تُعرَض عاريةً [FNT-01]" % _relp0)
             _lm = re.search(r'<link[^>]+href="([^"]*assets/fonts\.css)"', _t0)
             if not _lm:
                 _unlinked.append(os.path.relpath(_p, OUT).replace(os.sep, "/"))
@@ -569,8 +739,7 @@ def main():
             if not os.path.isfile(_target):
                 _unlinked.append("%s ← %s لا يصل" % (
                     os.path.relpath(_p, OUT).replace(os.sep, "/"), _href))
-    assert not _unlinked, (
-        "صفحاتٌ في المخرَج بلا `fonts.css` صالحٍ — تُعرَض بخطّ النظام وحدَها بين "
+    check(not _unlinked, lambda: "صفحاتٌ في المخرَج بلا `fonts.css` صالحٍ — تُعرَض بخطّ النظام وحدَها بين "
         "صفحات الموقع، بلا خطأٍ في أيّ طبقة [FNT-01]:\n       "
         + "\n       ".join(sorted(_unlinked)[:10]))
 
@@ -600,13 +769,12 @@ def main():
     # يمرّ أخضر، فيصير التوسيعُ سطرًا صامتًا بدل قرارٍ مكتوب — وهو نقضُ غرضِ
     # القائمة من أصله.
     for _ch, _why in FONT_ALLOW.items():
-        assert _why.strip(), (
-            "بندٌ في `FONT_ALLOW` بلا تعليل (U+%04X) — القائمةُ البيضاءُ إعلانُ "
+        check(_why.strip(), lambda: "بندٌ في `FONT_ALLOW` بلا تعليل (U+%04X) — القائمةُ البيضاءُ إعلانُ "
             "حدٍّ لا إعفاءٌ صامت [FNT-01]" % ord(_ch))
 
     def _ranges(var_name):
         m = re.search(var_name + r" = \(([^)]+)\)", bpy, re.S)
-        assert m, "تعذّرت قراءةُ %s من `site/build.py` [FNT-01]" % var_name
+        need(m, lambda: "تعذّرت قراءةُ %s من `site/build.py` [FNT-01]" % var_name)
         out = set()
         for part in "".join(re.findall(r'"([^"]*)"', m.group(1))).split(","):
             part = part.strip()
@@ -624,8 +792,7 @@ def main():
         bpy = _bf2.read()
     ar_r, la_r = _ranges("_UR_AR"), _ranges("_UR_LA")
     overlap = ar_r & la_r
-    assert not overlap, (
-        "تداخُلٌ بين `_UR_AR` و`_UR_LA` في %d نقطةً (أوّلُها U+%04X) — مقطعٌ "
+    check(not overlap, lambda: "تداخُلٌ بين `_UR_AR` و`_UR_LA` في %d نقطةً (أوّلُها U+%04X) — مقطعٌ "
         "يطالب به وجهان بالعائلة والوزن نفسِهما يفوز فيه الأخيرُ إعلانًا، فتُسنَد "
         "محارفُ عربيّةٌ إلى الملفّ اللاتينيّ بلا أن يقول أحدٌ ذلك [FNT-01]"
         % (len(overlap), min(overlap)))
@@ -673,8 +840,7 @@ def main():
                 if ch.isspace() or ord(ch) in covered or ch in FONT_ALLOW:
                     continue
                 missing.setdefault(ch, set()).add(rel_p)
-    assert not missing, (
-        "محرفٌ ظاهرٌ خارجَ `_UR_AR`/`_UR_LA` وخارجَ القائمة البيضاء — يسقط إلى "
+    check(not missing, lambda: "محرفٌ ظاهرٌ خارجَ `_UR_AR`/`_UR_LA` وخارجَ القائمة البيضاء — يسقط إلى "
         "خطّ النظام **صامتًا**، فيصير السطرُ بخطَّين:\n       "
         + "\n       ".join(
             "%r (U+%04X) في %s" % (c, ord(c), "، ".join(sorted(f)[:3]))
@@ -692,46 +858,38 @@ def main():
     for _where, _d in (("المصدر", os.path.join(SITE, "assets", "fonts")),
                        ("المخرَج", os.path.join(OUT, "assets", "fonts"))):
         _lic = os.path.join(_d, "OFL.txt")
-        assert os.path.isfile(_lic), (
-            "لا `OFL.txt` في %s (%s) — وأوجهُ الخطّ مورَّدةٌ وتُنشَر. إرفاقُ "
+        need(os.path.isfile(_lic), lambda: "لا `OFL.txt` في %s (%s) — وأوجهُ الخطّ مورَّدةٌ وتُنشَر. إرفاقُ "
             "الإشعار والرخصةِ شرطٌ في OFL‑1.1 لكلّ إعادةِ توزيع، والنشرُ إعادةُ "
             "توزيع [FNT-01]" % (_where, os.path.relpath(_d, ROOT)))
         with open(_lic, encoding="utf-8") as _lf:
             _lt = _lf.read()
         # النصُّ الكاملُ بإشعاره، لا ترويسةً مقتضبة: «Copyright» وحدَه يمرّ على
         # ملفٍّ فارغٍ إلّا من سطر.
-        assert "SIL Open Font License" in _lt and "Copyright" in _lt, (
-            "‏`OFL.txt` في %s لا يحمل نصَّ الرخصة وإشعارَ حقوق النشر [FNT-01]" % _where)
-        assert len(_lt) > 3000, (
-            "‏`OFL.txt` في %s أقصرُ من نصّ OFL‑1.1 (%d محرفًا) — رخصةٌ مبتورةٌ "
+        check("SIL Open Font License" in _lt and "Copyright" in _lt, lambda: "‏`OFL.txt` في %s لا يحمل نصَّ الرخصة وإشعارَ حقوق النشر [FNT-01]" % _where)
+        check(len(_lt) > 3000, lambda: "‏`OFL.txt` في %s أقصرُ من نصّ OFL‑1.1 (%d محرفًا) — رخصةٌ مبتورةٌ "
             "لا تُجزئ [FNT-01]" % (_where, len(_lt)))
         # والهُويّةُ لا الطولُ وحدَه: نصٌّ من ‎3001‎ محرفِ حشوٍ فيه الكلمتان كان
         # يمرّ أخضر. فتُشترَط علاماتُ **رخصةِ خطِّنا بعينه**: مالكُ الحقّ، ورقمُ
         # النسخة، والاسمُ المحجوز — وهي ما يجعل الملفَّ إشعارًا لا نصًّا طويلًا.
         for _mark in ("IBM Corp", "Version 1.1", "Reserved Font Name"):
-            assert _mark in _lt, (
-                "‏`OFL.txt` في %s لا يحمل «%s» — ليس إشعارَ رخصةِ الخطّ "
+            check(_mark in _lt, lambda: "‏`OFL.txt` في %s لا يحمل «%s» — ليس إشعارَ رخصةِ الخطّ "
                 "المورَّد [FNT-01]" % (_where, _mark))
 
     faces = re.findall(r"@font-face\{([^}]+)\}", fcss)
-    assert len(faces) == len(declared), "عددُ `@font-face` لا يطابق المُعلَن [FNT-01]"
+    check(len(faces) == len(declared), lambda: "عددُ `@font-face` لا يطابق المُعلَن [FNT-01]")
     for face in faces:
         _ur = re.search(r"unicode-range:([^;}]*)", face)
-        assert _ur and _ur.group(1).strip(), (
-            "وجهٌ بـ`unicode-range` **فارغ** في `fonts.css` — وإعلانٌ بلا قيمةٍ "
+        need(_ur and _ur.group(1).strip(), lambda: "وجهٌ بـ`unicode-range` **فارغ** في `fonts.css` — وإعلانٌ بلا قيمةٍ "
             "يُسقِطه المتصفّحُ كلَّه فيعود الوجهان متنازعَين: وهو العطبُ عينُه "
             "الذي أُضيف المدى ليمنعه [FNT-01]")
         for _tok in _ur.group(1).split(","):
-            assert re.fullmatch(r"\s*U\+[0-9A-Fa-f]{1,6}(-[0-9A-Fa-f]{1,6})?\s*",
-                                _tok), (
-                "مدًى مشوَّهٌ في `fonts.css`: %r — والمتصفّحُ يُسقِط الإعلانَ "
+            check(re.fullmatch(r"\s*U\+[0-9A-Fa-f]{1,6}(-[0-9A-Fa-f]{1,6})?\s*",
+                                _tok), lambda: "مدًى مشوَّهٌ في `fonts.css`: %r — والمتصفّحُ يُسقِط الإعلانَ "
                 "كلَّه، فيعود التنازعُ [FNT-01]" % _tok)
-        assert "unicode-range:" in face, (
-            "وجهٌ بلا `unicode-range` في `fonts.css` — والأوجهُ مقلَّمة، فوجهان "
+        check("unicode-range:" in face, lambda: "وجهٌ بلا `unicode-range` في `fonts.css` — والأوجهُ مقلَّمة، فوجهان "
             "بالاسم والوزن نفسِهما بلا مدًى يتنازعان: يأخذ المتصفّحُ الأخيرَ "
             "ويهمل الأوّل، فنصفُ الموقع بخطٍّ ونصفُه بخطّ النظام [FNT-01]")
-        assert "font-display:swap" in face, (
-            "وجهٌ بلا `font-display:swap` — الافتراضيُّ يُخفي النصَّ حتّى يصل "
+        check("font-display:swap" in face, lambda: "وجهٌ بلا `font-display:swap` — الافتراضيُّ يُخفي النصَّ حتّى يصل "
             "الخطّ: صفحةٌ فارغةٌ على اتّصالٍ بطيء [FNT-01]")
 
     # ── والاسمُ الثاني لأحاديّ المسافة لا يلتقط ما يُحاذى ──
@@ -755,32 +913,28 @@ def main():
         return out
 
     _mono = [f for f in faces if 'font-family:"%s"' % MONO_AR_FAMILY in f]
-    assert len(_mono) == 2, (
-        "المنتظَر وجهان باسم «%s» في `fonts.css` (‏400 و600) ووُجد %d — بلا "
+    check(len(_mono) == 2, lambda: "المنتظَر وجهان باسم «%s» في `fonts.css` (‏400 و600) ووُجد %d — بلا "
         "الاسم الثاني يسقط العربيُّ في كتل الشيفرة إلى `monospace` العامّ [FNT-01]"
         % (MONO_AR_FAMILY, len(_mono)))
     _ascii = set(range(0x20, 0x7F))
     _gen_punct = set(range(0x2000, 0x2070)) | set(range(0x2E00, 0x2E80))
     for f in _mono:
         rng = _ur_set(re.search(r"unicode-range:([^;}]*)", f).group(1))
-        assert rng and rng <= ar_r, (
-            "مدى «%s» يتجاوز `_UR_AR` (أوّلُ الزائد U+%04X) — اسمٌ ثانٍ للملفّ "
+        need(rng and rng <= ar_r, lambda: "مدى «%s» يتجاوز `_UR_AR` (أوّلُ الزائد U+%04X) — اسمٌ ثانٍ للملفّ "
             "العربيّ لا يحمل غيرَ ما يحمله [FNT-01]"
             % (MONO_AR_FAMILY, min(rng - ar_r) if rng - ar_r else 0))
         # و«يغطّي» لا «لا يتجاوز» وحدَه: مدًى من محرفٍ واحدٍ كان يمرّ، والعربيُّ
         # في كتل الشيفرة يعود إلى العامّ — العطبُ الذي أُضيف الاسمُ لمنعه.
         _core = set(range(0x0600, 0x0700)) | set(range(0xFB50, 0xFE00)) | set(range(0xFE70, 0xFEFF))
         _gap = _core - rng
-        assert not _gap, (
-            "مدى «%s» لا يغطّي كتلةَ العربيّة الأساسيّة (ينقص U+%04X وما بعده، "
+        check(not _gap, lambda: "مدى «%s» لا يغطّي كتلةَ العربيّة الأساسيّة (ينقص U+%04X وما بعده، "
             "%d نقطة) — فالعربيُّ في كتل الشيفرة يسقط إلى `monospace` العامّ [FNT-01]"
             % (MONO_AR_FAMILY, min(_gap), len(_gap)))
         for _bad, _why in ((_ascii, "محرفٌ لاتينيٌّ/رقمٌ/مسافة"),
                            (la_r, "مقطعٌ من الوجه اللاتينيّ"),
                            (_gen_punct, "ترقيمٌ عامٌّ له عرضٌ يُحاذى (واصلاتٌ ونحوُها)")):
             _hit = rng & _bad
-            assert not _hit, (
-                "مدى «%s» يلتقط %s (U+%04X) — فيصير متناسبَ العرض داخل كتلة "
+            check(not _hit, lambda: "مدى «%s» يلتقط %s (U+%04X) — فيصير متناسبَ العرض داخل كتلة "
                 "شيفرةٍ وتنكسر المحاذاة [FNT-01]" % (MONO_AR_FAMILY, _why, min(_hit)))
 
     # والسلسلةُ تبدأ به فعلًا — وإلّا فالوجهُ مُعلَنٌ ولا يصل أحدًا.
@@ -791,10 +945,9 @@ def main():
     # المفرد CSS صالح، فيُجرَّد كالمزدوج.
     # والقيمةُ قد تنتهي بـ`}` لا `;` (آخرُ إعلانٍ في كتلة) — فكلاهما فاصل.
     _fm_all = re.findall(r"--font-mono\s*:\s*([^;}]+)[;}]", _dcss)
-    assert _fm_all, "لا `--font-mono` في `mihrab-docs.css` [FNT-01]"
+    need(_fm_all, lambda: "لا `--font-mono` في `mihrab-docs.css` [FNT-01]")
     _first = _fm_all[-1].strip().split(",")[0].strip().strip("\"'")
-    assert _first == MONO_AR_FAMILY, (
-        "أوّلُ `--font-mono` هو %r لا «%s» — الاسمُ الثاني يعمل بمداه وحدَه، فلا "
+    check(_first == MONO_AR_FAMILY, lambda: "أوّلُ `--font-mono` هو %r لا «%s» — الاسمُ الثاني يعمل بمداه وحدَه، فلا "
         "يضرّ أوّلًا ولا ينفع إن سبقه خطٌّ يحمل العربيّةَ بعرضٍ آخر [FNT-01]"
         % (_first, MONO_AR_FAMILY))
 
@@ -840,7 +993,7 @@ def main():
                         if d == 0:
                             break
                     k += 1
-                assert d == 0, "قوسٌ لم يُغلَق في %s [AND-01]" % name
+                check(d == 0, lambda: "قوسٌ لم يُغلَق في %s [AND-01]" % name)
                 inner = seg[j + 1:k]
                 p = k + 1
                 if head.startswith("@media"):
@@ -957,7 +1110,7 @@ def main():
 
     def _side(shorthand, side):
         p = _split_ws(shorthand)
-        assert 1 <= len(p) <= 4, "مختصَرٌ لا يُفكّ: %r [AND-01]" % shorthand
+        need(1 <= len(p) <= 4, lambda: "مختصَرٌ لا يُفكّ: %r [AND-01]" % shorthand)
         p = (p * 4)[:4] if len(p) == 1 else (p + p) if len(p) == 2 else (p + p[1:2]) if len(p) == 3 else p
         t, r, b, l = p
         return {"top": t, "right": r, "bottom": b, "left": l}[side]
@@ -998,8 +1151,7 @@ def main():
         if raw:
             return best[2]
         px = _px(best[2], tokens)
-        assert px is not None, (
-            "‏`%s` لـ%s تُحسَب إلى %r لا إلى بكسل — الحارسُ لا يستطيع قياسَها "
+        check(px is not None, lambda: "‏`%s` لـ%s تُحسَب إلى %r لا إلى بكسل — الحارسُ لا يستطيع قياسَها "
             "[AND-01]" % (prop, path[-1][0], best[2]))
         return px
 
@@ -1010,7 +1162,7 @@ def main():
     for _media, _sel, _decls in _rules:
         if _sel == ":root" and not _media:
             _tokens.update((pn, pv) for pn, pv in _decls if pn.startswith("--"))
-    assert "--s1" in _tokens and "--s8" in _tokens, "رموزُ المسافات `--s*` غائبةٌ عن `:root` [AND-01]"
+    check("--s1" in _tokens and "--s8" in _tokens, lambda: "رموزُ المسافات `--s*` غائبةٌ عن `:root` [AND-01]")
 
     # ── (١) لا اسمَ يحلّه أندرويد إلى سيريف في أيّ سلسلةٍ تصل الزائر ──
     _AND_SERIF = {"courier", "courier new", "times", "times new roman", "georgia",
@@ -1039,11 +1191,10 @@ def main():
             _n_chains += 1
             for _item in _m.group(2).split(","):
                 _it = _item.strip().strip("\"'").lower()
-                assert _it not in _AND_SERIF, (
-                    "‏`%s` في %s تحمل %r — على أندرويد اسمٌ مستعارٌ لسيريف في "
+                check(_it not in _AND_SERIF, lambda: "‏`%s` في %s تحمل %r — على أندرويد اسمٌ مستعارٌ لسيريف في "
                     "`fonts.xml` يُلتقَط قبل العامّ، فالنصُّ سيريفيٌّ على كلّ هاتف "
                     "[AND-01]" % (_m.group(1), _where, _item.strip()))
-    assert _n_chains >= 3, "لم تُقرأ سلاسلُ الخطوط (%d) — الحارسُ يقيس الهواء [AND-01]" % _n_chains
+    check(_n_chains >= 3, lambda: "لم تُقرأ سلاسلُ الخطوط (%d) — الحارسُ يقيس الهواء [AND-01]" % _n_chains)
 
     # ── [AND-06] لا `letter-spacing` غيرَ صفرٍ في أيّ CSS يصل الزائر ──
     # التباعدُ يُدخَل بين الحروف العربيّة **المتّصلة** فيفكّ اتّصالَها: عناوينُ الدرج
@@ -1056,8 +1207,7 @@ def main():
         for _m in re.finditer(r"(?<![\w-])letter-spacing\s*:\s*([^;}]+)", _txt):
             _n_ls += 1
             _v = _m.group(1).strip().lower()
-            assert _v in ("0", "normal", "0px", "0em", "unset", "initial", "inherit"), (
-                "‏`letter-spacing: %s` في %s — يفكّ اتّصالَ الحروف العربيّة (ظهر على "
+            check(_v in ("0", "normal", "0px", "0em", "unset", "initial", "inherit"), lambda: "‏`letter-spacing: %s` في %s — يفكّ اتّصالَ الحروف العربيّة (ظهر على "
                 "محاكي أندرويد في عناوين الدرج) [AND-06]" % (_m.group(1).strip(), _where))
     # والصفرُ المنتظَر لا يميّز حارسًا يرى عن حارسٍ أعمى: يُطعَم التعبيرُ نفسُه
     # الأشكالَ التي تُكتَب فعلًا (بلا صفرٍ بادئ، سالبة، بلا مسافة، داخل `style=`)
@@ -1066,8 +1216,8 @@ def main():
     for _probe, _want in (("h2{letter-spacing:.18em}", ".18em"), ("a{letter-spacing: -.01em;}", "-.01em"),
                           ("th{letter-spacing:normal}", "normal"), ("color:red;letter-spacing:1px", "1px")):
         _pm = re.search(_LS_RE, _probe)
-        assert _pm and _pm.group(1).strip() == _want, "تعبيرُ [AND-06] لا يلتقط %r" % _probe
-    assert not re.search(_LS_RE, "--letter-spacing-x: 1"), "تعبيرُ [AND-06] يلتقط رمزًا لا خاصّيّة"
+        need(_pm and _pm.group(1).strip() == _want, lambda: "تعبيرُ [AND-06] لا يلتقط %r" % _probe)
+    check(not re.search(_LS_RE, "--letter-spacing-x: 1"), lambda: "تعبيرُ [AND-06] يلتقط رمزًا لا خاصّيّة")
     del _n_ls
 
     # ── [AND-07] الحجمُ المعروضُ عشريٌّ في **الثلاثة**: المخبوز، وsite.js، والمعاينة ──
@@ -1082,43 +1232,38 @@ def main():
         _mb = _b / 1e6
         return ("%.2f غيغابايت" % (_mb / 1000)) if _mb >= 1000 else ("%d ميغابايت" % round(_mb))
 
-    assert _and07_fmt(_AND07_BYTES) == _AND07_WANT, "قاعدةُ [AND-07] نفسُها منحرفة"
+    check(_and07_fmt(_AND07_BYTES) == _AND07_WANT, lambda: "قاعدةُ [AND-07] نفسُها منحرفة")
     with open(os.path.join(SITE, "data", "releases.json"), encoding="utf-8") as _rj:
         _and07_assets = [a for a in json.load(_rj).get("assets", []) if a.get("size")]
-    assert _and07_assets, "لا أصولَ في releases.json — [AND-07] يقيس الهواء"
+    need(_and07_assets, lambda: "لا أصولَ في releases.json — [AND-07] يقيس الهواء")
     _dl_html = read("download/index.html")
     for _a in _and07_assets:
         _dec = _and07_fmt(_a["size"])
         _bin = "%d ميغابايت" % round(_a["size"] / 1048576.0)
-        assert ">%s<" % _dec in _dl_html, (
-            "صفحةُ التنزيل المخبوزة لا تعرض %s لـ%s (‏%d بايت) — `_fmt_size` في "
+        check(">%s<" % _dec in _dl_html, lambda: "صفحةُ التنزيل المخبوزة لا تعرض %s لـ%s (‏%d بايت) — `_fmt_size` في "
             "`build.py` ليست عشريّة [AND-07]" % (_dec, _a["file"], _a["size"]))
         if _bin != _dec:
-            assert ">%s<" % _bin not in _dl_html, (
-                "صفحةُ التنزيل تعرض %s الثنائيّ لـ%s بجانب العشريّ [AND-07]" % (_bin, _a["file"]))
+            check(">%s<" % _bin not in _dl_html, lambda: "صفحةُ التنزيل تعرض %s الثنائيّ لـ%s بجانب العشريّ [AND-07]" % (_bin, _a["file"]))
     _sjs = read("assets/site.js")
     _fm = re.search(r"function fmtSize\(bytes\)\s*\{.*?\n\t\}", _sjs, re.S)
-    assert _fm, "لم تُعرَف `fmtSize` في site.js [AND-07]"
+    need(_fm, lambda: "لم تُعرَف `fmtSize` في site.js [AND-07]")
     # ⚠️ **node مطلوبٌ لا اختياريّ.** كانت كلُّ فحوصِ السلوك أدناه تتراجع بلا node إلى
     # مطابقةِ نصٍّ هو `old` المُصاب نفسُه — فيُقتَل المُصابُ ولا يُقاس سلوك، و
     # `site-chord-prefix-never-waits` كان يعيش (قِيس بحذف node من PATH). فالغيابُ أحمرُ بصوت.
     _node = shutil.which("node")
-    assert _node, ("node غيرُ موجود — فحوصُ السلوك [AND-07][AND-08][CAP-02][CAP-03] تُنفِّذ "
+    need(_node, lambda: "node غيرُ موجود — فحوصُ السلوك [AND-07][AND-08][CAP-02][CAP-03] تُنفِّذ "
                    "دوالَّ الموقع به، ولا بديلَ نصّيّ")
     _nr = subprocess.run([_node, "-e", _fm.group(0) + "\nprocess.stdout.write(fmtSize(%d))" % _AND07_BYTES],
                          capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    assert _nr.returncode == 0 and _nr.stdout.strip() == _AND07_WANT, (
-        "‏`fmtSize(%d)` في site.js ⇒ %r لا %r [AND-07]" % (_AND07_BYTES, _nr.stdout.strip(), _AND07_WANT))
+    need(_nr.returncode == 0 and _nr.stdout.strip() == _AND07_WANT, lambda: "‏`fmtSize(%d)` في site.js ⇒ %r لا %r [AND-07]" % (_AND07_BYTES, _nr.stdout.strip(), _AND07_WANT))
     # وفرعُ الغيغابايت لم يكن يُنفَّذ قطّ (‏203 م.ب وحدَها): القسمةُ على 1024 فيه كانت تمرّ.
     _AND07_GB = 1500000000
     _nrg = subprocess.run([_node, "-e", _fm.group(0) + "\nprocess.stdout.write(fmtSize(%d))" % _AND07_GB],
                           capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    assert _nrg.returncode == 0 and _nrg.stdout.strip() == _and07_fmt(_AND07_GB), (
-        "‏`fmtSize(%d)` في site.js ⇒ %r لا %r [AND-07]" % (_AND07_GB, _nrg.stdout.strip(), _and07_fmt(_AND07_GB)))
+    need(_nrg.returncode == 0 and _nrg.stdout.strip() == _and07_fmt(_AND07_GB), lambda: "‏`fmtSize(%d)` في site.js ⇒ %r لا %r [AND-07]" % (_AND07_GB, _nrg.stdout.strip(), _and07_fmt(_AND07_GB)))
     _pjs = read("assets/preview-alif.js")
     _pm2 = re.search(r"a\.size/([0-9e]+)\)", _pjs)
-    assert _pm2 and _pm2.group(1) == "1e6", (
-        "صفحةُ المعاينة تقسم الحجمَ على %r لا 1e6 [AND-07]" % (_pm2.group(1) if _pm2 else None))
+    need(_pm2 and _pm2.group(1) == "1e6", lambda: "صفحةُ المعاينة تقسم الحجمَ على %r لا 1e6 [AND-07]" % (_pm2.group(1) if _pm2 else None))
 
     # ── (٢) حافّةُ الشيفرة فوق زرّ النسخ على اللمس، وتعود في الطباعة ──
     _pre = [("main", {"layout"}, False, False), ("div", {"content"}, False, False),
@@ -1129,16 +1274,13 @@ def main():
     _pt_touch = _css_get(_rules, _tokens, _pre, "padding-top", 412, coarse=True)
     _pt_fine = _css_get(_rules, _tokens, _pre, "padding-top", 1200)
     _pt_print = _css_get(_rules, _tokens, _pre, "padding-top", 412, coarse=True, prn=True)
-    assert None not in (_b_top, _b_h, _pt_touch, _pt_fine, _pt_print), (
-        "تعذّر حسابُ زرّ النسخ/حشو `pre` (top=%r min-height=%r touch=%r fine=%r print=%r) "
+    need(None not in (_b_top, _b_h, _pt_touch, _pt_fine, _pt_print), lambda: "تعذّر حسابُ زرّ النسخ/حشو `pre` (top=%r min-height=%r touch=%r fine=%r print=%r) "
         "[AND-01]" % (_b_top, _b_h, _pt_touch, _pt_fine, _pt_print))
-    assert _b_h >= 44, "زرُّ النسخ على اللمس %gpx — تحت حدّ اللمس ‎44‎ [AND-01]" % _b_h
-    assert _pt_touch >= _b_top + _b_h, (
-        "حشوُ `pre` العلويُّ على اللمس %gpx وأسفلُ زرّ النسخ عند %g+%g=%gpx — الزرُّ "
+    check(_b_h >= 44, lambda: "زرُّ النسخ على اللمس %gpx — تحت حدّ اللمس ‎44‎ [AND-01]" % _b_h)
+    check(_pt_touch >= _b_top + _b_h, lambda: "حشوُ `pre` العلويُّ على اللمس %gpx وأسفلُ زرّ النسخ عند %g+%g=%gpx — الزرُّ "
         "يطمس السطرَ الأوّل من كلّ كتلة شيفرةٍ على الهاتف [AND-01]"
         % (_pt_touch, _b_top, _b_h, _b_top + _b_h))
-    assert _pt_print <= _pt_fine, (
-        "حشوُ `pre` العلويُّ في الطباعة من جهاز لمسٍ %gpx والأساسُ %gpx — الزرُّ مخفيٌّ "
+    check(_pt_print <= _pt_fine, lambda: "حشوُ `pre` العلويُّ في الطباعة من جهاز لمسٍ %gpx والأساسُ %gpx — الزرُّ مخفيٌّ "
         "في الطباعة وثقبُه باقٍ فوق كلّ كتلة [AND-01]" % (_pt_print, _pt_fine))
 
     # ── (٣) بين البطل واللقطة: حشوٌ + هامشٌ لا يُبتلَع + هامش — من المخرَج ──
@@ -1178,10 +1320,9 @@ def main():
 
     _kp = _Kids()
     _kp.feed(read("index.html"))
-    assert _kp.hero_kids and _kp.after_hero, "لا `section.hero` يليه عنصرٌ في `index.html` [AND-01]"
+    need(_kp.hero_kids and _kp.after_hero, lambda: "لا `section.hero` يليه عنصرٌ في `index.html` [AND-01]")
     _lk_tag, _lk_cls = _kp.hero_kids[-1]
-    assert "shot" in _kp.after_hero[1], (
-        "ما يلي البطلَ في `index.html` هو %r لا `.shot` — حسابُ الفجوة يقيس غيرَ ما "
+    check("shot" in _kp.after_hero[1], lambda: "ما يلي البطلَ في `index.html` هو %r لا `.shot` — حسابُ الفجوة يقيس غيرَ ما "
         "على الصفحة [AND-01]" % (_kp.after_hero,))
     _main = ("main", {"page"}, False, False)
     _hero = ("section", {"hero"}, True, False)
@@ -1193,15 +1334,12 @@ def main():
         _pb = _css_get(_rules, _tokens, [_main, _hero], "padding-bottom", _vw)
         _mb = _css_get(_rules, _tokens, [_main, _hero, _last], "margin-bottom", _vw)
         _mt = _css_get(_rules, _tokens, [_main, _shot], "margin-top", _vw)
-        assert None not in (_pb, _mb, _mt), (
-            "تعذّر حسابُ فجوة البطل/اللقطة على %s (pb=%r mb=%r mt=%r) [AND-01]"
+        need(None not in (_pb, _mb, _mt), lambda: "تعذّر حسابُ فجوة البطل/اللقطة على %s (pb=%r mb=%r mt=%r) [AND-01]"
             % (_label, _pb, _mb, _mt))
-        assert _mb == 0, (
-            "هامشُ آخرِ أبناء `.hero` (‏%s.%s) %gpx على %s — يُضاف إلى حشو البطل "
+        check(_mb == 0, lambda: "هامشُ آخرِ أبناء `.hero` (‏%s.%s) %gpx على %s — يُضاف إلى حشو البطل "
             "لا يُبتلَع فيه، فيتراكم فوق اللقطة [AND-01]"
             % (_lk_tag, ".".join(sorted(_lk_cls)) or "-", _mb, _label))
-        assert _pb + _mb + _mt <= _budget, (
-            "بين البطل واللقطة %g+%g+%g=%gpx على %s والميزانيّةُ %g — فراغٌ متراكم "
+        check(_pb + _mb + _mt <= _budget, lambda: "بين البطل واللقطة %g+%g+%g=%gpx على %s والميزانيّةُ %g — فراغٌ متراكم "
             "فوق اللقطة [AND-01]" % (_pb, _mb, _mt, _pb + _mb + _mt, _label, _budget))
 
     # ── ٥د) الجولةُ ‎13‎: أربعُ طفراتٍ كانت تعود صامتةً [AND-02..05] ──
@@ -1220,19 +1358,17 @@ def main():
         _docs_js = _dj.read()
     _kd = re.search(r"captureField\.addEventListener\('keydown',\s*function \(e\) \{(.*?)var chord = chordFromEvent\(e\);",
                     _docs_js, re.S)
-    assert _kd, "معالجُ keydown للالتقاط لا يستدعي `chordFromEvent(e)` كما يعرفه الحارس [AND-02]"
+    need(_kd, lambda: "معالجُ keydown للالتقاط لا يستدعي `chordFromEvent(e)` كما يعرفه الحارس [AND-02]")
     _pre_chord = re.sub(r"/\*.*?\*/", "", _kd.group(1), flags=re.S)
     for _cond in ("e.isComposing", "e.key === 'Unidentified'", "e.key === 'Process'", "e.keyCode === 229"):
-        assert _cond in _pre_chord, (
-            "الالتقاطُ لا يفحص `%s` قبل قراءة الاختصار — لوحةُ الهاتف تُعرَض "
+        check(_cond in _pre_chord, lambda: "الالتقاطُ لا يفحص `%s` قبل قراءة الاختصار — لوحةُ الهاتف تُعرَض "
             "«Unidentified — لا أمرَ معروفًا» [AND-02]" % _cond)
     _ime = re.search(r"if \([^)]*e\.keyCode === 229[^)]*\)\s*\{(.*?)\}", _pre_chord, re.S)
-    assert _ime, "فرعُ IME في الالتقاط ليس `if (…) { … }` واحدًا [AND-02]"
+    need(_ime, lambda: "فرعُ IME في الالتقاط ليس `if (…) { … }` واحدًا [AND-02]")
     _msg = re.search(r"captureOut\.textContent = '([^']*)'", _ime.group(1))
-    assert _msg and _msg.group(1).strip(), "فرعُ IME لا يكتب رسالةً في `.result` — الحقلُ يصمت [AND-02]"
-    assert "Unidentified" not in _msg.group(1) and "لا أمرَ معروفًا" not in _msg.group(1), (
-        "رسالةُ فرع IME تدّعي اختصارًا: %r [AND-02]" % _msg.group(1))
-    assert re.search(r"\breturn;", _ime.group(1)), "فرعُ IME لا يعود — يمضي إلى `chordFromEvent` ويكتب فوق الرسالة [AND-02]"
+    need(_msg and _msg.group(1).strip(), lambda: "فرعُ IME لا يكتب رسالةً في `.result` — الحقلُ يصمت [AND-02]")
+    check("Unidentified" not in _msg.group(1) and "لا أمرَ معروفًا" not in _msg.group(1), lambda: "رسالةُ فرع IME تدّعي اختصارًا: %r [AND-02]" % _msg.group(1))
+    check(re.search(r"\breturn;", _ime.group(1)), lambda: "فرعُ IME لا يعود — يمضي إلى `chordFromEvent` ويكتب فوق الرسالة [AND-02]")
 
     # ── [AND-03] بطاقةُ الهاتف تقول بقدر ما قِيس: iOS «لم يُقَس» لا «يعمل على جهازك» ──
     # وكشفُ iOS يُكتَب **مرّةً واحدة**: كان تعبيرُ `iPhone|iPad|iPod` + `Macintosh`
@@ -1241,25 +1377,21 @@ def main():
     with open(os.path.join(SITE, "assets", "site.js"), encoding="utf-8") as _sj2:
         _site_js = _sj2.read()
     _site_code = re.sub(r"/\*.*?\*/", "", _site_js, flags=re.S)
-    assert len(re.findall(r"iPhone\|iPad\|iPod", _site_code)) == 1, (
-        "تعبيرُ كشف iOS مكتوبٌ %d مرّة في `site.js` — يُكتَب مرّةً في `IS_IOS` "
+    need(len(re.findall(r"iPhone\|iPad\|iPod", _site_code)) == 1, lambda: "تعبيرُ كشف iOS مكتوبٌ %d مرّة في `site.js` — يُكتَب مرّةً في `IS_IOS` "
         "ويُستعمَل في كشف الهاتف [AND-03]" % len(re.findall(r"iPhone\|iPad\|iPod", _site_code)))
-    assert _site_code.count("maxTouchPoints") == 1, "كشفُ iPadOS باللمس مكرَّرٌ في `site.js` [AND-03]"
+    check(_site_code.count("maxTouchPoints") == 1, lambda: "كشفُ iPadOS باللمس مكرَّرٌ في `site.js` [AND-03]")
     _is_ios_at = _site_code.find("var IS_IOS = ")
     _mobile_at = _site_code.find("guess.os = 'mobile'")
-    assert 0 <= _is_ios_at < _mobile_at, "‏`IS_IOS` لا يسبق كشفَ الهاتف في `site.js` [AND-03]"
+    check(0 <= _is_ios_at < _mobile_at, lambda: "‏`IS_IOS` لا يسبق كشفَ الهاتف في `site.js` [AND-03]")
     _mob_if = re.search(r"if \(([^{]*)\)\s*\{ guess\.os = 'mobile'; \}", _site_code)
-    assert _mob_if and "IS_IOS" in _mob_if.group(1) and "Android" in _mob_if.group(1), (
-        "كشفُ الهاتف لا يبني على `IS_IOS` و`Android` معًا: %r [AND-03]" % (_mob_if and _mob_if.group(1)))
-    assert "meta.textContent = IS_IOS ? MOBILE_META_IOS : MOBILE_META;" in _site_code, (
-        "بطاقةُ الهاتف لا تختار نصَّ iOS بـ`IS_IOS` — كلُّ هاتفٍ يقرأ نصَّ أندرويد [AND-03]")
+    need(_mob_if and "IS_IOS" in _mob_if.group(1) and "Android" in _mob_if.group(1), lambda: "كشفُ الهاتف لا يبني على `IS_IOS` و`Android` معًا: %r [AND-03]" % (_mob_if and _mob_if.group(1)))
+    check("meta.textContent = IS_IOS ? MOBILE_META_IOS : MOBILE_META;" in _site_code, lambda: "بطاقةُ الهاتف لا تختار نصَّ iOS بـ`IS_IOS` — كلُّ هاتفٍ يقرأ نصَّ أندرويد [AND-03]")
     _metas = dict(re.findall(r"var (MOBILE_META(?:_IOS)?) = '([^']*)';", _site_code))
-    assert set(_metas) == {"MOBILE_META", "MOBILE_META_IOS"}, "نصّا بطاقة الهاتف غيرُ معرَّفين كما يعرفهما الحارس [AND-03]"
-    assert "يعمل على جهازك" in _metas["MOBILE_META"], "نصُّ أندرويد لم يعد يقول ما قِيس: «يعمل على جهازك» [AND-03]"
-    assert ("يعمل على جهازك" not in _metas["MOBILE_META_IOS"] and "iPhone" in _metas["MOBILE_META_IOS"]
-            and re.search(r"لم (?:يُقَس|نقس|نجرّب|يُجرَّب|تُجرَّب)", _metas["MOBILE_META_IOS"])), (
-        "نصُّ iOS يعِد بما لم يُقَس: %r — لم يُجرَّب على iPhone/iPad بعد [AND-03]" % _metas["MOBILE_META_IOS"])
-    assert _metas["MOBILE_META"] != _metas["MOBILE_META_IOS"], "نصُّ iOS هو نصُّ أندرويد [AND-03]"
+    need(set(_metas) == {"MOBILE_META", "MOBILE_META_IOS"}, lambda: "نصّا بطاقة الهاتف غيرُ معرَّفين كما يعرفهما الحارس [AND-03]")
+    check("يعمل على جهازك" in _metas["MOBILE_META"], lambda: "نصُّ أندرويد لم يعد يقول ما قِيس: «يعمل على جهازك» [AND-03]")
+    check("يعمل على جهازك" not in _metas["MOBILE_META_IOS"] and "iPhone" in _metas["MOBILE_META_IOS"]
+            and re.search(r"لم (?:يُقَس|نقس|نجرّب|يُجرَّب|تُجرَّب)", _metas["MOBILE_META_IOS"]), lambda: "نصُّ iOS يعِد بما لم يُقَس: %r — لم يُجرَّب على iPhone/iPad بعد [AND-03]" % _metas["MOBILE_META_IOS"])
+    check(_metas["MOBILE_META"] != _metas["MOBILE_META_IOS"], lambda: "نصُّ iOS هو نصُّ أندرويد [AND-03]")
 
     # ── [AND-04] أهدافُ اللمس في الدرج والترويسة ‎44‎ — وبلا فليكس يُفكّك الرابط ──
     # روابطُ الدرج كانت ‎34‎ (الجولة ‎12‎) و«القائمة» ‎31.6‎. تُقاس بالتتالي المصغَّر
@@ -1269,17 +1401,14 @@ def main():
     _nav_a = [("nav", {"site-nav"}, False, False), ("ul", set(), False, False),
               ("li", set(), False, False), ("a", set(), False, False)]
     _nav_mh = _css_get(_rules, _tokens, _nav_a, "min-height", 412, coarse=True)
-    assert _nav_mh is not None and _nav_mh >= 44, (
-        "روابطُ الدرج على اللمس `min-height` %r — تحت ‎44‎، الإبهامُ يخطئها [AND-04]" % _nav_mh)
+    check(_nav_mh is not None and _nav_mh >= 44, lambda: "روابطُ الدرج على اللمس `min-height` %r — تحت ‎44‎، الإبهامُ يخطئها [AND-04]" % _nav_mh)
     _nav_pt = _css_get(_rules, _tokens, _nav_a, "padding-top", 412, coarse=True)
     _nav_pb = _css_get(_rules, _tokens, _nav_a, "padding-bottom", 412, coarse=True)
     _nav_fs = _css_get(_rules, _tokens, _nav_a, "font-size", 412, coarse=True)
     _nav_lh = _css_get(_rules, _tokens, _nav_a, "line-height", 412, coarse=True, raw=True)
-    assert None not in (_nav_pt, _nav_pb, _nav_fs, _nav_lh) and re.fullmatch(r"[\d.]+", _nav_lh), (
-        "تعذّر حسابُ ارتفاع رابط الدرج (pt=%r pb=%r fs=%r lh=%r) [AND-04]" % (_nav_pt, _nav_pb, _nav_fs, _nav_lh))
+    need(None not in (_nav_pt, _nav_pb, _nav_fs, _nav_lh) and re.fullmatch(r"[\d.]+", _nav_lh), lambda: "تعذّر حسابُ ارتفاع رابط الدرج (pt=%r pb=%r fs=%r lh=%r) [AND-04]" % (_nav_pt, _nav_pb, _nav_fs, _nav_lh))
     _nav_h = _nav_pt + _nav_pb + _nav_fs * float(_nav_lh)
-    assert _nav_h >= 44, (
-        "ارتفاعُ رابط الدرج بالحشو %g+%g×%s+%g=%gpx على اللمس — `min-height` وحدَها "
+    check(_nav_h >= 44, lambda: "ارتفاعُ رابط الدرج بالحشو %g+%g×%s+%g=%gpx على اللمس — `min-height` وحدَها "
         "تمدّ الصندوقَ وتترك النصَّ في أعلاه [AND-04]" % (_nav_pt, _nav_fs, _nav_lh, _nav_pb, _nav_h))
     _nav_disp = _css_get(_rules, _tokens, _nav_a, "display", 412, coarse=True, raw=True)
     _nav_pages = [os.path.join(b_, n_) for b_, _d, ns_ in os.walk(OUT) for n_ in ns_ if n_ == "index.html"]
@@ -1293,14 +1422,12 @@ def main():
         for _am in re.finditer(r"<a\b[^>]*>(.*?)</a>", _nm.group(1), re.S):
             if "<" in _am.group(1):
                 _kids += 1
-    assert _kids, "لا رابطَ في الدرج يحمل ابنًا (‏`.nav-app` وسهمُه) — تغيّر المخرَج، يُراجَع الحارس [AND-04]"
-    assert _nav_disp not in ("flex", "inline-flex", "grid", "inline-grid"), (
-        "‏`.site-nav a` على اللمس `display: %s` و%d رابطًا في الدرج يحمل ابنًا — النصُّ "
+    need(_kids, lambda: "لا رابطَ في الدرج يحمل ابنًا (‏`.nav-app` وسهمُه) — تغيّر المخرَج، يُراجَع الحارس [AND-04]")
+    check(_nav_disp not in ("flex", "inline-flex", "grid", "inline-grid"), lambda: "‏`.site-nav a` على اللمس `display: %s` و%d رابطًا في الدرج يحمل ابنًا — النصُّ "
         "والسهمُ عنصران متجاوران والمسافةُ بينهما تسقط [AND-04]" % (_nav_disp, _kids))
     _hdr_btn = [("header", {"site-header"}, False, False), ("button", {"icon-btn"}, False, False)]
     _hdr_mh = _css_get(_rules, _tokens, _hdr_btn, "min-height", 412, coarse=True)
-    assert _hdr_mh is not None and _hdr_mh >= 44, (
-        "«القائمة» وزرُّ السمة في الترويسة على اللمس `min-height` %r — كانت ‎31.6‎ [AND-04]" % _hdr_mh)
+    check(_hdr_mh is not None and _hdr_mh >= 44, lambda: "«القائمة» وزرُّ السمة في الترويسة على اللمس `min-height` %r — كانت ‎31.6‎ [AND-04]" % _hdr_mh)
 
     # ── [AND-05] أرقامُ أوّل الإقلاع في الوثائق هي المقيسة، لا القديمة ──
     # الشاهدُ يملكه الحارس: قياسُ ‎2026-09-22‎ على `app.mihrab.dev` عبر CDP (‏msedge،
@@ -1320,26 +1447,23 @@ def main():
 
     with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as _rf:
         _readme_row = [ln for ln in _rf.read().splitlines() if ln.startswith("| أوّلُ تحميل |")]
-    assert len(_readme_row) == 1, "صفُّ «أوّلُ تحميل» في README غائبٌ أو مكرَّر [AND-05]"
+    need(len(_readme_row) == 1, lambda: "صفُّ «أوّلُ تحميل» في README غائبٌ أو مكرَّر [AND-05]")
     with open(os.path.join(ROOT, "docs", "محراب-في-المتصفّح.md"), encoding="utf-8") as _bf:
         _boot_doc = re.search(r"\*\*الثابتة\*\*\s*\(`vscode-web`(.*?)\)\.", _bf.read(), re.S)
-    assert _boot_doc, "جملةُ الشجرة الثابتة في `docs/محراب-في-المتصفّح.md` لم تُعرَف [AND-05]"
+    need(_boot_doc, lambda: "جملةُ الشجرة الثابتة في `docs/محراب-في-المتصفّح.md` لم تُعرَف [AND-05]")
     with open(os.path.join(SITE, "data", "site.json"), encoding="utf-8") as _sjb:
         _lim = [x for x in json.load(_sjb)["browser"]["limits"] if x.startswith("أوّلُ تحميل")]
-    assert len(_lim) == 1, "حدُّ «أوّلُ تحميل» في `site.json` غائبٌ أو مكرَّر [AND-05]"
+    need(len(_lim) == 1, lambda: "حدُّ «أوّلُ تحميل» في `site.json` غائبٌ أو مكرَّر [AND-05]")
     for _where, _txt, _need in (("README.md", _readme_row[0], {5.0, 20.0, 203.0}),
                                 ("docs/محراب-في-المتصفّح.md", _boot_doc.group(1), {5.0, 20.0, 203.0}),
                                 ("site.json", _lim[0], {5.0})):
         _got, _norm = _boot_nums(_txt)
-        assert _need <= _got, (
-            "جملةُ أوّل الإقلاع في %s بلا الأرقام المقيسة %s (فيها %s) [AND-05]"
+        check(_need <= _got, lambda: "جملةُ أوّل الإقلاع في %s بلا الأرقام المقيسة %s (فيها %s) [AND-05]"
             % (_where, sorted(_need - _got), sorted(_got)))
-        assert _got <= _boot_ok, (
-            "جملةُ أوّل الإقلاع في %s تحمل رقمًا ليس من القياس: %s — الأرقامُ القديمة "
+        check(_got <= _boot_ok, lambda: "جملةُ أوّل الإقلاع في %s تحمل رقمًا ليس من القياس: %s — الأرقامُ القديمة "
             "(‏19/4.6) تعود بلا قياس [AND-05]" % (_where, sorted(_got - _boot_ok)))
         if _where != "site.json":
-            assert re.search(r"عشرين|العشرون|عشرون|20 طلب", _norm), (
-                "جملةُ أوّل الإقلاع في %s لا تذكر أنّها **عشرون** ملفًّا لا الشجرةُ كلُّها [AND-05]" % _where)
+            check(re.search(r"عشرين|العشرون|عشرون|20 طلب", _norm), lambda: "جملةُ أوّل الإقلاع في %s لا تذكر أنّها **عشرون** ملفًّا لا الشجرةُ كلُّها [AND-05]" % _where)
 
     # ── ٥هـ) الجولةُ ‎15‎: الأسهمُ وEscape في نتائج البحث، والترشيحُ يُنطَق [AND-08] ──
     # ثلاثةُ سلوكاتٍ أُضيفت في docs.js وكلُّها كانت تعود صامتةً بطفرة (قِيست الثلاثُ):
@@ -1351,34 +1475,28 @@ def main():
     _esc = re.search(
         r"document\.addEventListener\('keydown', function \(e\) \{\s*if \(e\.key !== 'Escape'\) \{ return; \}(.*?)\n\t\t\}\);",
         _docs_js, re.S)
-    assert _esc, "معالجُ Escape لصناديق البحث لم يُعرَف في docs.js [AND-08]"
+    need(_esc, lambda: "معالجُ Escape لصناديق البحث لم يُعرَف في docs.js [AND-08]")
     _esc_body = re.sub(r"/\*.*?\*/", "", _esc.group(1), flags=re.S)
     _esc_if = re.search(r"if \(!b\.results\.hidden\) \{(.*?)\n\t\t\t\t\}", _esc_body, re.S)
-    assert _esc_if, "معالجُ Escape لا يشترط نتائجَ ظاهرةً قبل أن يفعل شيئًا [AND-08]"
-    assert "e.preventDefault()" in _esc_if.group(1), (
-        "Escape لا يمنع الحركةَ الأصليّة والنتائجُ ظاهرة — Chromium يمسح النصَّ فيطوي "
+    need(_esc_if, lambda: "معالجُ Escape لا يشترط نتائجَ ظاهرةً قبل أن يفعل شيئًا [AND-08]")
+    check("e.preventDefault()" in _esc_if.group(1), lambda: "Escape لا يمنع الحركةَ الأصليّة والنتائجُ ظاهرة — Chromium يمسح النصَّ فيطوي "
         "النتائجَ ويُضيع السؤالَ بضغطةٍ واحدة [AND-08]")
-    assert "e.preventDefault()" not in _esc_body.replace(_esc_if.group(1), ""), (
-        "Escape يمنع الحركةَ الأصليّة **خارج** شرط النتائج الظاهرة — الضغطةُ الثانية لا تمسح "
+    check("e.preventDefault()" not in _esc_body.replace(_esc_if.group(1), ""), lambda: "Escape يمنع الحركةَ الأصليّة **خارج** شرط النتائج الظاهرة — الضغطةُ الثانية لا تمسح "
         "النصَّ كما اعتاد الزائر [AND-08]")
-    assert "show(b, false)" in _esc_if.group(1) and "announce(b, '')" in _esc_if.group(1), (
-        "Escape لا يطوي النتائجَ أو لا يُصمِت الإعلان [AND-08]")
-    assert "if (b.results.contains(document.activeElement)) { b.input.focus(); }" in _esc_if.group(1), (
-        "Escape من رابطٍ داخل النتائج لا يعيد البؤرةَ إلى الحقل — تبقى على عنصرٍ صار مخفيًّا [AND-08]")
+    check("show(b, false)" in _esc_if.group(1) and "announce(b, '')" in _esc_if.group(1), lambda: "Escape لا يطوي النتائجَ أو لا يُصمِت الإعلان [AND-08]")
+    check("if (b.results.contains(document.activeElement)) { b.input.focus(); }" in _esc_if.group(1), lambda: "Escape من رابطٍ داخل النتائج لا يعيد البؤرةَ إلى الحقل — تبقى على عنصرٍ صار مخفيًّا [AND-08]")
 
     _mv = re.search(r"function moveIn\(b, from, dir\) \{.*?\n\t\t\}", _docs_js, re.S)
-    assert _mv, "لم تُعرَف `moveIn` في docs.js [AND-08]"
+    need(_mv, lambda: "لم تُعرَف `moveIn` في docs.js [AND-08]")
     _in_kd = re.search(r"b\.input\.addEventListener\('keydown', function \(e\) \{(.*?)\n\t\t\t\}\);", _docs_js, re.S)
-    assert _in_kd, "لا معالجَ keydown على حقل البحث [AND-08]"
-    assert "if (e.key !== 'ArrowDown' || b.results.hidden) { return; }" in _in_kd.group(1), (
-        "↓ من الحقل لا يُشترَط فيه نتائجُ ظاهرة — يُبتلَع السهمُ والقائمةُ مطويّة [AND-08]")
-    assert "if (moveIn(b, null, 1)) { e.preventDefault(); }" in _in_kd.group(1), (
-        "↓ من الحقل لا يدخل القائمةَ، أو يمنع الحركةَ الأصليّة حتّى حين لا رابطَ [AND-08]")
+    need(_in_kd, lambda: "لا معالجَ keydown على حقل البحث [AND-08]")
+    check("if (e.key !== 'ArrowDown' || b.results.hidden) { return; }" in _in_kd.group(1), lambda: "↓ من الحقل لا يُشترَط فيه نتائجُ ظاهرة — يُبتلَع السهمُ والقائمةُ مطويّة [AND-08]")
+    check("if (moveIn(b, null, 1)) { e.preventDefault(); }" in _in_kd.group(1), lambda: "↓ من الحقل لا يدخل القائمةَ، أو يمنع الحركةَ الأصليّة حتّى حين لا رابطَ [AND-08]")
     _res_kd = re.search(r"b\.results\.addEventListener\('keydown', function \(e\) \{(.*?)\n\t\t\t\}\);", _docs_js, re.S)
-    assert _res_kd and "e.key === 'ArrowDown' ? 1 : -1" in _res_kd.group(1), "↓/↑ داخل النتائج لا تسير [AND-08]"
+    need(_res_kd and "e.key === 'ArrowDown' ? 1 : -1" in _res_kd.group(1), lambda: "↓/↑ داخل النتائج لا تسير [AND-08]")
 
     _kw = re.search(r"function kbdWord\(n\) \{.*?\n\t\}", _docs_js, re.S)
-    assert _kw, "لم تُعرَف `kbdWord` في docs.js [AND-08]"
+    need(_kw, lambda: "لم تُعرَف `kbdWord` في docs.js [AND-08]")
     # قواعدُ العدد: صفرٌ نفيٌ، وواحدٌ مفرد، واثنان مثنًّى، و‎3–10‎ جمعٌ مجرور، و‎11‎ فأكثرَ مفردٌ منصوب.
     _KW_WANT = {0: "لا اختصارَ يطابق", 1: "اختصارٌ واحد", 2: "اختصاران", 3: "3 اختصارات",
                 10: "10 اختصارات", 11: "11 اختصارًا", 100: "100 اختصارًا"}
@@ -1402,32 +1520,27 @@ process.stdout.write(JSON.stringify([out, log]));
     _AND08_WANT = [[False, True, True, True, True, True], ["a0", "a2", "input", "a2"]]
     _nr8 = subprocess.run([_node, "-e", _AND08_JS], capture_output=True, encoding="utf-8",
                           errors="replace", timeout=60)
-    assert _nr8.returncode == 0, "تعذّر تنفيذُ `moveIn` بـnode: %s [AND-08]" % _nr8.stderr.strip()[-300:]
+    need(_nr8.returncode == 0, lambda: "تعذّر تنفيذُ `moveIn` بـnode: %s [AND-08]" % _nr8.stderr.strip()[-300:])
     _got8 = json.loads(_nr8.stdout)
-    assert _got8 == _AND08_WANT, (
-        "‏`moveIn` على صندوقٍ مصنوع ⇒ %r لا %r — المنتظَر: بلا روابط false؛ ↓ من الحقل إلى "
+    check(_got8 == _AND08_WANT, lambda: "‏`moveIn` على صندوقٍ مصنوع ⇒ %r لا %r — المنتظَر: بلا روابط false؛ ↓ من الحقل إلى "
         "الأولى؛ ↓ بين الروابط؛ ↓ من الأخيرة تبقى بلا التفاف؛ ↑ من الأولى إلى الحقل؛ "
         "↑ بلا مصدرٍ إلى الأخيرة [AND-08]" % (_got8, _AND08_WANT))
     _nr9 = subprocess.run(
         [_node, "-e", _kw.group(0) + "\nprocess.stdout.write(JSON.stringify(%s.map(kbdWord)))"
          % json.dumps(sorted(_KW_WANT))],
         capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    assert _nr9.returncode == 0, "تعذّر تنفيذُ `kbdWord` بـnode: %s [AND-08]" % _nr9.stderr.strip()[-300:]
+    need(_nr9.returncode == 0, lambda: "تعذّر تنفيذُ `kbdWord` بـnode: %s [AND-08]" % _nr9.stderr.strip()[-300:])
     for _n, _s in zip(sorted(_KW_WANT), json.loads(_nr9.stdout)):
-        assert _s == _KW_WANT[_n], (
-            "‏`kbdWord(%d)` ⇒ %r لا %r — قواعدُ العدد العربيّ [AND-08]" % (_n, _s, _KW_WANT[_n]))
+        check(_s == _KW_WANT[_n], lambda: "‏`kbdWord(%d)` ⇒ %r لا %r — قواعدُ العدد العربيّ [AND-08]" % (_n, _s, _KW_WANT[_n]))
 
     _kb_html = read("keyboard/index.html")
-    assert _kb_html.count('class="sr-only kbd-status" role="status" aria-live="polite"') == 1, (
-        "صفحةُ الاختصارات بلا سطرِ حالةٍ واحدٍ `role=\"status\" aria-live=\"polite\"` للترشيح — "
+    check(_kb_html.count('class="sr-only kbd-status" role="status" aria-live="polite"') == 1, lambda: "صفحةُ الاختصارات بلا سطرِ حالةٍ واحدٍ `role=\"status\" aria-live=\"polite\"` للترشيح — "
         "قارئُ الشاشة لا يسمع عددَ الصفوف [AND-08]")
-    assert re.search(r"var msg = q \? kbdWord\(total\) : '';\n\s*if \(kbdStatus && kbdStatus\.textContent !== msg\) "
-                     r"\{ kbdStatus\.textContent = msg; \}", _docs_js), (
-        "‏`filterRows` لا تكتب العددَ في `.kbd-status` مشروطًا بتغيّر النصّ، أو تنطق والحقلُ فارغ [AND-08]")
+    check(re.search(r"var msg = q \? kbdWord\(total\) : '';\n\s*if \(kbdStatus && kbdStatus\.textContent !== msg\) "
+                     r"\{ kbdStatus\.textContent = msg; \}", _docs_js), lambda: "‏`filterRows` لا تكتب العددَ في `.kbd-status` مشروطًا بتغيّر النصّ، أو تنطق والحقلُ فارغ [AND-08]")
     with open(os.path.join(SITE, "assets", "mihrab-home.css"), encoding="utf-8") as _hf2:
-        assert re.search(r"\.sr-only\s*\{", css_strip_comments(_hf2.read(), "mihrab-home.css")), (
-            "لا قاعدةَ `.sr-only` في الورقة التي تصل صفحةَ الاختصارات — سطرُ الحالة يُرى لا يُنطَق وحدَه [AND-08]")
-    assert "assets/mihrab-home.css" in _kb_html, "صفحةُ الاختصارات لا تحمّل `mihrab-home.css` حيث `.sr-only` [AND-08]"
+        check(re.search(r"\.sr-only\s*\{", css_strip_comments(_hf2.read(), "mihrab-home.css")), lambda: "لا قاعدةَ `.sr-only` في الورقة التي تصل صفحةَ الاختصارات — سطرُ الحالة يُرى لا يُنطَق وحدَه [AND-08]")
+    check("assets/mihrab-home.css" in _kb_html, lambda: "صفحةُ الاختصارات لا تحمّل `mihrab-home.css` حيث `.sr-only` [AND-08]")
 
     # ── [PRN-01] الطباعةُ تُخفي مقدّمةَ صفحة الاختصارات لا متنَ كلّ صفحة ──
     # `.content > p` في كتلة الطباعة كانت بلا قيدٍ (الجولة ‎15‎) فتُخفي فقراتِ وعناوينَ
@@ -1438,42 +1551,48 @@ process.stdout.write(JSON.stringify([out, log]));
     _mc = [("main", {"content"}, False, False)]
     for _tag in ("p", "h2", "pre"):
         _d = _css_get(_rules, _tokens, _mc + [(_tag, set(), False, False)], "display", 1200, prn=True, raw=True)
-        assert _d != "none", (
-            "‏`main.content > %s` في الطباعة `display: none` بقاعدةٍ عامّة — متنُ كلّ صفحةِ "
+        check(_d != "none", lambda: "‏`main.content > %s` في الطباعة `display: none` بقاعدةٍ عامّة — متنُ كلّ صفحةِ "
             "توثيقٍ يختفي من الورق [PRN-01]" % _tag)
     _cc = _css_get(_rules, _tokens, _mc, "column-count", 1200, prn=True, raw=True)
-    assert _cc in (None, "auto", "1"), (
-        "‏`main.content` في الطباعة أعمدةٌ (%r) بقاعدةٍ عامّة — لصفحة الاختصارات وحدَها [PRN-01]" % _cc)
+    check(_cc in (None, "auto", "1"), lambda: "‏`main.content` في الطباعة أعمدةٌ (%r) بقاعدةٍ عامّة — لصفحة الاختصارات وحدَها [PRN-01]" % _cc)
     with open(os.path.join(SITE, "assets", "mihrab-docs.css"), encoding="utf-8") as _pf:
         _prn_css = css_strip_comments(_pf.read(), "mihrab-docs.css")
-    assert re.search(r"\.content:has\(\[data-kbd-table\]\)\s*>\s*p\b", _prn_css), (
-        "قاعدةُ إخفاء مقدّمة صفحة الاختصارات في الطباعة غائبةٌ أو بلا قيد `:has([data-kbd-table])` [PRN-01]")
-    assert "data-kbd-table" in _kb_html, "صفحةُ الاختصارات بلا `data-kbd-table` — قيدُ الطباعة لا يجد جدولَه [PRN-01]"
+    check(re.search(r"\.content:has\(\[data-kbd-table\]\)\s*>\s*p\b", _prn_css), lambda: "قاعدةُ إخفاء مقدّمة صفحة الاختصارات في الطباعة غائبةٌ أو بلا قيد `:has([data-kbd-table])` [PRN-01]")
+    check("data-kbd-table" in _kb_html, lambda: "صفحةُ الاختصارات بلا `data-kbd-table` — قيدُ الطباعة لا يجد جدولَه [PRN-01]")
+    # ⚠️ **والتتالي المصغَّرُ أعمى عن `:has()`** — فقاعدةٌ بقيدٍ يطابق كلَّ صفحة
+    # (‏`.content:has(h1) > p { display: none }`) كانت تمرّ أخضرَ وهي تُخفي متنَ كلّ صفحة
+    # من الورق (قِيس بالزرع). فكلُّ `:has(` في كتل الطباعة هو قيدُ الجدول بعينه لا غير.
+    for _pm in re.finditer(r"@media\s+print\b[^{]*\{", _prn_css):
+        _depth, _k = 1, _pm.end()
+        while _depth and _k < len(_prn_css):
+            _depth += {"{": 1, "}": -1}.get(_prn_css[_k], 0)
+            _k += 1
+        for _hm in re.finditer(r":has\(((?:[^()]|\([^()]*\))*)\)", _prn_css[_pm.end():_k]):
+            check(_hm.group(1).strip() == "[data-kbd-table]",
+                  lambda: "في كتلة الطباعة `:has(%s)` — القيدُ الوحيدُ المقبول `:has([data-kbd-table])`؛ "
+                          "غيرُه قد يطابق كلَّ صفحةٍ والتتالي هنا لا يقيسه [PRN-01]" % _hm.group(1))
     _start_html = read("start/index.html")
-    assert re.search(r'<main class="content">\s*<h1', _start_html) and "<p>" in _start_html, (
-        "صفحةُ `/start/` ليست `main.content` بفقراتٍ مباشرة — شاهدُ [PRN-01] زال")
+    check(re.search(r'<main class="content">\s*<h1', _start_html) and "<p>" in _start_html, lambda: "صفحةُ `/start/` ليست `main.content` بفقراتٍ مباشرة — شاهدُ [PRN-01] زال")
 
     # ── [CAP-01] ما يُقارَن به الالتقاطُ بترتيب `chordFromEvent` نفسِه ──
     # ‏`data-chords` كانت السلسلةَ كما كُتبت في البيانات («Shift+Alt+Cmd+C»)، والحدثُ
     # يبنيها Ctrl ثمّ Cmd ثمّ Shift ثمّ Alt («Cmd+Shift+Alt+C») — فثلاثةُ اختصاراتِ ماك
     # كانت تُلتقَط «لا أمرَ معروفًا» والصفُّ أمام الزائر. الترتيبُ يُقرأ من docs.js لا يُكتَب.
     _ord = re.findall(r"if \(e\.(ctrl|meta|shift|alt)Key\) \{ parts\.push\('(\w+)'\); \}", _docs_js)
-    assert [m for m, _ in _ord] == ["ctrl", "meta", "shift", "alt"], (
-        "ترتيبُ المعدِّلات في `chordFromEvent` %r — يُراجَع `_canon_chord` في build.py [CAP-01]" % (_ord,))
+    check([m for m, _ in _ord] == ["ctrl", "meta", "shift", "alt"], lambda: "ترتيبُ المعدِّلات في `chordFromEvent` %r — يُراجَع `_canon_chord` في build.py [CAP-01]" % (_ord,))
     _mods = [n for _, n in _ord]
     _chords = [c for m in re.finditer(r'data-chords="([^"]*)"', _kb_html)
                for c in _html.unescape(m.group(1)).split("|") if c]
-    assert len(_chords) >= 40, "عددُ الاختصارات في الصفحة %d — الحارسُ يقيس الهواء [CAP-01]" % len(_chords)
+    check(len(_chords) >= 40, lambda: "عددُ الاختصارات في الصفحة %d — الحارسُ يقيس الهواء [CAP-01]" % len(_chords))
     for _c in _chords:
         for _press in _c.split(" "):
             _parts = _press.split("+")
             _pm = _parts[:-1]
-            assert all(m in _mods for m in _pm), "معدِّلٌ لا يعرفه `chordFromEvent` في %r [CAP-01]" % _c
-            assert _pm == [m for m in _mods if m in _pm], (
-                "‏`data-chords` تحمل %r وترتيبُ معدِّلاتها ليس ترتيبَ `chordFromEvent` (%s) — "
+            check(all(m in _mods for m in _pm), lambda: "معدِّلٌ لا يعرفه `chordFromEvent` في %r [CAP-01]" % _c)
+            check(_pm == [m for m in _mods if m in _pm], lambda: "‏`data-chords` تحمل %r وترتيبُ معدِّلاتها ليس ترتيبَ `chordFromEvent` (%s) — "
                 "الالتقاطُ يقارن حرفًا بحرف فيردّ «لا أمرَ معروفًا» والصفُّ أمام الزائر [CAP-01]"
                 % (_c, "، ".join(_mods)))
-            assert _parts[-1], "اختصارٌ ينتهي بـ`+` في %r [CAP-01]" % _c
+            check(_parts[-1], lambda: "اختصارٌ ينتهي بـ`+` في %r [CAP-01]" % _c)
     # وشاهدُ تفعيل: البياناتُ تحمل ترتيبًا غيرَ قانونيٍّ **عمدًا** (المعروضُ يبقى كما كُتب:
     # «Shift+Alt+Cmd» ترتيبُ ماك المألوف) فيُرى التقنينُ وهو يعمل. من قنّن البياناتِ كلَّها
     # فليُبقِ مثالًا واحدًا أو يُغذِّ الحارسَ به.
@@ -1482,8 +1601,7 @@ process.stdout.write(JSON.stringify([out, log]));
                    for k in ("win", "mac") if e.get(k)]
     _raw_noncanon = [v for v in _kb_raw for _press in v.split(" ")
                      if _press.split("+")[:-1] != [m for m in _mods if m in _press.split("+")[:-1]]]
-    assert _raw_noncanon, (
-        "لا اختصارَ في `keybindings.json` بترتيبٍ غيرِ قانونيّ — شاهدُ تفعيل [CAP-01] زال؛ أبقِ "
+    need(_raw_noncanon, lambda: "لا اختصارَ في `keybindings.json` بترتيبٍ غيرِ قانونيّ — شاهدُ تفعيل [CAP-01] زال؛ أبقِ "
         "مثالًا («Shift+Alt+Cmd+C») أو غذِّ الحارسَ بغيره")
 
     # ── [CAP-02] الالتقاطُ يلتقط تسلسلَ ضغطتين، ويُلغي التعليقَ حين يجب ──
@@ -1496,40 +1614,32 @@ process.stdout.write(JSON.stringify([out, log]));
     # قبل التصفير وblur لا يمسّه، فمن غادر الحقلَ وعاد خلال المهلة دُمجت ضغطتُه في تسلسلٍ
     # لم يقصده). كلُّ فرعٍ قِيس بمُصابه في tests/meta/mutants.json.
     _cs = re.search(r"function chordStep\(chord, pending, entries\) \{.*?\n\t\}", _docs_js, re.S)
-    assert _cs, "لم تُعرَف `chordStep(chord, pending, entries)` في docs.js [CAP-02]"
+    need(_cs, lambda: "لم تُعرَف `chordStep(chord, pending, entries)` في docs.js [CAP-02]")
     _cw = re.search(r"var CHORD_WAIT_MS = (\d+);", _docs_js)
-    assert _cw, "لا `var CHORD_WAIT_MS = N;` في docs.js — المهلةُ رقمٌ مدفون [CAP-02]"
-    assert 1000 <= int(_cw.group(1)) <= 8000, (
-        "مهلةُ التسلسل %s مث — دون ثانيةٍ لا تُدرَك الضغطةُ الثانية، وفوق ثمانٍ يُدمَج ما لم "
+    need(_cw, lambda: "لا `var CHORD_WAIT_MS = N;` في docs.js — المهلةُ رقمٌ مدفون [CAP-02]")
+    check(1000 <= int(_cw.group(1)) <= 8000, lambda: "مهلةُ التسلسل %s مث — دون ثانيةٍ لا تُدرَك الضغطةُ الثانية، وفوق ثمانٍ يُدمَج ما لم "
         "يُقصَد [CAP-02]" % _cw.group(1))
     _cp = re.search(r"function clearPending\(\) \{(.*?)\n\t\}", _docs_js, re.S)
-    assert _cp and "pendingChord = null;" in _cp.group(1) and "clearTimeout(pendingTimer)" in _cp.group(1), (
-        "‏`clearPending` لا تصفّر التعليقَ ومهلتَه معًا [CAP-02]")
+    need(_cp and "pendingChord = null;" in _cp.group(1) and "clearTimeout(pendingTimer)" in _cp.group(1), lambda: "‏`clearPending` لا تصفّر التعليقَ ومهلتَه معًا [CAP-02]")
     _cap = re.search(r"captureField\.addEventListener\('keydown', function \(e\) \{(.*?)\n\t\t\}\);", _docs_js, re.S)
-    assert _cap, "معالجُ keydown للالتقاط لم يُعرَف بحدوده [CAP-02]"
+    need(_cap, lambda: "معالجُ keydown للالتقاط لم يُعرَف بحدوده [CAP-02]")
     _cap_body = re.sub(r"/\*.*?\*/", "", _cap.group(1), flags=re.S)
     _esc2 = re.search(r"if \(e\.key === 'Escape'\) \{([^}]*)\}", _cap_body)
     _ro = re.search(r"function resetOut\(\) \{(.*?)\n\t\t\}", _docs_js, re.S)
-    assert _esc2 and _ro and "resetOut();" in _esc2.group(1) and "clearPending();" in _ro.group(1), (
-        "Escape يُغلق الالتقاطَ ولا يُلغي التعليق — Ctrl+K ثمّ Escape ثمّ فتحٌ وS خلال المهلة "
+    need(_esc2 and _ro and "resetOut();" in _esc2.group(1) and "clearPending();" in _ro.group(1), lambda: "Escape يُغلق الالتقاطَ ولا يُلغي التعليق — Ctrl+K ثمّ Escape ثمّ فتحٌ وS خلال المهلة "
         "⇒ «Ctrl+K S ← حفظ الكلّ» [CAP-02]")
-    assert "clearPending();" in _ime.group(1), (
-        "ضغطةُ IME أثناء التعليق لا تُلغيه — تُدمَج الضغطةُ المفهومةُ التالية في تسلسلٍ لم يُقصَد [CAP-02]")
+    check("clearPending();" in _ime.group(1), lambda: "ضغطةُ IME أثناء التعليق لا تُلغيه — تُدمَج الضغطةُ المفهومةُ التالية في تسلسلٍ لم يُقصَد [CAP-02]")
     _dp = re.search(r"function dropPending\(\) \{(.*?)\n\t\t\}", _docs_js, re.S)
-    assert _dp and "if (!pendingChord) { return; }" in _dp.group(1) and "clearPending();" in _dp.group(1), (
-        "‏`dropPending` لا تُسقِط التعليقَ أو لا تعود حين لا تعليق [CAP-02]")
-    assert "لم تصل الضغطةُ الثانية" in _dp.group(1), "سقوطُ التعليق صامتٌ — السطرُ يبقى يطلب الضغطةَ الثانية [CAP-02]"
-    assert "captureField.addEventListener('blur', dropPending);" in _docs_js, (
-        "فقدانُ البؤرة لا يُسقِط التعليق — المعالجُ على الحقل وحدَه لكنّ التعليقَ يبقى للعائد خلال "
+    need(_dp and "if (!pendingChord) { return; }" in _dp.group(1) and "clearPending();" in _dp.group(1), lambda: "‏`dropPending` لا تُسقِط التعليقَ أو لا تعود حين لا تعليق [CAP-02]")
+    check("لم تصل الضغطةُ الثانية" in _dp.group(1), lambda: "سقوطُ التعليق صامتٌ — السطرُ يبقى يطلب الضغطةَ الثانية [CAP-02]")
+    check("captureField.addEventListener('blur', dropPending);" in _docs_js, lambda: "فقدانُ البؤرة لا يُسقِط التعليق — المعالجُ على الحقل وحدَه لكنّ التعليقَ يبقى للعائد خلال "
         "المهلة [CAP-02]")
-    assert re.search(r"var step = chordStep\(chord, pendingChord, chordTable\);\n\s*clearPending\(\);", _cap_body), (
-        "المعالجُ لا يستدعي `chordStep(chord, pendingChord, chordTable)` ثمّ يصفّر التعليقَ قبل الحسم [CAP-02]")
-    assert re.search(r"if \(step\.wait\) \{.*?pendingChord = chord;.*?pendingTimer = setTimeout\(dropPending, CHORD_WAIT_MS\);\s*return;",
-                     _cap_body, re.S), (
-        "فرعُ الانتظار لا يعلّق الضغطةَ بمهلة `CHORD_WAIT_MS` تسقط بـ`dropPending` ويعود [CAP-02]")
+    check(re.search(r"var step = chordStep\(chord, pendingChord, chordTable\);\n\s*clearPending\(\);", _cap_body), lambda: "المعالجُ لا يستدعي `chordStep(chord, pendingChord, chordTable)` ثمّ يصفّر التعليقَ قبل الحسم [CAP-02]")
+    check(re.search(r"if \(step\.wait\) \{.*?pendingChord = chord;.*?pendingTimer = setTimeout\(dropPending, CHORD_WAIT_MS\);\s*return;",
+                     _cap_body, re.S), lambda: "فرعُ الانتظار لا يعلّق الضغطةَ بمهلة `CHORD_WAIT_MS` تسقط بـ`dropPending` ويعود [CAP-02]")
     _rows2 = [{"row": _html.unescape(m.group(2)), "chords": _html.unescape(m.group(1)).split("|")}
               for m in re.finditer(r'data-chords="([^"]*)"><td><span class="cmd-name">([^<]*)</span>', _kb_html)]
-    assert len(_rows2) >= 40, "صفوفُ الاختصارات بأسمائها %d — الحارسُ يقيس الهواء [CAP-02]" % len(_rows2)
+    check(len(_rows2) >= 40, lambda: "صفوفُ الاختصارات بأسمائها %d — الحارسُ يقيس الهواء [CAP-02]" % len(_rows2))
     _CAP02_JS = _cs.group(0) + "\nvar entries = " + json.dumps(_rows2, ensure_ascii=False) + r""";
 function step(c, p) { var s = chordStep(c, p, entries); return [s.chord, s.row, s.wait]; }
 var out = [];
@@ -1551,10 +1661,9 @@ process.stdout.write(JSON.stringify(out));
                    ["F24", None, False]]
     _nr10 = subprocess.run([_node, "-e", _CAP02_JS], capture_output=True, encoding="utf-8",
                            errors="replace", timeout=60)
-    assert _nr10.returncode == 0, "تعذّر تنفيذُ `chordStep` بـnode: %s [CAP-02]" % _nr10.stderr.strip()[-300:]
+    need(_nr10.returncode == 0, lambda: "تعذّر تنفيذُ `chordStep` بـnode: %s [CAP-02]" % _nr10.stderr.strip()[-300:])
     _got10 = json.loads(_nr10.stdout)
-    assert _got10 == _CAP02_WANT, (
-        "‏`chordStep` على جدول الصفحة ⇒ %r لا %r — المنتظَر: Ctrl+K ينتظر؛ Ctrl+K Ctrl+S "
+    check(_got10 == _CAP02_WANT, lambda: "‏`chordStep` على جدول الصفحة ⇒ %r لا %r — المنتظَر: Ctrl+K ينتظر؛ Ctrl+K Ctrl+S "
         "«اختصارات لوحة المفاتيح»؛ Ctrl+P فوريّ؛ Ctrl+S بلا تعليقٍ «حفظ الملفّ»؛ Ctrl+K S "
         "«حفظ الكلّ»؛ Ctrl+K Ctrl+K لا أمرَ ولا انتظار؛ F24 لا شيء [CAP-02]" % (_got10, _CAP02_WANT))
 
@@ -1563,7 +1672,7 @@ process.stdout.write(JSON.stringify(out));
     # يقلب C إلى «ç» — فكان «Ctrl+Shift+`» (طرفيّةٌ جديدة) و«Cmd+Shift+Alt+C» لا يُلتقَطان
     # أبدًا والصفُّ أمام الزائر. `chordFromEvent` **تُنفَّذ** بأحداثٍ مصنوعة.
     _cfe = re.search(r"\tvar CODE_KEY = \{.*?\n\tfunction chordFromEvent\(e\) \{.*?\n\t\}", _docs_js, re.S)
-    assert _cfe, "لم تُعرَف `CODE_KEY` ثمّ `chordFromEvent` في docs.js [CAP-03]"
+    need(_cfe, lambda: "لم تُعرَف `CODE_KEY` ثمّ `chordFromEvent` في docs.js [CAP-03]")
     _CAP03 = [({"ctrlKey": True, "key": "س", "code": "KeyS"}, "Ctrl+S"),
               ({"ctrlKey": True, "shiftKey": True, "key": "~", "code": "Backquote"}, "Ctrl+Shift+`"),
               ({"metaKey": True, "shiftKey": True, "altKey": True, "key": "ç", "code": "KeyC"}, "Cmd+Shift+Alt+C"),
@@ -1626,14 +1735,82 @@ process.stdout.write(JSON.stringify(out));
         % json.dumps([e for e, _ in _CAP03], ensure_ascii=False)
     _nr11 = subprocess.run([_node, "-e", _js3], capture_output=True, encoding="utf-8",
                            errors="replace", timeout=60)
-    assert _nr11.returncode == 0, "تعذّر تنفيذُ `chordFromEvent` بـnode: %s [CAP-03]" % _nr11.stderr.strip()[-300:]
+    need(_nr11.returncode == 0, lambda: "تعذّر تنفيذُ `chordFromEvent` بـnode: %s [CAP-03]" % _nr11.stderr.strip()[-300:])
     for (_ev, _want), _got in zip(_CAP03, json.loads(_nr11.stdout)):
-        assert _got == _want, (
-            "‏`chordFromEvent(%s)` ⇒ %r لا %r — المحرفُ المطبوعُ قُرئ مفتاحًا [CAP-03]"
+        check(_got == _want, lambda: "‏`chordFromEvent(%s)` ⇒ %r لا %r — المحرفُ المطبوعُ قُرئ مفتاحًا [CAP-03]"
             % (json.dumps(_ev, ensure_ascii=False), _got, _want))
     _known = set(_chords) | {p for c in _chords for p in c.split(" ")}
-    assert {"Ctrl+Shift+`", "Cmd+Shift+Alt+C"} <= _known, (
-        "شاهدا [CAP-03] لم يعودا في جدول الصفحة — يُغذّى الحارسُ بغيرهما")
+    check({"Ctrl+Shift+`", "Cmd+Shift+Alt+C"} <= _known, lambda: "شاهدا [CAP-03] لم يعودا في جدول الصفحة — يُغذّى الحارسُ بغيرهما")
+
+    # ── [CAP-04] صندوقٌ سلوكيّ: `docs.js` المشحونُ يُنفَّذ كاملًا على صفحةٍ مزيّفة ──
+    # فحوصُ الالتقاط أعلاه تقرأ نصَّ المعالج، فكانت تُخدَع بإبطالٍ لا يمسّ النصّ: سطرُ
+    # `blur` تعليقًا، و`if (false) resetOut();`، ومهلةٌ تُظلَّل بعد تعريفها — كلُّها خضراء
+    # والميزةُ معطوبة (قِيس بالزرع). فيُشغَّل `tests/docs/docs_sandbox.js` على صفوف الصفحة
+    # المبنيّة وفهرس بحثها، ويرسل أحداثًا كما يرسلها المتصفّح، ويقيس ما يقرؤه الزائر:
+    # التعليقُ وحسمُه، وإلغاؤه بـEscape وفقدانِ البؤرة والمهلة وIME، والترشيحُ بلا تشكيلٍ
+    # ومن وسط الاسم، والأسهمُ وEscape في نتائج البحث.
+    def _plain(t):
+        return re.sub(r"[ً-ْٰـ]", "", t).replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+    _secs = []
+    for _sm in re.finditer(r'<section class="kbd-section">(.*?)</section>', _kb_html, re.S):
+        _rows = []
+        for _tm in re.finditer(r'<tr data-search="([^"]*)"(?: data-chords="([^"]*)")?><td><span class="cmd-name">([^<]*)</span>',
+                               _sm.group(1)):
+            _rows.append({"search": _html.unescape(_tm.group(1)),
+                          "chords": None if _tm.group(2) is None else _html.unescape(_tm.group(2)),
+                          "name": _html.unescape(_tm.group(3))})
+        _secs.append({"rows": _rows})
+    _all_rows = [r for sec in _secs for r in sec["rows"]]
+    _by_chord = {c: r["name"] for r in _all_rows if r["chords"] for c in r["chords"].split("|")}
+    _save_all, _save_one = _by_chord.get("Ctrl+K S"), _by_chord.get("Ctrl+S")
+    # صفٌّ تُطابَق كلمتُه الثانيةُ بلا تشكيل: مطابقةٌ من وسط الاسم **و**بلا شدّةٍ معًا
+    _frow = next((r["name"] for r in _all_rows
+                  if len(r["name"].split()) > 1 and _plain(r["name"].split()[1]) != r["name"].split()[1]), None)
+    if not (_secs and _save_all and _save_one and _frow):
+        bad("صفحةُ الاختصارات بلا ما يقيسه الصندوق (أقسام، Ctrl+K S، Ctrl+S، صفٌّ مشكول) [CAP-04]")
+    else:
+        with open(os.path.join(OUT, "search-index.json"), encoding="utf-8") as _sif:
+            _sindex = json.load(_sif)
+        # الصندوقُ يقيس الشجرةَ التي يبنيها `_page_tree`؛ وموضعٌ تفترق فيه عن شجرة المتصفّح
+        # يجعل أخضرَه شهادةً على صفحةٍ غيرِ المشحونة — فيُقال قبل نتيجته.
+        _tree, _tree_errs = _page_tree(_kb_html)
+        for _te in _tree_errs:
+            bad("keyboard/index.html: %s — الصندوقُ لا يرى ما يراه المتصفّح [CAP-04]" % _te)
+        _fx = {"tree": _tree, "save_all": _save_all, "save_one": _save_one,
+               "filter_row": _frow, "filter_query": _plain(_frow.split()[1]),
+               "filter_query_raw": _frow.split()[1],
+               "count_query": _save_all.split()[0],
+               "search_query": "محراب", "index": _sindex}
+        # الـfixture في مجلّدٍ مؤقّتٍ لا في `site/public`: `deploy_site.sh` يحزم `public/` كلَّه،
+        # وحارسٌ يُقتَل بين الكتابة والحذف كان يترك فيه ملفًّا يُشحَن ولا يراه [OUT-03]
+        # (يفحص `public/assets` وحدَه).
+        import tempfile
+        with tempfile.TemporaryDirectory() as _fxd:
+            _fxp = os.path.join(_fxd, "cap04-fixture.json")
+            with open(_fxp, "w", encoding="utf-8") as _fxf:
+                json.dump(_fx, _fxf, ensure_ascii=False)
+            try:
+                _nr12 = subprocess.run([_node, os.path.join(ROOT, "tests", "docs", "docs_sandbox.js"),
+                                        os.path.join(SITE, "assets", "docs.js"), _fxp],
+                                       capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+                _sb_out, _sb_err = _nr12.stdout, _nr12.stderr
+            except subprocess.TimeoutExpired:
+                _sb_out, _sb_err = "", "انقضت ‎60‎ ثانية — مؤقّتٌ أو وعدٌ لا ينتهي في الصندوق"
+        try:
+            _sb = json.loads(_sb_out)
+            # و`{}` أو `{"fails": "…"}` كانا `KeyError` أو حروفًا تُعدّ فشولًا لا خطأً مُسمًّى
+            if not (isinstance(_sb, dict) and isinstance(_sb.get("fails"), list)
+                    and isinstance(_sb.get("ran"), int)):
+                raise ValueError(_sb_out)
+        except ValueError:
+            _sb = {"ran": 0, "fails": ["خرجُ الصندوق ليس JSON بشكل {ran, fails}: %s %s [CAP-04]"
+                                       % (_sb_out[-200:], _sb_err[-300:])]}
+        for _f in _sb["fails"]:
+            bad(_f)
+        # بلا فشلٍ مسارُ الصندوق واحدٌ لا يتفرّع (كلُّ تفرّعٍ فيه يمرّ بفشلٍ مُسمًّى)، فعددُه ثابت:
+        # ‎42‎. والأرضيّةُ هي العددُ نفسُه — ‎35‎ كانت تُسقط السيناريو (٣) أو (٤) كلَّه صامتًا.
+        if not _sb["fails"] and _sb["ran"] < 42:
+            bad("الصندوقُ قاس %d توقّعًا لا أقلَّ من ‎42‎ — سيناريو سقط صامتًا [CAP-04]" % _sb["ran"])
 
     # ── ٥ب) صفحةُ ‎404‎: أصولُها تصل من **كلّ** أصلٍ تُقدَّم منه [W404] ──
     # هي الصفحةُ الوحيدةُ التي تُقدَّم من أصلين — `mihrab.dev` و`app.mihrab.dev`
@@ -1661,8 +1838,7 @@ process.stdout.write(JSON.stringify(out));
     rel = sorted({m.group(1) for m in re.finditer(r'(?:href|src)="([^"]*)"', nf)
                   if not m.group(1).startswith(("https://", "http://", "mailto:",
                                                 "data:", "#"))})
-    assert not rel, (
-        "‏404.html تحمل عنوانًا غيرَ مطلق: %s — وهي تُقدَّم من أصلين (`alias`)، "
+    check(not rel, lambda: "‏404.html تحمل عنوانًا غيرَ مطلق: %s — وهي تُقدَّم من أصلين (`alias`)، "
         "فالشرطةُ من الجذر تُحلّ على حمولة الورشة حيث لا `assets/`: الصفحةُ تصل "
         "عاريةً وكلُّ رابطٍ فيها ‎404‎ [W404]" % ", ".join(rel))
 
@@ -1674,10 +1850,9 @@ process.stdout.write(JSON.stringify(out));
     ALLOW = {origin, app, "https://github.com", "https://vscodium.com"}
     nf_hosts = {"https://" + m.group(1)
                 for m in re.finditer(r"https?://([A-Za-z0-9._-]+)", nf)}
-    assert nf_hosts, "لا أصولَ مطلقةً في 404.html — تغيّرت بنيتُها [W404]"
+    need(nf_hosts, lambda: "لا أصولَ مطلقةً في 404.html — تغيّرت بنيتُها [W404]")
     extra = sorted(nf_hosts - ALLOW)
-    assert not extra, (
-        "‏404.html تحمّل من مضيفٍ غيرِ أصل الموقع: %s — وهي تُقدَّم من أصلين، "
+    check(not extra, lambda: "‏404.html تحمّل من مضيفٍ غيرِ أصل الموقع: %s — وهي تُقدَّم من أصلين، "
         "فكلُّ عنوانٍ فيها يجب أن يكون مطلقًا بأصل الموقع [W404]" % ", ".join(extra))
 
     REF = re.compile(r'(?:href|src)="((?!https?:|//|#|mailto:)[^"]+)"')
@@ -1762,16 +1937,13 @@ process.stdout.write(JSON.stringify(out));
                 _sf.write("stale")
         _r1 = subprocess.run([sys.executable, _bpy], cwd=SITE, capture_output=True,
                              timeout=120, env=dict(_env0, MIHRAB_SITE_OUT=_o1))
-        assert _r1.returncode == 0, (
-            "البناءُ في مخرَجٍ سابقٍ (بشاهد) فشل [OUT-01]:\n"
+        need(_r1.returncode == 0, lambda: "البناءُ في مخرَجٍ سابقٍ (بشاهد) فشل [OUT-01]:\n"
             + _r1.stderr.decode("utf-8", "replace")[-800:])
         _left = [os.path.relpath(_s, _o1) for _s in _stales if os.path.exists(_s)]
-        assert not _left, (
-            "ملفٌّ بائتٌ من بناءٍ سابقٍ نجا البناءَ الجديد (%s) — سيُحزَم ويُنشَر "
+        check(not _left, lambda: "ملفٌّ بائتٌ من بناءٍ سابقٍ نجا البناءَ الجديد (%s) — سيُحزَم ويُنشَر "
             "إلى الأبد [OUT-01]" % "، ".join(_left))
-        assert os.path.isfile(os.path.join(_o1, "index.html")), "لم يُبنَ شيءٌ [OUT-01]"
-        assert os.path.isfile(os.path.join(_o1, _mark)), (
-            "الشاهدُ لا يُعاد كتابتُه بعد المحو — فالبناءُ التالي سيرفض مخرَجَه "
+        check(os.path.isfile(os.path.join(_o1, "index.html")), lambda: "لم يُبنَ شيءٌ [OUT-01]")
+        check(os.path.isfile(os.path.join(_o1, _mark)), lambda: "الشاهدُ لا يُعاد كتابتُه بعد المحو — فالبناءُ التالي سيرفض مخرَجَه "
             "هو [OUT-01]")
 
         _o2 = os.path.join(_td, "foreign")
@@ -1781,12 +1953,10 @@ process.stdout.write(JSON.stringify(out));
             _kf.write("not an output dir")
         _r2 = subprocess.run([sys.executable, _bpy], cwd=SITE, capture_output=True,
                              timeout=120, env=dict(_env0, MIHRAB_SITE_OUT=_o2))
-        assert _r2.returncode != 0, (
-            "بنى فوق مجلّدٍ غيرِ فارغٍ بلا شاهد — `MIHRAB_SITE_OUT` قد يشير إلى "
+        need(_r2.returncode != 0, lambda: "بنى فوق مجلّدٍ غيرِ فارغٍ بلا شاهد — `MIHRAB_SITE_OUT` قد يشير إلى "
             "أيّ مكان، والمحوُ بلا شاهدٍ محوُ ما لا نعرفه [OUT-01]")
-        assert os.path.isfile(_keep), "مُحي ملفٌّ ليس من مخرَجٍ سابق [OUT-01]"
-        assert not os.path.exists(os.path.join(_o2, "index.html")), (
-            "رفض بصوتٍ ثمّ بنى فوقه — الرفضُ يجب أن يسبق أيَّ كتابة [OUT-01]")
+        check(os.path.isfile(_keep), lambda: "مُحي ملفٌّ ليس من مخرَجٍ سابق [OUT-01]")
+        check(not os.path.exists(os.path.join(_o2, "index.html")), lambda: "رفض بصوتٍ ثمّ بنى فوقه — الرفضُ يجب أن يسبق أيَّ كتابة [OUT-01]")
 
         # ── (٣) وصلةٌ في المخرَج السابق إلى مجلّدٍ خارجيّ: تُفكّ ولا تُتبَع ──
         # المخرَجُ قد يحمل وصلةً (رمزيّةً أو junction — خادمُ معاينةٍ يربط مجلّدَ
@@ -1811,21 +1981,16 @@ process.stdout.write(JSON.stringify(out));
         except (OSError, NotImplementedError):
             _mkl = subprocess.run(["cmd", "/c", "mklink", "/J", _lnk, _ext],
                                   capture_output=True)
-            assert _mkl.returncode == 0 and os.path.isdir(_lnk), (
-                "تعذّر إنشاءُ وصلةٍ (لا symlink ولا junction) — الضلعُ الثالثُ من "
+            need(_mkl.returncode == 0 and os.path.isdir(_lnk), lambda: "تعذّر إنشاءُ وصلةٍ (لا symlink ولا junction) — الضلعُ الثالثُ من "
                 "[OUT-01] لا يُقاس هنا، ولا يُتخطّى صامتًا")
         _r3 = subprocess.run([sys.executable, _bpy], cwd=SITE, capture_output=True,
                              timeout=120, env=dict(_env0, MIHRAB_SITE_OUT=_o3))
-        assert os.path.isfile(_precious), (
-            "**مُحي ملفٌّ وراء وصلةٍ في المخرَج** — المحوُ تبع الوصلةَ إلى مجلّدٍ "
+        check(os.path.isfile(_precious), lambda: "**مُحي ملفٌّ وراء وصلةٍ في المخرَج** — المحوُ تبع الوصلةَ إلى مجلّدٍ "
             "ليس من البناء [OUT-01]")
-        assert _r3.returncode == 0, (
-            "البناءُ في مخرَجٍ سابقٍ فيه وصلةٌ فشل [OUT-01]:\n"
+        need(_r3.returncode == 0, lambda: "البناءُ في مخرَجٍ سابقٍ فيه وصلةٌ فشل [OUT-01]:\n"
             + _r3.stderr.decode("utf-8", "replace")[-800:])
-        assert not os.path.lexists(_lnk), (
-            "الوصلةُ باقيةٌ في المخرَج بعد البناء — ستُحزَم وجهتُها وتُنشَر [OUT-01]")
-        assert os.path.isfile(os.path.join(_o3, _mark)), (
-            "الشاهدُ لا يُعاد كتابتُه بعد فكّ الوصلة [OUT-01]")
+        check(not os.path.lexists(_lnk), lambda: "الوصلةُ باقيةٌ في المخرَج بعد البناء — ستُحزَم وجهتُها وتُنشَر [OUT-01]")
+        check(os.path.isfile(os.path.join(_o3, _mark)), lambda: "الشاهدُ لا يُعاد كتابتُه بعد فكّ الوصلة [OUT-01]")
 
         # ── (٤) فشلٌ في منتصف المحو يُبقي الشاهد ──
         # الشاهدُ يُمحى **آخرًا**: `listdir` يضعه أوّلًا، فمحوُه في ترتيبه كان يترك
@@ -1854,13 +2019,16 @@ process.stdout.write(JSON.stringify(out));
                      "import sys,time; f=open(sys.argv[1],'rb'); sys.stdout.write('ok'); "
                      "sys.stdout.flush(); time.sleep(300)", _stuck],
                     stdout=subprocess.PIPE)
-                assert _holder.stdout.read(2) == b"ok", "لم يُفتح المقبضُ الحابس [OUT-01]"
             else:
                 os.makedirs(_stuck)
                 with open(os.path.join(_stuck, "f"), "w") as _sf4:
                     _sf4.write("x")
                 os.chmod(_stuck, 0o500)
             try:
+                # داخل `try`: المقبضُ الحابسُ يُقتَل وإن توقّف الحارسُ هنا (كان يبقى ‎300‎ ثانية)،
+                # و`need` لا `check`: بلا مقبضٍ ينجح المحوُ فيُقرأ ما بعده عطبًا في البناء لا في الحارس.
+                if _holder is not None:
+                    need(_holder.stdout.read(2) == b"ok", lambda: "لم يُفتح المقبضُ الحابس [OUT-01]")
                 _r4 = subprocess.run([sys.executable, _bpy], cwd=SITE,
                                      capture_output=True, timeout=120,
                                      env=dict(_env0, MIHRAB_SITE_OUT=_o4))
@@ -1870,11 +2038,9 @@ process.stdout.write(JSON.stringify(out));
                     _holder.wait()
                 else:
                     os.chmod(_stuck, 0o700)
-            assert _r4.returncode != 0, (
-                "مدخلٌ لا يُمحى مرّ صامتًا — البناءُ أخضرُ فوق مخرَجٍ لم يُمحَ كلُّه، "
+            need(_r4.returncode != 0, lambda: "مدخلٌ لا يُمحى مرّ صامتًا — البناءُ أخضرُ فوق مخرَجٍ لم يُمحَ كلُّه، "
                 "والبائتُ يُحزَم [OUT-01]")
-            assert os.path.isfile(os.path.join(_o4, _mark)), (
-                "فشلٌ في منتصف المحو ترك المخرَجَ **بلا شاهد** — الشاهدُ يُمحى أوّلًا "
+            check(os.path.isfile(os.path.join(_o4, _mark)), lambda: "فشلٌ في منتصف المحو ترك المخرَجَ **بلا شاهد** — الشاهدُ يُمحى أوّلًا "
                 "لا آخرًا، والبناءُ التالي سيرفض مخرَجَه هو [OUT-01]")
 
     # ── ٧) تثبيتُ إضافةِ ألف: الجالبُ وصفحةُ المعاينة يقولان الشيءَ نفسَه ──
@@ -1943,6 +2109,10 @@ process.stdout.write(JSON.stringify(out));
         ({"version": "1.2.0", "assets": [_A, _B]}, {"version": "1.2.0", "assets": [_A]}, "baked"),
         ({"version": "1.2.0", "assets": [_A]}, {"version": "1.2.0", "assets": [_A]}, "baked"),
         ({"version": "1.2.0"}, {"version": ""}, "baked"),                     # حيٌّ بلا إصدار
+        ({"version": "1.2"}, {"version": "1.2.0"}, "baked"),                  # التساوي بطولين: ليس الحيُّ أحدث
+        ({"version": "1.2.0-beta"}, {"version": "1.2.0-RC1"}, "live"),        # beta < rc بلا حالة أحرف
+        ({"version": "1.2.0-alpha.2"}, {"version": "1.2.0-alpha.2.1"}, "live"),  # معرِّفٌ زائدٌ أحدث
+        ({"version": "1.2.0-rc.1"}, {"version": "1.2.0-alpha.9"}, "baked"),
     ]
     for _bk, _lv, _want in _MAN01:
         _got = _mp.pick(_bk, _lv)[0]
@@ -1961,6 +2131,38 @@ process.stdout.write(JSON.stringify(out));
             bad("‏`manifest_pick` قبل إصدارًا حيًّا غيرَ مفهوم %r بلا خطأ — يُقرأ صفرًا فيُمحى [MAN-01]" % (_badl,))
         except ValueError:
             pass
+    for _badl in ("١.٣.٠",):
+        try:
+            _mp.pick({"version": "1.0"}, {"version": _badl})
+            bad("‏`manifest_pick` قبل أرقامًا غيرَ لاتينيّة %r إصدارًا [MAN-01]" % (_badl,))
+        except ValueError:
+            pass
+    # أصلٌ واحدٌ ببصمتين عند تساوي الإصدار: لا يُعرَف أيُّهما الأحدث، فلا يُختار صامتًا
+    _A2 = dict(_A, sha256="99")
+    try:
+        _r = _mp.pick({"version": "1.2.0", "assets": [_A2]}, {"version": "1.2.0", "assets": [_A]})
+        bad("‏`manifest_pick` اختار %r صامتًا والأصلُ نفسُه ببصمتين في الإصدار نفسِه [MAN-01]" % (_r[0],))
+    except ValueError:
+        pass
+    # ومعرِّفٌ مكرَّرٌ في مانيفستٍ واحد (أو أصلان بلا `id`) لا يُطوى صامتًا إلى آخرهما؛
+    # وتصادمٌ بمعرِّفٍ غائبٍ بجانب معرِّفٍ نصّيّ خطأٌ بصوت لا `TypeError` من الفرز.
+    for _bk_a, _lv_a in (([_A], [_A, _A2]), ([_A], [{"file": "x"}, {"file": "y"}]),
+                         ([{"file": "x"}, dict(_A)], [{"file": "y"}, _A2])):
+        try:
+            _r = _mp.pick({"version": "1.2.0", "assets": _bk_a}, {"version": "1.2.0", "assets": _lv_a})
+            bad("‏`manifest_pick` اختار %r صامتًا ومعرِّفٌ مكرَّرٌ أو متصادمٌ في %r [MAN-01]" % (_r[0], _lv_a))
+        except ValueError:
+            pass
+    # والواجهةُ نفسُها كما يستدعيها `deploy_site.sh`: الحيُّ على stdin، والقرارُ على stdout،
+    # وغيرُ المفهوم خروجٌ ‎2‎ — فوحدةٌ صحيحةٌ بواجهةٍ معطوبةٍ لا تمرّ.
+    _mpy = os.path.join(ROOT, "build", "lib", "manifest_pick.py")
+    _mbk = os.path.join(OUT, "dl", "releases.json")
+    for _stdin, _rc, _out in (("", 0, "baked"), ('{"version":"nightly"}', 2, "")):
+        _cr = subprocess.run([sys.executable, _mpy, _mbk], input=_stdin, capture_output=True,
+                             encoding="utf-8", errors="replace", timeout=60)
+        if _cr.returncode != _rc or _cr.stdout.strip() != _out:
+            bad("‏`manifest_pick.py` على stdin %r ⇒ خروج %s وخرج %r لا %s و%r [MAN-01]"
+                % (_stdin, _cr.returncode, _cr.stdout.strip(), _rc, _out))
 
     report()
     return 1 if fails else 0
@@ -1975,5 +2177,19 @@ def report():
         print("✅ الموقعُ سليمٌ بنيويًّا: الصفحات، والمراسي، والمانيفست، وروابطُ الهويّة.")
 
 
+def _run():
+    """‏`need` يوقف بعد عرض ما جُمع، وانهيارٌ غيرُ متوقَّعٍ يُعرَض مع ما جُمع قبله."""
+    try:
+        return main()
+    except _Stop as e:
+        bad(str(e))
+    except Exception:  # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        bad("انهار الحارسُ بعد %d عطبٍ مجموع — الانهيارُ أعلاه" % len(fails))
+    report()
+    return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_run())
