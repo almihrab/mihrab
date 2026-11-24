@@ -253,16 +253,6 @@
       "why": "حذفُ المفتاح لا يعني «لا رأيَ لنا» بل تسليمًا لافتراض المنبع. والحارسُ القديم كان **يخضرّ فراغًا** عليه: `defaults.get(...) != \"rtl\" ⇒ return`. فالتوكيدُ يسبق الشرطَ عمدًا [DR-02]."
     },
     {
-      "id": "editor-direction-markdown-loses-rtl",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "extensions/mihrab-shell/package.json",
-      "old": "\"[markdown]\": {\n        \"editor.unicodeHighlight.nonBasicASCII\": false,\n        \"editor.textDirection\": \"rtl\"",
-      "new": "\"[markdown]\": {\n        \"editor.unicodeHighlight.nonBasicASCII\": false,\n        \"editor.textDirection\": \"ltr\"",
-      "expect": "لغاتُ المضمون العربيّ بلا",
-      "why": "قلبُ الافتراض بلا منحٍ صريحٍ يسلب العربيّةَ اتّجاهَها — وهو الانحدارُ الذي يقابل العطبَ الأصليّ. سقوطُ كتلةٍ واحدةٍ من القائمة المغلقة يجب أن يحمرّ [DR-02]."
-    },
-    {
       "id": "editor-direction-exception-list-regrows",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
@@ -513,16 +503,6 @@
       "why": "‏**المُصابُ هو الخطأُ الذي أسقط بناءَين.** المرقِّعُ يُنادى مباشرةً بدل أن يُنسَخ ويُحقَن، فيعمل **قبل** `git add . ; git reset --hard` الذي يُجريه `dev/build.sh` — ويزول أثرُه. والعطبُ صامتٌ مضاعَف: وجد الملفَّ مُرقَّعًا من تجربةٍ يدويّةٍ سابقة فطبع «مُرقَّعٌ سلفًا» في السطر 18 من السجلّ، والملفُّ غيرُ مُرقَّعٍ في السطر 22 — **شهادةُ نجاحٍ لملفٍّ يُمحى بعد سطور**، ثمّ سقط `vscode-web-min` بالعطب نفسِه بعد 6.7 دقيقة. والتعليقُ في `build/build.sh` يصف هذا الفخَّ حرفيًّا: قُرِئ ثمّ وقع. فصار بنيويًّا: من كانت `FILES` له في شجرة vscode فطريقُه `.mihrab-patch-*`، ولا يُنادى مباشرةً."
     },
     {
-      "id": "download-url-drifts",
-      "guardFile": "tests/static/lint_patchers.py",
-      "guard": "python tests/static/lint_patchers.py",
-      "file": "extensions/mihrab-welcome/extension.web.js",
-      "old": "const DOWNLOAD_URL = \"https://mihrab.dev/download/\";",
-      "new": "const DOWNLOAD_URL = \"https://mihrab.dev/downloads/\";",
-      "expect": "رابطُ التنزيل يختلف",
-      "why": "رابطُ التنزيل مكتوبٌ في ثلاثة مواضعَ لا يستورد أحدُها الآخر. يتغيّر في واحدٍ ويُنسى الباقي فيشير جزءٌ من المنتَج إلى صفحةٍ زائلة [UX-02]."
-    },
-    {
       "id": "tunnel-server-base-drifts",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py",
@@ -571,6 +551,296 @@
       "new": "'code tunnel'",
       "expect": "[BR-06] نصٌّ عربيٌّ من عندنا يأم",
       "why": "‏رسالةٌ كتبناها نحن تعلّم المستخدمَ أمرًا لا وجودَ له على جهازه — وهو المعيارُ عينُه الذي يطبّقه publish_server.sh على البايتات [BR-06]."
+    },
+    {
+      "id": "site-letter-spacing-returns",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-docs.css",
+      "old": ".site-nav h2 {\n\tfont-size: 12px; color: var(--gold);",
+      "new": ".site-nav h2 {\n\tfont-size: 12px; letter-spacing: .18em; color: var(--gold);",
+      "expect": "[AND-06]",
+      "why": "‏`letter-spacing` يفكّ اتّصالَ الحروف العربيّة (عناوينُ الدرج على محاكي أندرويد). أُزيل من ستّة مواضع، والعودةُ إلى واحدٍ منها كانت تمرّ خضراء."
+    },
+    {
+      "id": "site-size-binary-mb",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "    mb = n / 1e6\n",
+      "new": "    mb = n / 1048576.0\n",
+      "expect": "صفحةُ التنزيل المخبوزة لا تعرض",
+      "why": "الصفحةُ المخبوزةُ كانت تقول ‎194‎ والسكربتُ ‎203‎ للأرشيف نفسِه: `fmtSize` صار عشريًّا و`_fmt_size` بقي ثنائيًّا وادّعى أنّه «حرفًا بحرف»."
+    },
+    {
+      "id": "site-size-binary-js",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/site.js",
+      "old": "\t\tvar mb = bytes / 1e6;\n\t\treturn mb >= 1000",
+      "new": "\t\tvar mb = bytes / 1048576;\n\t\treturn mb >= 1000",
+      "expect": "في site.js ⇒",
+      "why": "الوجهُ الثاني من الثلاثة: `fmtSize` تُنفَّذ بـnode على ‎203,053,894‎ بايت ويُشترَط ‎203‎."
+    },
+    {
+      "id": "site-escape-clears-query",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "e.preventDefault(); show(b, false); announce(b, '');",
+      "new": "show(b, false); announce(b, '');",
+      "expect": "Escape لا يمنع الحركةَ الأصليّة",
+      "why": "‏Chromium يمسح `input[type=search]` بنفسه عند Escape ويُطلق `input` — فبلا `preventDefault` والنتائجُ ظاهرة تطوي الضغطةُ الأولى القائمةَ **وتُضيع السؤال**؛ قِيس على الحيّ في الجولة ‎15‎، وحذفُ الاستدعاء كان يمرّ أخضر."
+    },
+    {
+      "id": "site-arrow-no-return-to-input",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (next < 0) { b.input.focus(); return true; }",
+      "new": "if (next < 0) { return true; }",
+      "expect": "على صندوقٍ مصنوع ⇒",
+      "why": "↑ من أوّل نتيجةٍ يجب أن يعود إلى الحقل — وإلّا حُبِس من دخل القائمةَ بالسهم فيها بلا مخرجٍ إلّا Tab. `moveIn` تُنفَّذ بـnode على صندوقٍ مصنوع فيُرى أنّ `input` لم يُبأَّر."
+    },
+    {
+      "id": "site-kbd-word-dual-lost",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (n === 2) { return 'اختصاران'; }\n",
+      "new": "",
+      "expect": "قواعدُ العدد العربيّ",
+      "why": "بلا المثنّى يسمع قارئُ الشاشة «2 اختصارات» — اللحنُ الذي كُتبت `hitsWord` لتفاديه يعود في `kbdWord`. تُنفَّذ بـnode على ‎0/1/2/3/10/11/100‎."
+    },
+    {
+      "id": "site-print-hides-all-docs",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-docs.css",
+      "old": "\t.content:has([data-kbd-table]) > p,\n\t.content:has([data-kbd-table]) > h2,\n\t.content:has([data-kbd-table]) > pre { display: none !important; }",
+      "new": "\t.content > p, .content > h2, .content > pre { display: none !important; }",
+      "expect": "بقاعدةٍ عامّة",
+      "why": "‏**المُصابُ هو ما كان في الشجرة يومَ الجولة ‎15‎**: قاعدةٌ كُتبت لطباعة بطاقة الاختصارات على ورقتين وأخفت متنَ كلّ صفحةِ توثيقٍ من الورق (‏`/start/`: سبعُ فقراتٍ وخمسةُ عناوينَ وكتلة) — ومرّت كلَّ الحرّاس خضراء."
+    },
+    {
+      "id": "site-chords-not-canonical",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "chords = \"|\".join(sorted({_canon_chord(c) for c in (win, mac) if c.strip() != \"—\"}))",
+      "new": "chords = \"|\".join(sorted({c for c in (win, mac) if c.strip() != \"—\"}))",
+      "expect": "ترتيبُ معدِّلاتها ليس",
+      "why": "‏`data-chords` بلا تقنينٍ تحمل «Shift+Alt+Cmd+C» والحدثُ يبني «Cmd+Shift+Alt+C» — فالالتقاطُ يردّ «لا أمرَ معروفًا» لثلاثة اختصاراتِ ماك والصفُّ أمام الزائر. الترتيبُ يُقرأ من `chordFromEvent` في docs.js لا يُكتَب في الحارس."
+    },
+    {
+      "id": "site-chord-prefix-never-waits",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (x.indexOf(chord + ' ') === 0) { prefix = true; }",
+      "new": "if (x.indexOf(chord + ' ') === 0) { prefix = false; }",
+      "expect": "على جدول الصفحة ⇒",
+      "why": "حذفُ كشف البادئة يعيد السلوكَ إلى ما كان قبل الجولة ‎16‎: `Ctrl+K` يردّ «لا أمرَ معروفًا» فورًا ولا يمكن التقاطُ تسلسلٍ أبدًا. الحارسُ **يُنفِّذ** `chordStep` بـnode على جدول الصفحة المبنيّة فيرى `wait: false` حيث يجب `true`."
+    },
+    {
+      "id": "site-chord-wait-zero",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "var CHORD_WAIT_MS = ",
+      "new": "var CHORD_WAIT_MS = 0; var _CHORD_MUTANT_ORIGINAL = ",
+      "expect": "مهلةُ التسلسل",
+      "why": "مهلةٌ صفرٌ تُسقِط التعليقَ قبل أن تصل الضغطةُ الثانية — يبدو الانتظارُ في الشيفرة ولا يقع. الوسمُ **مفتاحٌ لا قيمة** (درسُ `size-total-floor`) فلا يبطل المُصابُ عند أوّل معايرة (كانت ‎3‎ ث ثمّ صارت ‎5‎ في الجولة ‎17‎ نفسِها)."
+    },
+    {
+      "id": "site-chord-pending-survives-escape",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (e.key === 'Escape') { resetOut(); ",
+      "new": "if (e.key === 'Escape') { ",
+      "expect": "ولا يُلغي التعليق",
+      "why": "هذا هو العطبُ كما كان في الجولة ‎16‎: فرعُ Escape يسبق الحسمَ ويعود بلا تصفير، فمن ضغط Ctrl+K وأغلق الصندوقَ وفتحه وضغط S خلال المهلة قرأ «Ctrl+K S ← حفظ الكلّ»."
+    },
+    {
+      "id": "site-chord-pending-survives-blur",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "\t\tcaptureField.addEventListener('blur', dropPending);\n",
+      "new": "",
+      "expect": "فقدانُ البؤرة لا يُسقِط",
+      "why": "المعالجُ على الحقل وحدَه لكنّ التعليقَ على مستوى الوحدة: من غادر الحقلَ بعد Ctrl+K وعاد خلال المهلة دُمجت ضغطتُه في تسلسلٍ لم يقصده. بلا `blur` يمرّ كلُّ شيءٍ أخضر."
+    },
+    {
+      "id": "site-chord-key-not-uppercased",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (k.length === 1) { k = k.toUpperCase(); }",
+      "new": "",
+      "expect": "chordFromEvent(",
+      "why": "‏`e.key` لـCtrl+S هو «s»؛ بلا تكبيرٍ يُبنى «Ctrl+s» فلا يطابق التقاطٌ واحدٌ صفًّا بحرف. كانت `chordFromEvent` تُقرأ بتعبيرٍ لا تُنفَّذ، فمرّ هذا أخضرَ."
+    },
+    {
+      "id": "site-chord-modifier-alone-captured",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (['Control', 'Shift', 'Alt', 'Meta'].indexOf(k) !== -1) { return null; }",
+      "new": "",
+      "expect": "chordFromEvent(",
+      "why": "ضغطُ المعدِّل وحدَه يُكتب «Ctrl+Control — لا أمرَ معروفًا» قبل أن يكمل الزائرُ الاختصار."
+    },
+    {
+      "id": "site-size-gb-binary-js",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/site.js",
+      "old": "(mb / 1000).toFixed(2)",
+      "new": "(mb / 1024).toFixed(2)",
+      "expect": "في site.js ⇒",
+      "why": "فرعُ الغيغابايت في `fmtSize` لم يُنفَّذ قطّ: كانت ‎203‎ م.ب القيمةَ الوحيدةَ المختبَرة."
+    },
+    {
+      "id": "site-out-wipe-only-with-env",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "for _e in os.listdir(OUT):",
+      "new": "for _e in (os.listdir(OUT) if os.environ.get(\"MIHRAB_SITE_OUT\") else []):",
+      "expect": "نجت البناءَ الحقيقيّ",
+      "why": "المحوُ في المجلّد المؤقّت وحدَه يترك `site/public` البائتَ يُحزَم ويُنشَر — الطفرةُ الموصوفةُ في تعليق [OUT-01] نفسِه، وكانت بلا مُصاب."
+    },
+    {
+      "id": "site-assets-not-verbatim",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read())",
+      "new": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read().replace(b\"\\t\", b\"  \"))",
+      "expect": "[OUT-02]",
+      "why": "الحارسُ يفحص `site/assets` والنشرُ يحزم `site/public`: أصلٌ مشحونٌ يخالف مصدرَه يجب أن يُرى قبل النشر."
+    },
+    {
+      "id": "man-rc-replaces-final",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "        return 1 if pa is None else -1          # النهائيُّ أحدثُ من مرشَّحه",
+      "new": "        return 0",
+      "expect": "[MAN-01]",
+      "why": "مرشَّحٌ (‏1.2.0-rc1) يحلّ محلَّ النهائيّ (‏1.2.0) على الخادم فيُعرَض للتنزيل إصدارٌ تجريبيّ."
+    },
+    {
+      "id": "man-equal-erases-new-asset",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "    if extra:",
+      "new": "    if False:",
+      "expect": "[MAN-01]",
+      "why": "‏`publish_release.sh` يضيف منصّةً للإصدار نفسِه بعد آخر مزامنة، والنشرُ التالي يمحوها من المانيفست."
+    },
+    {
+      "id": "man-unparsed-version-zero",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "        raise ValueError(\"إصدارٌ غيرُ مفهوم: %r\" % (v,))",
+      "new": "        return [0], None",
+      "expect": "غيرَ مفهوم",
+      "why": "إصدارٌ غيرُ مفهومٍ (‏nightly، latest) يُقرأ صفرًا فيخسر صامتًا ويُمحى الحيّ."
+    },
+    {
+      "id": "site-chord-reads-printed-char",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if ((k.length === 1 && !/^[A-Za-z0-9]$/.test(k)) || k === 'Dead' || k === 'Unidentified') {",
+      "new": "if (false) {",
+      "expect": "[CAP-03]",
+      "why": "على لوحةٍ عربيّة `Ctrl+S` تصل `key=\"س\"`، و`Shift` يقلب «`» إلى «~»، وOption على ماك يقلب C إلى «ç» — فكان «Ctrl+Shift+`» و«Cmd+Shift+Alt+C» لا يُلتقَطان أبدًا والصفُّ أمام الزائر."
+    },
+    {
+      "id": "site-chord-arrow-not-mapped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "if (/^Arrow(Up|Down|Left|Right)$/.test(k)) { k = k.slice(5); }",
+      "new": "",
+      "expect": "[CAP-03]",
+      "why": "المتصفّحُ يرسل `ArrowUp` والجدولُ يكتب `Up`: بلا الترجمة لا يُلتقَط «Alt+Up» ولا صفٌّ بسهمٍ أبدًا — وكانت رحلةُ الذهاب والإياب تصنع الحدثَ بـ`key=\"Up\"` فتمرّ بلا قياس."
+    },
+    {
+      "id": "site-chord-dead-key",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": " || k === 'Dead' || k === 'Unidentified') {",
+      "new": ") {",
+      "expect": "[CAP-03]",
+      "why": "‏Option+E على ماك يصل `key=\"Dead\"` فيُبنى «Cmd+Alt+Dead» لا «Cmd+Alt+E»."
+    },
+    {
+      "id": "site-chord-codekey-minus-lost",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "Minus: '-', ",
+      "new": "",
+      "expect": "chordFromEvent(",
+      "why": "مع Shift يرسل المتصفّحُ «_» لا «-»، والجدولُ يكتب «Ctrl+Shift+-»: بلا `Minus` في `CODE_KEY` لا يُلتقَط. كانت الرحلةُ تصنع الحدثَ بالمحرف غيرِ المُزاح فمرّ أخضر."
+    },
+    {
+      "id": "site-chord-digit-branch-dead",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/docs.js",
+      "old": "else if (/^Digit[0-9]$/.test(c)) { k = c.slice(5); }",
+      "new": "",
+      "expect": "chordFromEvent(",
+      "why": "‏Ctrl+Shift+5 يصل «%»: بلا فرع `Digit` يُبنى «Ctrl+Shift+%» فلا يطابق صفَّه."
+    },
+    {
+      "id": "man-prerelease-lexical",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/lib/manifest_pick.py",
+      "old": "    return _cmp_pre(pa, pb)\n",
+      "new": "    return -1 if pa < pb else 1\n",
+      "expect": "[MAN-01]",
+      "why": "المقارنةُ النصّيّةُ تجعل ‏`rc10` أقدمَ من ‏`rc2` فيُترَك على الخادم مانيفستٌ أقدم."
+    },
+    {
+      "id": "priv-claim-unproven",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة.",
+      "new": "بلا حساب، وبلا تتبّع.",
+      "expect": "[PRIV-01] الصفحةُ الأولى تُعلن «بلا تتبّع» مجرّدةً",
+      "why": "دعوى خصوصيّةٍ أوسعُ ممّا يُبرهَن عليه: الخادمُ يكتب سجلَّ طلباتٍ فيه عنوانُ من طلب. والدعوى المضبوطةُ تحدّد ما يُفحَص في الصفحة نفسِها — لا كعكةَ ولا سكربتَ تتبّع. و[PRIV-01] كان بلا مُصاب."
+    },
+    {
+      "id": "editor-direction-markdown-loses-rtl",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "extensions/mihrab-shell/package.json",
+      "old": "\"[markdown]\": {\n        \"editor.unicodeHighlight.nonBasicASCII\": false,\n        \"editor.textDirection\": \"rtl\"",
+      "new": "\"[markdown]\": {\n        \"editor.unicodeHighlight.nonBasicASCII\": false,\n        \"editor.textDirection\": \"ltr\"",
+      "expect": "لغاتُ المضمون العربيّ بلا",
+      "why": "قلبُ الافتراض بلا منحٍ صريحٍ يسلب العربيّةَ اتّجاهَها — وهو الانحدارُ الذي يقابل العطبَ الأصليّ. سقوطُ كتلةٍ واحدةٍ من القائمة المغلقة يجب أن يحمرّ [DR-02]."
+    },
+    {
+      "id": "download-url-drifts",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "extensions/mihrab-welcome/extension.web.js",
+      "old": "const DOWNLOAD_URL = \"https://mihrab.dev/download/\";",
+      "new": "const DOWNLOAD_URL = \"https://mihrab.dev/downloads/\";",
+      "expect": "رابطُ التنزيل يختلف",
+      "why": "رابطُ التنزيل مكتوبٌ في ثلاثة مواضعَ لا يستورد أحدُها الآخر. يتغيّر في واحدٍ ويُنسى الباقي فيشير جزءٌ من المنتَج إلى صفحةٍ زائلة [UX-02]."
     },
     {
       "id": "org-reference-foreign",

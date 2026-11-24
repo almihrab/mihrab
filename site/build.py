@@ -17,6 +17,7 @@ import re
 import shutil
 import struct
 import sys
+import urllib.parse
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -45,9 +46,10 @@ with open(os.path.join(DATA, "site.json"), encoding="utf-8") as _f:
 with open(os.path.join(DATA, "releases.json"), encoding="utf-8") as _f:
     RELEASES = json.load(_f)
 
-# ⚠️ كلُّ المسارات نسبيّة (`.` و`..`) عمدًا: المخرَجُ نفسُه يُخدَم من
-# `mihrab.dev/` ومن `almihrab.github.io/mihrab/` بلا إعادةِ بناء.
-# مسارٌ مطلقٌ واحد يربط المخرَج بمضيفٍ بعينه ويكسر المرآة صامتًا.
+# ⚠️ كلُّ المسارات نسبيّة (`.` و`..`) عمدًا: المخرَجُ نفسُه يصلح من
+# `mihrab.dev/` ومن أيّ مرآةٍ تحت بادئة (كـ`almihrab.github.io/mihrab/` — غيرُ
+# مفعَّلةٍ اليوم، انظر `site/README.md`) بلا إعادةِ بناء.
+# مسارٌ مطلقٌ واحد يربط المخرَج بمضيفٍ بعينه ويكسر مرآةً كهذه صامتًا.
 
 # التنقّل: ثلاثةُ أقسامٍ عليا فقط. أكثرُ من ثلاثةٍ يُجبر المستخدمَ على قرارٍ قبل أن
 # يعرف ما يريد. والتسميةُ أفعالُ أمرٍ لا أسماءَ مجرّدة: الفعلُ يخاطب القارئ،
@@ -463,7 +465,7 @@ def footer_html(base):
 
 
 def page_shell(title, body, base, description="", active=None, canon_path="",
-               with_search=True, extra_js=(), with_nav=False):
+               with_search=True, extra_js=(), with_nav=False, icon=None):
     """قالبُ الصفحة.
 
     `product=True` يضيف ورقةَ أنماط المنتج ويحذف درجَ التوثيق. وفُصلت الورقتان
@@ -489,6 +491,7 @@ def page_shell(title, body, base, description="", active=None, canon_path="",
 <meta property="og:locale" content="ar_AR">
 <meta name="theme-color" content="#F5F0E4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0F1C24" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="{icon}" type="image/svg+xml">
 <link rel="canonical" href="{canon}">
 {css}
 <body data-base="{base}">
@@ -499,6 +502,7 @@ def page_shell(title, body, base, description="", active=None, canon_path="",
 {scripts}
 </html>
 """.format(title=html.escape(full_title), desc=html.escape(description), base=base,
+           icon=html.escape(icon or base + "/assets/icon.svg"),
            canon=html.escape(SITE["canonical"].rstrip("/") + "/" + canon_path),
            css="\n".join(css),
            header=header_html(base, active, with_search, with_nav),
@@ -666,12 +670,20 @@ def build_not_found():
     # للمرآة أصلًا (عنوانُها المعياريُّ مكتوبٌ صراحةً)، ووظيفتُها أن تدلّ على الدار
     # من خارجها. ويحرس ذلك [W404] في `check_site.py`: كلُّ أصلٍ فيها على أصل
     # الموقع، وكلُّ مضيفٍ تسمح به سياسةُ كلّ `location = /404.html` حيّة.
+    # ── والأيقونةُ مضمَّنةٌ لا مطلقة ──
+    # الورقةُ والسكربتُ يصلان من `mihrab.dev` لأنّ سياسةَ الورشة تسمح بهما
+    # (‏`style-src`/`script-src … https://mihrab.dev`)، أمّا `img-src 'self' data:`
+    # فلا — قِيس حيًّا (الجولة ‎15‎) على `app.mihrab.dev/<مفقود>`: «Loading the image
+    # https://mihrab.dev/assets/icon.svg violates … img-src» مرّتين، والتبويبُ
+    # بلا أيقونة. و`data:` مسموحٌ في السياستين معًا، والأيقونةُ ‎235‎ بايتًا.
+    with open(os.path.join(ASSETS, "icon.svg"), encoding="utf-8") as _f:
+        _icon = "data:image/svg+xml," + urllib.parse.quote(_f.read().strip())
     return page_shell(
         # ‏بلا « — محراب»: `page_shell` يلحقها، وكانت الترويسةُ تقرأ
         # «لا شيءَ هنا — محراب — محراب».
         "لا شيءَ هنا", body, SITE["canonical"].rstrip("/"),
         "الصفحةُ غير موجودة. محرابُ المتصفّح انتقل إلى أصلٍ خاصٍّ به.",
-        canon_path="404.html", with_search=False)
+        canon_path="404.html", with_search=False, icon=_icon)
 
 
 def build_landing():
@@ -702,8 +714,8 @@ def build_landing():
     steps = []
     for s in SITE["steps"]:
         # ‏`./` لا `../`: هذه الصفحةُ على الجذر. والمتصفّحُ يُثبّت `..` عند الجذر
-        # فيعمل الرابطُ على `mihrab.dev/` بالمصادفة — ويكسر على المرآة
-        # `almihrab.github.io/mihrab/` حيث يقفز `..` فوق اسمِ المستودع.
+        # فيعمل الرابطُ على `mihrab.dev/` بالمصادفة — ويكسر على مرآةٍ تحت بادئة
+        # (كـ`almihrab.github.io/mihrab/` لو فُعِّلت) حيث يقفز `..` فوق اسمِ المستودع.
         more = ('<a href="./%s/">اقرأ أكثر ←</a>' % s["href"]) if s.get("href") else ""
         steps.append('<div class="step"><div class="n">%s</div><h3>%s</h3><p>%s</p>%s</div>'
                      % (html.escape(s["n"]), html.escape(s["title"]),
@@ -719,7 +731,7 @@ def build_landing():
         # بالبناء المطابق لنظام الزائر حين يعرفه. زرٌّ يقول «نزِّل لويندوز» قبل
         # أن نعرف النظامَ يكذب على نصف الزوّار.
         # ثلاثةُ أزرارٍ لا اثنان: كان «نزِّل» وحدَه هو الطريقَ المعروض، وهو
-        # **أثقلُ** طريقٍ إلى التجربة (‏١٩٤ م.ب) بينما أخفُّها (‏٥ م.ب في
+        # **أثقلُ** طريقٍ إلى التجربة (‏٢٠٣ م.ب) بينما أخفُّها (‏٥ م.ب في
         # المتصفّح) مدفونٌ تحت الطيّة. والتعليلُ مكتوبٌ في `site.json` منذ
         # البداية — «تسبق نزِّل وثبِّت لأنّها أقصرُ طريقٍ إلى تجربةٍ حقيقيّة» —
         # لكنّ **البطاقةَ** كانت تسبق و**الزرُّ** لا يسبق.
@@ -733,17 +745,8 @@ def build_landing():
           '</div>' % html.escape(SITE["browser"]["url"])
         + '<p class="cta-meta" data-dl-meta></p>'
         + '<div class="trust">%s</div>' % trust
-        # ── وشريطُ الانتقال **بعد التعريف لا قبله** ──
-        # موضعُه الأوّل كان رأسَ الصفحة، فكانت أوّلُ جملةٍ يقرؤها زائرٌ جديد
-        # «محرابٌ استقلّ بنطاقه»: خبرٌ عن انتقالٍ لا يعرف أنّه وقع، عن نطاقٍ لم
-        # يزره قطّ — قبل الشعار والاسم والوصف. وصاحبُ الإشارة المرجعيّة الذي
-        # كُتب الشريطُ لأجله **أقلُّ** بكثيرٍ من الزائر الجديد في موقعٍ يُطلَق
-        # اليوم، فكان الثمنُ يدفعه الأغلبُ لينتفع الأقلّ.
-        #
-        # وهنا يبقى فوق الطيّة — أوّلَ ما يقع عليه بصرُ الباحث عن المحرِّر بعد
-        # أن يتأكّد أنّه في المكان الصحيح — ولا يسبق التعريفَ بالمنتَج.
-        # وعلى `/docs/` و`/download/` يبقى في الرأس: من بلغهما يعرف ما محراب.
-        + MOVE_NOTE
+        # (كان هنا شريطُ «محرابٌ استقلّ بنطاقه» — أُزيل بقرار المالك ‎2026-09-22‎؛
+        #  رسالةُ الانتقال بقيت في صفحة ‎404‎ لمن يحمل رابطًا قديمًا.)
         + '</section>'
         + hero_visual().replace('src="../assets/', 'src="./assets/')
         + browser_card
@@ -754,7 +757,12 @@ def build_landing():
           '<p class="sub">من التنزيل إلى أوّل سطرٍ يعمل.</p>'
           '<div class="steps">%s</div></section>' % "".join(steps)
         + '<section class="closer"><h2>ابدأ الآن</h2>'
-          '<p>مجّانيٌّ ومفتوحُ المصدر. بلا حساب، وبلا تتبّع.</p>'
+          # ⚠️ **دعوى «بلا تتبّع» مجرّدةً أوسعُ ممّا نستطيع البرهنةَ عليه.** خادمُ
+          # الموقع يكتب سجلَّ طلباتٍ عاديًّا فيه عنوانُ من طلب — وهو ليس تتبّعًا
+          # (لا معرّفَ يُوضَع في جهازك، ولا طرفَ ثالثَ يُسلَّم إليه شيء) لكنّه ليس
+          # «لا شيء» أيضًا. فتُضيَّق الدعوى إلى ما يُفحَص في هذه الصفحة بعينها:
+          # لا كعكة، ولا سكربتَ تتبّع. والسجلُّ يُفصَّل في قسم الخصوصيّة.
+          '<p>مجّانيٌّ ومفتوحُ المصدر. بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة.</p>'
           '<div class="cta-row"><a class="btn btn-primary" href="./download/">نزِّل محراب</a>'
           '<a class="btn btn-ghost" href="%s">شفرةُ المصدر</a></div></section>' % SITE["repo"]
         + '</main>'
@@ -767,30 +775,6 @@ def build_landing():
         with_search=False, extra_js=("site.js",))
 
 
-# ── شريطُ الانتقال: يُقال للزائر أين هو ولماذا ──
-# `docs.mihrab.dev` و`dl.mihrab.dev` يحوّلان إلى هنا. والزائرُ يكتب اسمَ محرابٍ ثمّ
-# يجد نفسَه على نطاقٍ اسمُه اسمُ **مشروعٍ آخر**، بلا سطرٍ يفسّر. وذلك ثلاثُ ضرباتٍ
-# في لحظة: القفزُ الصامتُ بين نطاقين شكلُ التصيّد المعروف فمن يعرفه يتردّد؛
-# ومحرابٌ يقول «انفصلتُ» ثمّ يرسل زائرَه إلى ما انفصل عنه فينقض فعلُه قولَه؛
-# ومن حفظ العنوانَ حفظ نطاقَ غيرِنا لا اسمَنا.
-#
-# **وثابتٌ لا مشروطٌ بـ`document.referrer`**: المُحيلُ يُحجَب في إعداداتٍ كثيرة
-# وينقطع عند ‎302‎ عبر النطاقات أحيانًا، فشرطٌ عليه يُخفي الشريطَ عن بعضِ من كُتب
-# لهم. وهو صادقٌ لمن وصل مباشرةً كذلك: الصفحةُ **فعلًا** تنتقل قريبًا.
-# وقد وقع الانتقالُ الذي كان الشريطُ يَعِد به، فانقلب معناه: صار يُقدَّم **من**
-# الوجهة نفسِها ويَعِد بالوصول إليها، ويرتبط بالصفحة التي عليها القارئ. فيقول الآنَ
-# ما صار صحيحًا: أنت في الدار، والمحرِّرُ جارُها.
-MOVE_NOTE = (
-    '<aside class="move-note">'
-    '<b>محرابٌ استقلّ بنطاقه.</b> التوثيقُ والثنائيّاتُ هنا على '
-    '<code>mihrab.dev</code>، ومحرابُ المتصفّح على '
-    '<a href="https://app.mihrab.dev">app.mihrab.dev</a>.'
-    '</aside>'
-)
-# وجملةُ «`docs.mihrab.dev` و`dl.mihrab.dev` يبقيان يعملان» نُزِعت من الشريط
-# وانتقلت إلى صفحة ‎404‎: هي رسالةٌ **لمن يحمل الرابطَ القديم**، ومن يقرؤها أوّلَ
-# مرّةٍ يُدخَل في رأسه أربعةُ نطاقاتٍ حيث يكفيه اثنان. والذي يحتاجها لا يمرّ على
-# `/docs/`؛ يهبط حيث لا شيءَ — وهناك تنتظره.
 
 
 def _verify_snippet():
@@ -858,8 +842,10 @@ def _fmt_size(n):
     """صياغةُ الحجم بالعربيّة — نفسُ قاعدة `fmtSize` في site.js حرفًا بحرف."""
     if not n or n < 0:
         return ""
-    mb = n / 1048576.0
-    return ("%.2f غيغابايت" % (mb / 1024)) if mb >= 1024 else ("%d ميغابايت" % round(mb))
+    # عشريّةٌ لا ثنائيّة — كما `fmtSize` في site.js: القسمُ على ‎1048576‎ كان يُظهِر
+    # أرشيفَ ويندوز (‏203,053,894 بايت) ‎194‎ في الجدول المخبوز و‎203‎ بعد الجلب الحيّ.
+    mb = n / 1e6
+    return ("%.2f غيغابايت" % (mb / 1000)) if mb >= 1000 else ("%d ميغابايت" % round(mb))
 
 
 def _baked_dl_rows():
@@ -942,7 +928,6 @@ def build_download():
 
     body = (
         '<main class="page">'
-        + MOVE_NOTE +
         '<section class="dl-hero"><h1>نزِّل محراب</h1>'
         '<p data-dl-version>%s</p></section>' % html.escape(stamp)
 
@@ -974,7 +959,7 @@ def build_download():
         #    يشير إلى عمودٍ في الجدول **فوقه**، وذلك موجودٌ في محلّه.
         # ── «أوّلُ تشغيل» — القيدُ المُعلَن ميزةُ ثقة، والمكتشَفُ عطبٌ في نظر صاحبه ──
         # قِيس: لا `codesign` ولا `notarize` ولا Authenticode في شجرة البناء. فأوّلُ
-        # ما يراه مستخدمُ ماك بعد فكّ ‎١٧٥‎ ميغابايت هو «محراب تالف ولا يمكن فتحه.
+        # ما يراه مستخدمُ ماك بعد فكّ ‎١٨٣‎ ميغابايت هو «محراب تالف ولا يمكن فتحه.
         # انقله إلى سلّة المهملات» — وهي رسالةُ **عطبٍ** لا رسالةُ أمان، وآخرُ ما
         # يراه من محراب. ومستخدمُ ويندوز يلقى شاشةَ SmartScreen الزرقاء.
         #
@@ -1061,16 +1046,40 @@ def build_keyboard_page():
         rows = []
         for e in group["items"]:
             win, mac = e["win"], e.get("mac") or e["win"]
-            search = " ".join([e["ar"], e["id"], win, mac])
-            chords = "|".join({win, mac})
+            # ⚠️ **الملاحظةُ في حقلها لا في اسم الأمر.** «فتح ملفّ — وعلى ماك المكتبيّ
+            # الأمرُ «فتح…» (workbench.action.files.openFileFolder) يفتح…» جعل الصفَّ
+            # ‎5‎ أسطرٍ على ‎1280‎ (والبقيّةُ سطران)، والمعرّفُ اللاتينيُّ داخل النصّ
+            # كلمةٌ لا تنكسر فرفع أدنى عرضِ العمود الأوّل إلى ‎292‎: الجدولُ ‎801‎ في
+            # حاويةٍ ‎676‎ وعمودُ المعرّف مقصوصٌ في ‎12‎ صفًّا من ‎13‎ (قِيس على الحيّ،
+            # الجولة ‎16‎). فالاسمُ قصيرٌ يُمسَح بالعين، والملاحظةُ سطرٌ باهتٌ تحته
+            # يُبحَث فيه ولا يُقرأ في نتيجة الالتقاط.
+            note = e.get("note") or ""
+            search = " ".join([e["ar"], note, e["id"], win, mac])
+            # ⚠️ **بترتيب `chordFromEvent` في docs.js** (‏Ctrl، Cmd، Shift، Alt، ثمّ المفتاح).
+            # الالتقاطُ يقارن السلسلةَ حرفًا بحرف، و«Shift+Alt+Cmd+C» كما كُتبت في
+            # البيانات لا تطابق «Cmd+Shift+Alt+C» كما يبنيها الحدث — فثلاثةُ اختصاراتِ ماك
+            # كانت تُلتقَط «لا أمرَ معروفًا» والصفُّ أمام الزائر (الجولة ‎16‎). يُقنَّن ما
+            # يُقارَن لا ما يُعرَض. يحرسه [CAP-01].
+            # و«—» علامةُ «بلا اختصار» في البيانات لا ضغطة: كانت تُكتب في `data-chords`
+            # فيطابقها محرفٌ مطبوعٌ واحد، وتغذّي رحلةَ [CAP-03] ضغطةً وهميّة.
+            chords = "|".join(sorted({_canon_chord(c) for c in (win, mac) if c.strip() != "—"}))
+            name = '<span class="cmd-name">%s</span>' % html.escape(e["ar"])
+            if note:
+                # ‏`kbd-note` لا `note`: الأخيرُ صندوقُ تنبيهٍ في التوثيق (خلفيّةٌ وحدٌّ وحشو).
+                name += '<small class="kbd-note">%s</small>' % html.escape(note)
             rows.append(
                 '<tr data-search="%s" data-chords="%s">'
                 '<td>%s</td>'
                 '<td class="k"><span class="keys" data-platform="win">%s</span>'
                 '<span class="keys" data-platform="mac" hidden>%s</span></td>'
                 '<td class="id"><code>%s</code></td></tr>'
-                % (html.escape(search), html.escape(chords), html.escape(e["ar"]),
-                   _chord_inner(win), _chord_inner(mac), html.escape(e["id"])))
+                # ⚠️ والمعرّفُ يقبل الكسرَ بعد النقطة: بلا فرصةِ كسرٍ يكون أدنى عرضِ عموده
+                # عرضَه كلَّه (‏323 لـ`newUntitledFile`) ومعه عمودُ الاختصار (لا يلتفّ)،
+                # فلا يبقى لاسم الأمر وملاحظته إلّا ‎132‎ من ‎676‎ على ‎1280‎ (قِيس محلّيًّا:
+                # ‎8‎ أسطر). `<wbr>` لا يُستعمَل إلّا عند الضيق ولا يدخل النصَّ المنسوخ.
+                % (html.escape(search), html.escape(chords), name,
+                   _chord_inner(win), _chord_inner(mac),
+                   html.escape(e["id"]).replace(".", ".<wbr>")))
         out.append(
             '<section class="kbd-section"><h2 id="%s">%s</h2>'
             # ⚠️ `data-kbd-table` ليس زينة: docs.js يبحث عنه ليقرّر أنّه في صفحة
@@ -1097,18 +1106,44 @@ def build_keyboard_page():
         'aria-label="التقاط اختصار">'
         '<div class="result dim">سيظهر الأمرُ المطابق هنا.</div></div>'
         '<p class="no-results" hidden>لا اختصارَ يطابق ما كتبت.</p>'
+        # ما يُنطَق عند الترشيح — انظر `kbdWord` في docs.js.
+        '<div class="sr-only kbd-status" role="status" aria-live="polite"></div>'
     )
     return toolbar + "".join(out), [
         (2, g["id"], g["title"]) for g in data["groups"]]
 
 
+# ترتيبُ المعدِّلات كما يبنيه `chordFromEvent` في docs.js — والحارسُ [CAP-01] يقرأه من هناك.
+_MOD_ORDER = ("Ctrl", "Cmd", "Shift", "Alt")
+
+
+def _canon_chord(chord):
+    """‏«Shift+Alt+Cmd+C» ⇒ «Cmd+Shift+Alt+C»؛ والمتتابعُ («Ctrl+K Ctrl+O») ضغطةً ضغطة."""
+    out = []
+    for press in chord.split(" "):
+        parts = [p.strip() for p in press.split("+") if p.strip()]
+        if not parts:
+            continue
+        mods, key = parts[:-1], parts[-1]
+        out.append("+".join([m for m in _MOD_ORDER if m in mods]
+                            + [m for m in mods if m not in _MOD_ORDER] + [key]))
+    return " ".join(out)
+
+
 def _chord_inner(chord):
-    parts = [p.strip() for p in chord.split("+") if p.strip()]
+    """الفراغُ يفصل **ضغطتين متتاليتين** (‏`Ctrl+K Ctrl+S`) و`+` يفصل مفاتيحَ الضغطة
+    الواحدة. كان القسمُ على `+` وحدَه فتُعرَض «Ctrl + K Ctrl + S»: قبعةٌ واحدةٌ
+    مكتوبٌ عليها «K Ctrl» — في ستّةِ صفوفٍ ثلاثةٌ منها في «أساسيّات» (قِيس على
+    الحيّ، الجولة ‎16‎). فتُرسَم الضغطتان قبعاتٍ مستقلّةً بينهما «ثمّ»."""
     bits = []
-    for i, p in enumerate(parts):
-        if i:
-            bits.append('<span class="plus">+</span>')
-        bits.append('<kbd class="chord" dir="ltr">%s</kbd>' % html.escape(p))
+    for j, stroke in enumerate(chord.split()):
+        if j:
+            bits.append('<span class="then">ثمّ</span>')
+        parts = [p.strip() for p in stroke.split("+") if p.strip()]
+        for i, p in enumerate(parts):
+            if i:
+                bits.append('<span class="plus">+</span>')
+            bits.append('<kbd class="chord" dir="ltr">%s</kbd>' % html.escape(p))
     return "".join(bits)
 
 
@@ -1449,7 +1484,7 @@ def main():
     # (`/start/` ‏· `/keyboard/`…) عمدًا: تلك المسارات مخبوزةٌ في product.json وفي
     # قائمة «مساعدة» داخل المحرّرات المشحونة سلفًا، ونقلُها يكسرها بلا فائدة.
     docs_body = (
-        '<main class="home">' + MOVE_NOTE + (MARK_SVG % "mark-lg")
+        '<main class="home">' + (MARK_SVG % "mark-lg")
         + "<h1>توثيق محراب</h1>"
         + '<p class="tagline">للمِحرابِ اتّجاه، ولكودِك وِجهة.</p>'
         + '<p class="tagline-sub">مكانٌ صافٍ تكتب فيه بالعربيّة كما تُفكّر بها.</p>'
@@ -1550,7 +1585,7 @@ _ALIF_JS = """(function(){
     }
     var base=m.base||"../../dl/preview-alif/";
     var rows=m.assets.map(function(a){
-      var mb=(a.size/1048576).toFixed(0);
+      var mb=(a.size/1e6).toFixed(0);
       return '<tr><td>'+(labels[a.id]||a.id)+'<br><span class="sha">'+
         (a.sha256||"")+'</span></td><td class="num">'+mb+' \\u0645.\\u0628</td>'+
         '<td><a class="btn" href="'+base+a.file+'">\\u0646\\u0632\\u0651\\u0650\\u0644</a></td></tr>';
@@ -1595,7 +1630,7 @@ font-family:"IBM Plex Sans Arabic","Noto Sans Arabic","Segoe UI",Tahoma,system-u
 font-size:17px;line-height:1.85;-webkit-font-smoothing:antialiased}
 .wrap{max-width:52rem;margin:0 auto;padding:3.5rem 1.25rem 5rem;
 display:flex;flex-direction:column;gap:2.5rem}
-.tag{display:inline-block;font-size:.8rem;letter-spacing:.06em;padding:.2rem .7rem;
+.tag{display:inline-block;font-size:.8rem;padding:.2rem .7rem;
 border:1px solid var(--accent);color:var(--accent);border-radius:999px}
 h1{font-size:clamp(1.9rem,5vw,2.7rem);line-height:1.3;margin:.7rem 0 0;text-wrap:balance}
 h2{font-size:1.3rem;margin:0 0 .6rem;text-wrap:balance}
@@ -1610,7 +1645,8 @@ th,td{text-align:right;padding:.7rem .6rem;border-bottom:1px solid var(--line);
 vertical-align:top}
 th{font-size:.85rem;color:var(--dim);font-weight:600}
 td.num{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--dim)}
-code,.sha{font-family:"Mihrab Code Arabic",ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+/* لا `Courier New`: على أندرويد اسمٌ مستعارٌ لـserif-monospace فتصير البصمةُ سيريفيّة — كما في `--font-mono` */
+code,.sha{font-family:"Mihrab Code Arabic",ui-monospace,"Cascadia Mono",Consolas,monospace;
 font-size:.82rem;word-break:break-all;color:var(--dim);direction:ltr;
 display:inline-block;unicode-bidi:isolate}
 .btn{display:inline-block;background:var(--accent);color:var(--accent-fg);
@@ -1636,8 +1672,8 @@ a{color:var(--accent)}
 <header>
   <span class="tag">بناءُ معاينةٍ مؤقّت</span>
   <h1>محراب، ولغةُ ألف تعمل فيه من أوّل تشغيل</h1>
-  <p class="lead">نزِّل التطبيق وافتح ملفَّ ألف. لا تثبيتَ إضافةٍ ولا إعدادَ سوق —
-  إضافةُ لغة ألف مشحونةٌ داخل هذا البناء.</p>
+  <p class="lead">نزِّل التطبيق وافتح ملفَّ ألف. لا تثبيتَ امتدادٍ ولا إعدادَ سوق —
+  امتدادُ لغة ألف مشحونٌ داخل هذا البناء.</p>
   <p class="dim" id="ver"></p>
 </header>
 
@@ -1651,12 +1687,12 @@ a{color:var(--accent)}
 
 <section>
   <h2>ما يعمل فورًا، وما يحتاج ألفَ نفسَها</h2>
-  <p>الإضافةُ تحلّل ألفَ محلّيًّا، فأكثرُها لا يحتاج شيئًا خارجَ التطبيق:</p>
+  <p>الامتدادُ يحلّل ألفَ محلّيًّا، فأكثرُها لا يحتاج شيئًا خارجَ التطبيق:</p>
   <ul>
     <li class="yes">إبرازُ الصياغة، ومقتطفاتُ البُنى، وسمةُ أيقونات ألف</li>
     <li class="yes">فحصٌ ساكنٌ فوريّ: بنيةُ الكتل، وتوازنُ الأقواس، والنصوصُ غير المغلقة</li>
     <li class="yes">إكمالٌ يطابق دون تفريقٍ بين صور الهمزة والألف، ويتجاهل التشكيل</li>
-    <li class="yes">فهرسةُ رموز المشروع: الذهابُ إلى التعريف والبحثُ عبر الملفّات</li>
+    <li class="yes">فهرسةُ رموز المشروع: الانتقالُ إلى التعريف والبحثُ عبر الملفّات</li>
     <li class="yes">تنبيهٌ على كلمات ألف 5 المتغيّرة (مثل <code>لاجل</code> ← <code>لكل</code>) بإصلاحٍ سريع</li>
   </ul>
   <p>وواحدٌ يحتاج ما هو خارجَ محراب:</p>
@@ -1674,16 +1710,16 @@ a{color:var(--accent)}
   <p><b>بناءُ تجريبٍ مؤقّت، لا إصدارٌ من إصدارات محراب.</b> لا تُذكر هذه الصفحةُ في
   موقع محراب ولا يُوصَل إليها من ملاحته، وقد تُطوى متى انتهى غرضُها.</p>
   <p>ومحرابٌ منصّةٌ تستضيف اللغات: الوضعُ الطبيعيُّ أن تُثبَّت لغةُ ألف من سوق
-  Open VSX المفتوح كأيّ إضافة، لا أن تُشحن داخل التطبيق. وهذا البناءُ يتخطّى تلك
+  Open VSX المفتوح كأيّ امتداد، لا أن تُشحن داخل التطبيق. وهذا البناءُ يتخطّى تلك
   الخطوةَ لغرضٍ واحد: أن تجرّبوا محرابًا بلا مقدّمات.</p>
 </section>
 
 <footer>
-  <p>إضافةُ لغة ألف من <a href="{src}">{src_short}</a> بترخيص MIT، مأخوذةٌ في هذا
+  <p>امتدادُ لغة ألف من <a href="{src}">{src_short}</a> بترخيص MIT، مأخوذٌ في هذا
   البناء من الإصدار {ver} وبصمتُه مثبَّتةٌ في شفرةِ بنائنا:
   <span class="sha">{sha}</span></p>
   <p>ومفسّرُ ألف من <a href="{rt_src}">{rt_src_short}</a>، الإصدار {rt_ver}،
-  مشحونٌ في <code>bin/</code> داخل الإضافة وبصمةُ حزمةِ كلِّ منصّةٍ مثبَّتةٌ كذلك.</p>
+  مشحونٌ في <code>bin/</code> داخل الامتداد وبصمةُ حزمةِ كلِّ منصّةٍ مثبَّتةٌ كذلك.</p>
   <p>محراب — منصّةُ تطويرٍ عربيّةٌ مفتوحةُ المصدر (MIT) ·
   <a href="https://github.com/almihrab/mihrab">المستودع</a></p>
 </footer>

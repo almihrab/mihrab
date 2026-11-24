@@ -125,9 +125,34 @@
 	var nav = document.querySelector('.site-nav');
 	var navBtn = document.getElementById('nav-toggle');
 	var scrim = document.querySelector('.nav-scrim');
+	/* ⚠️ **زرُّ إغلاقٍ داخل الدرج، وقفلُ الخلفيّة.** على الهاتف يقع «القائمة» تحت
+	   الدرج المفتوح (قِيس: ‎360‎ و‎412‎) فلا يُغلقه، ولا Escape هناك، ويبقى شريطُ
+	   حاجبٍ ‎60‎ بكسلًا. والصفحةُ كانت تمرّ تحت الدرج بالإصبع (‏285–412 بكسلًا)
+	   فيفقد الزائرُ موضعَه عند الإغلاق. `html.nav-open` يقفلها مع CSS. */
+	var navClose = null;
+	if (nav && navBtn) {
+		navClose = document.createElement('button');
+		navClose.type = 'button';
+		navClose.className = 'icon-btn nav-close';
+		navClose.setAttribute('aria-label', 'إغلاق القائمة');
+		navClose.textContent = '✕ إغلاق';
+		nav.insertBefore(navClose, nav.firstChild);
+		navClose.addEventListener('click', function () { closeNav(); });
+	}
+	/* ⚠️ **وما خلف الدرج خاملٌ (`inert`) ما دام مفتوحًا.** قِيس (الجولة ‎14‎، ‎360‎
+	   و‎412‎ و‎768‎ بلوحة مفاتيح): بعد آخرِ رابطٍ في الدرج يمضي Tab إلى «app.mihrab.dev»
+	   و«انسخ» خلف الحاجب — والجذرُ مقفولُ التمرير فلا تتبع الصفحةُ البؤرةَ: بؤرةٌ
+	   لا تُرى. الحاجبُ خارج القائمة فيبقى قابلًا للنقر. */
+	function setInert(on) {
+		Array.prototype.forEach.call(
+			document.querySelectorAll('.site-header, .site-footer, .layout > :not(.site-nav)'),
+			function (el) { el.inert = on; });
+	}
 	function closeNav() {
 		if (!nav) { return; }
 		nav.classList.remove('open');
+		document.documentElement.classList.remove('nav-open');
+		setInert(false);
 		if (scrim) { scrim.hidden = true; }
 		if (navBtn) { navBtn.setAttribute('aria-expanded', 'false'); }
 		/* البؤرةُ تعود إلى الزرّ الذي فتح الدرج. كانت تبقى على الرابط داخل درجٍ
@@ -138,8 +163,13 @@
 	if (navBtn && nav) {
 		navBtn.addEventListener('click', function () {
 			var open = nav.classList.toggle('open');
+			document.documentElement.classList.toggle('nav-open', open);
 			if (scrim) { scrim.hidden = !open; }
 			navBtn.setAttribute('aria-expanded', String(open));
+			setInert(open);
+			/* البؤرةُ إلى زرّ الإغلاق: الفاتحُ صار تحت الدرج، ولوحيٌّ بلوحةِ مفاتيحَ
+			   يبدأ التبويبَ من داخل ما فُتح لا من خلفه. */
+			if (open && navClose) { navClose.focus(); }
 		});
 	}
 	if (scrim) { scrim.addEventListener('click', closeNav); }
@@ -319,10 +349,45 @@
 		   نتائجَ بلوحة المفاتيح لم يملك طريقًا لإغلاقها إلّا مسحَ ما كتب —
 		   و`Escape` هو أوّلُ ما تجرّبه اليدُ أمام لوحةٍ منسدلة. والبؤرةُ تبقى
 		   في الحقل: من أغلق النتائجَ لم يطلب مغادرةَ البحث. */
+		/* ⚠️ **والوعدُ أعلاه كان مكسورًا على Chromium/Edge**: `input[type=search]`
+		   يمسح نصَّه بنفسه عند Escape (سلوكٌ أصليّ) ويُطلق `input` فيُخفي النتائج —
+		   قِيس على الحيّ (الجولة ‎15‎): بعد Escape واحدة القيمةُ `""`. فتُمنَع
+		   الحركةُ الأصليّة **ما دامت النتائجُ ظاهرة**: الضغطةُ الأولى تطوي القائمة
+		   وتُبقي السؤال، والثانيةُ — والقائمةُ مطويّة — تمسح النصَّ كما اعتاد الزائر. */
 		document.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') { return; }
 			boxes.forEach(function (b) {
-				if (!b.results.hidden) { show(b, false); announce(b, ''); }
+				if (!b.results.hidden) {
+					e.preventDefault(); show(b, false); announce(b, '');
+					if (b.results.contains(document.activeElement)) { b.input.focus(); }
+				}
+			});
+		});
+		/* ⚠️ **والأسهمُ تسير في النتائج.** الحقلُ يعلن `role="combobox"
+		   aria-autocomplete="list"` — وعدٌ للوحة المفاتيح بأنّ ↓ يدخل القائمة —
+		   وكان ↓ وEnter لا يفعلان شيئًا (قِيس على الحيّ: البؤرةُ تبقى في الحقل
+		   والعنوانُ لا يتغيّر). فـ↓ من الحقل يركّز أوّلَ نتيجة، و↓/↑ بين النتائج،
+		   و↑ من الأولى يعود إلى الحقل؛ وEnter على رابطٍ مركَّزٍ يفتحه بلا شيفرة.
+		   Tab يبقى كما هو: الروابطُ في ترتيب التبويب أصلًا. */
+		function moveIn(b, from, dir) {
+			var links = b.results.querySelectorAll('a');
+			if (!links.length) { return false; }
+			var i = Array.prototype.indexOf.call(links, from);
+			var next = i === -1 ? (dir > 0 ? 0 : links.length - 1) : i + dir;
+			if (next < 0) { b.input.focus(); return true; }
+			if (next >= links.length) { return true; }
+			links[next].focus();
+			return true;
+		}
+		boxes.forEach(function (b) {
+			b.input.addEventListener('keydown', function (e) {
+				if (e.key !== 'ArrowDown' || b.results.hidden) { return; }
+				if (moveIn(b, null, 1)) { e.preventDefault(); }
+			});
+			b.results.addEventListener('keydown', function (e) {
+				if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') { return; }
+				var a = e.target.closest ? e.target.closest('a') : null;
+				if (a && moveIn(b, a, e.key === 'ArrowDown' ? 1 : -1)) { e.preventDefault(); }
 			});
 		});
 		/* «/» يركّز البحث — عادةٌ راسخة عند من يقرأ توثيقًا تقنيًّا.
@@ -396,14 +461,30 @@
 	/* الترشيح: يُخفي الصفوف، ثمّ يُخفي عنوانَ أيّ قسمٍ خلا من الصفوف. */
 	var filterInput = document.getElementById('kbd-filter');
 	var emptyMsg = document.querySelector('.no-results');
+	/* الترشيحُ كان صامتًا لقارئ الشاشة: الصفوفُ تُخفى و`.no-results` تُظهَر ولا
+	   شيءَ يُنطَق (قِيس على الحيّ: لا `aria-live` في الصفحة إلّا حقلُ الترويسة
+	   الفارغ). سطرٌ بالعدد، كصندوق البحث، ومشروطٌ بتغيّر النصّ. */
+	var kbdStatus = document.querySelector('.kbd-status');
+	function kbdWord(n) {
+		if (n === 0) { return 'لا اختصارَ يطابق'; }
+		if (n === 1) { return 'اختصارٌ واحد'; }
+		if (n === 2) { return 'اختصاران'; }
+		if (n <= 10) { return n + ' اختصارات'; }
+		return n + ' اختصارًا';
+	}
 
+	/* ⚠️ **بلا تشكيلٍ هنا أيضًا.** أسماءُ الأوامر مشكولة («فتح مجلّد»، «حفظ الكلّ»)
+	   والزائرُ لا يكتب شدّة: «مجلد» كانت تقرأ «لا اختصارَ يطابق» والصفُّ أمامها
+	   (قِيس على الحيّ، الجولة ‎16‎). التطبيعُ نفسُه الذي يطبّقه بحثُ الموقع
+	   (‏`plain` أعلاه)، على الطرفين، ومرّةً واحدةً لكلّ صفّ. */
 	function filterRows(q) {
-		q = (q || '').trim().toLowerCase();
+		q = plain((q || '').trim().toLowerCase());
 		var total = 0;
 		Array.prototype.forEach.call(document.querySelectorAll('.kbd-section'), function (sec) {
 			var shown = 0;
 			Array.prototype.forEach.call(sec.querySelectorAll('tbody tr'), function (tr) {
-				var hay = (tr.getAttribute('data-search') || '').toLowerCase();
+				if (!tr._hay) { tr._hay = plain((tr.getAttribute('data-search') || '').toLowerCase()); }
+				var hay = tr._hay;
 				var match = !q || hay.indexOf(q) !== -1;
 				tr.hidden = !match;
 				if (match) { shown++; }
@@ -412,6 +493,8 @@
 			total += shown;
 		});
 		if (emptyMsg) { emptyMsg.hidden = total !== 0; }
+		var msg = q ? kbdWord(total) : '';
+		if (kbdStatus && kbdStatus.textContent !== msg) { kbdStatus.textContent = msg; }
 	}
 	if (filterInput) {
 		filterInput.addEventListener('input', function () { filterRows(this.value); });
@@ -424,6 +507,8 @@
 	var captureField = document.getElementById('capture-field');
 	var captureOut = document.querySelector('.capture-box .result');
 
+	var CODE_KEY = { Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']',
+		Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/' };
 	function chordFromEvent(e) {
 		var parts = [];
 		if (e.ctrlKey) { parts.push('Ctrl'); }
@@ -433,39 +518,175 @@
 		var k = e.key;
 		if (['Control', 'Shift', 'Alt', 'Meta'].indexOf(k) !== -1) { return null; }
 		if (k === ' ') { k = 'Space'; }
+		/* ‏المتصفّحُ يرسل `ArrowUp` والجدولُ يكتب `Up` كما يكتبه المحرّر — فكان «Alt+Up»
+		   (نقلُ السطر) وكلُّ صفٍّ بسهمٍ لا يُلتقَط أبدًا. */
+		if (/^Arrow(Up|Down|Left|Right)$/.test(k)) { k = k.slice(5); }
+		/* ⚠️ **المحرفُ المطبوعُ ليس المفتاح.** على لوحةٍ عربيّة `Ctrl+S` تصل `key="س"`،
+		   و`Shift` يقلب «`» إلى «~» و«[» إلى «{»، وOption على ماك يقلب C إلى «ç» — فكان
+		   «Ctrl+س» و«Ctrl+Shift+~» يُردّان «لا أمرَ معروفًا» والصفُّ أمام الزائر. فإن لم
+		   يكن المحرفُ حرفًا لاتينيًّا أو رقمًا يُقرأ موضعُ المفتاح (`e.code`) كما تكتبه
+		   البيانات. والمفتاحُ الميّت (‏Option+E/U/N على ماك، و« ` » على لوحاتٍ دوليّة) يصل
+		   `Dead` لا محرفًا — فيُقرأ موضعُه كذلك. */
+		if ((k.length === 1 && !/^[A-Za-z0-9]$/.test(k)) || k === 'Dead' || k === 'Unidentified') {
+			var c = e.code || '';
+			if (/^Key[A-Z]$/.test(c)) { k = c.slice(3); }
+			else if (/^Digit[0-9]$/.test(c)) { k = c.slice(5); }
+			else if (CODE_KEY[c]) { k = CODE_KEY[c]; }
+		}
 		if (k.length === 1) { k = k.toUpperCase(); }
 		parts.push(k);
 		return parts.join('+');
 	}
 
+	var NO_SOFT_KEY = 'الالتقاطُ يحتاج لوحةَ مفاتيحَ خارجيّة (Bluetooth أو USB) — لوحةُ الشاشة لا تُرسل اختصارات.';
+	/* ‏`chordStep` نقيّةٌ (بلا DOM) على مستوى الوحدة كي **تُنفَّذ** بـnode في [CAP-02] على
+	   جدول الصفحة نفسِه، والصفوفُ تُقرأ مرّةً لا عند كلّ ضغطة (الجولة ‎17‎: كان
+	   `lookup`/`isPrefix` يُعرَّفان داخل المعالج ويقسمان ‎79‎ صفًّا في كلّ ضغطة).
+	   والمهلةُ باسمٍ لا رقمٍ مدفون — [CAP-02] يقيس مداها ومُصابُها يُصيب المفتاحَ لا القيمة. */
+	var CHORD_WAIT_MS = 5000;
+	var pendingChord = null, pendingTimer = null, chordTable = null;
+	/* والتعليقُ يُلغى بأربعة: Escape، وضغطةُ IME، وفقدانُ البؤرة، والمهلة — من مكانٍ واحد. */
+	function clearPending() {
+		pendingChord = null;
+		if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+	}
+	function chordEntries() {
+		return Array.prototype.map.call(document.querySelectorAll('tbody tr[data-chords]'), function (tr) {
+			return { row: tr, chords: tr.getAttribute('data-chords').split('|') };
+		});
+	}
+	/* ضغطةٌ (مع تعليقٍ سابقٍ أو بلاه) على جدولٍ ⇒ الاختصارُ الكامل، وصفُّه إن وُجد،
+	   و`wait` حين لا صفَّ وهي بادئةُ تسلسلٍ ولا تعليقَ قبلها — فالتسلسلُ ضغطتان لا أكثر:
+	   `Ctrl+K Ctrl+K` يُحسَم «لا أمرَ» ولا يُعلَّق ثانيةً. */
+	function chordStep(chord, pending, entries) {
+		if (pending) { chord = pending + ' ' + chord; }
+		var row = null, prefix = false;
+		entries.forEach(function (en) {
+			if (!row && en.chords.indexOf(chord) !== -1) { row = en.row; }
+			if (!pending && !prefix) {
+				en.chords.forEach(function (x) { if (x.indexOf(chord + ' ') === 0) { prefix = true; } });
+			}
+		});
+		return { chord: chord, row: row, wait: !pending && !row && prefix };
+	}
 	if (captureBtn && captureBox && captureField) {
+		/* ⚠️ **على اللمس: لا لوحةَ شاشةٍ تنبثق، والتنبيهُ قبل الضغطة لا بعدها.**
+		   كان النقرُ على «التقط» يستدعي لوحةَ الشاشة (‏type=text) فتأكل ‎40%‎ من
+		   ‎640‎، والزائرُ يكتب فيقرأ بعدها أنّ ضغطتَه لم تُفهَم. `inputmode=none`
+		   يمنع اللوحةَ الافتراضيّة (‏Chrome 66+، iOS 12.2+ بحسب MDN) ولا يمنع لوحةً ماديّةً:
+		   مفاتيحُها تصل إلى الحقل المبأَّر كما هي. والجملةُ تُعرَض فورًا في
+		   موضع النتيجة — فلوحيٌّ بلوحةٍ يضغط فتحلّ النتيجةُ محلَّها. */
+		var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+		if (coarse) {
+			captureField.setAttribute('inputmode', 'none');
+			if (captureOut) { captureOut.textContent = NO_SOFT_KEY; }
+		}
+		/* الحالةُ الأولى تُحفَظ لتُستعاد: الإغلاقُ بـEscape كان يترك النتيجةَ الأخيرة
+		   («Ctrl+K ثمّ… — اضغط الضغطةَ الثانية») فيفتح الزائرُ الصندوقَ بعد دقيقةٍ ويقرأ
+		   طلبًا لا ينتظره أحد (قِيس، الجولة ‎17‎). و`dim` للتلميح لا للنتيجة. */
+		var initialOut = captureOut ? captureOut.textContent : '';
+		function resetOut() {
+			clearPending();
+			if (captureOut) { captureOut.textContent = initialOut; captureOut.classList.add('dim'); }
+		}
+		/* انقضاءُ المهلة وفقدانُ البؤرة سواء: التعليقُ يسقط والسطرُ يقول ما حدث. المعالجُ
+		   على الحقل وحدَه لكنّ التعليقَ على مستوى الوحدة — بلا `blur` من غادر الحقلَ بعد
+		   Ctrl+K وعاد خلال المهلة دُمجت ضغطتُه في تسلسلٍ لم يقصده (الجولة ‎17‎). */
+		function dropPending() {
+			if (!pendingChord) { return; }
+			var c = pendingChord;
+			clearPending();
+			captureOut.textContent = '';
+			var c2 = document.createElement('code');
+			c2.textContent = c;
+			captureOut.appendChild(c2);
+			var s2 = document.createElement('span');
+			s2.textContent = ' — لم تصل الضغطةُ الثانية؛ اضغط التسلسلَ من أوّله';
+			captureOut.appendChild(s2);
+		}
 		captureBtn.addEventListener('click', function () {
 			captureBox.hidden = false;
 			captureField.focus();
 		});
 		captureField.addEventListener('keydown', function (e) {
 			e.preventDefault();
+			/* Escape يُغلق صندوقَ الالتقاط ويعيد البؤرةَ إلى زرّه. كان يُلتقَط اختصارًا
+			   («Escape — لا أمرَ معروفًا بهذا الاختصار») ويبقى الزائرُ حبيسَ الحقل بلا
+			   مخرجٍ إلّا Tab (قِيس على ‎1280‎، الجولة ‎14‎). */
+			/* ويُنسى التعليقُ معه: كان Escape أثناء «Ctrl+K ثمّ…» يُغلق الصندوقَ ويُبقي
+			   البادئةَ حيّة، فمن أعاد الفتحَ وضغط S وحدَها قرأ «Ctrl+K S ← حفظ الكلّ». */
+			if (e.key === 'Escape') { resetOut(); captureBox.hidden = true; captureBtn.focus(); return; }
+			/* ⚠️ **لوحةُ الهاتف الافتراضيّة لا تُرسل مفتاحًا.** لوحةُ أندرويد المؤلِّفة
+			   (‏IME — Gboard وأخواتها) تُطلق keydown بـ`key="Unidentified"` (‏keyCode 229)
+			   لضغطات الحروف — قِيس على لوحة المحاكي الافتراضيّة وحدَها، ولوحاتٌ أخرى قد تُرسل Enter وBackspace
+			   مفتاحين حقيقيّين — فكانت النتيجة
+			   «Unidentified — لا أمرَ معروفًا بهذا الاختصار»: تدّعي أنّها قرأت
+			   اختصارًا ولم تقرأ شيئًا. ولا يُخفى الالتقاطُ باللمس: لوحيٌّ بلوحةِ
+			   Bluetooth يُرسل مفاتيحَ حقيقيّة. (قِيس على محاكي أندرويد ‎16‎.)
+			   و`Process` معه: هو ما يضعه Chromium وفايرفوكس في `key` أثناء تركيب
+			   IME (‏keyCode 229 أيضًا)، و`isComposing` اسمُه في المواصفة — لم يُقَس
+			   على فايرفوكس أندرويد ولا iOS، فتُغطّى الصورُ الثلاث ولا يُعتمَد على
+			   `keyCode` المهجور وحدَه. */
+			if (e.isComposing || e.key === 'Unidentified' || e.key === 'Process' || e.keyCode === 229) {
+				/* «خارجيّة» لا «ماديّة»: ما يوصله حاملُ الهاتف لوحةٌ خارجيّة، وهذا اسمُها عنده. */
+				/* وضغطةٌ لا تُفهَم تُسقِط التعليقَ: لا تُدمَج المفهومةُ التالية في تسلسلٍ لم يُقصَد. */
+				clearPending();
+				captureOut.textContent = 'لم تصل ضغطةٌ مفهومة — ' + NO_SOFT_KEY;
+				return;
+			}
 			var chord = chordFromEvent(e);
 			if (!chord) { return; }
-			var found = null;
-			Array.prototype.forEach.call(document.querySelectorAll('tbody tr[data-chords]'), function (tr) {
-				if (found) { return; }
-				var list = tr.getAttribute('data-chords').split('|');
-				if (list.indexOf(chord) !== -1) { found = tr; }
-			});
+			/* ⚠️ **التسلسلُ ضغطتان والالتقاطُ كان ضغطةً.** `Ctrl+K` وحدَه ليس اختصارًا
+			   لكنّه بادئةُ أربعةٍ (‏`Ctrl+K Ctrl+S`…) و`Cmd+K` بادئةُ اثنين — ستّةُ
+			   تسلسلاتٍ في keybindings.json (عُدَّت، الجولة ‎17‎) — فكان يردّ «لا أمرَ
+			   معروفًا» ولا يمكن التقاطُ تسلسلٍ أبدًا (قِيس، الجولة ‎16‎). فإن لم تطابق
+			   الضغطةُ وحدَها وكانت بادئةَ تسلسلٍ عُلِّقت وانتظرت الثانية كما يفعل المحرّر —
+			   إلّا أنّ المحرّرَ ينتظر بلا مهلةٍ حتّى تُفقَد البؤرة، وهنا مهلةُ `CHORD_WAIT_MS` (خمسُ ثوانٍ)
+			   **اختيارٌ لا قياس**: حقلٌ في صفحةٍ لا يُبقي حالةً خفيّةً إلى الأبد. */
+			if (!chordTable) { chordTable = chordEntries(); }
+			var step = chordStep(chord, pendingChord, chordTable);
+			clearPending();
+			chord = step.chord;
+			if (step.wait) {
+				pendingChord = chord;
+				captureOut.textContent = '';
+				captureOut.classList.remove('dim');
+				var c1 = document.createElement('code');
+				c1.textContent = chord;
+				captureOut.appendChild(c1);
+				var s1 = document.createElement('span');
+				s1.textContent = ' ثمّ… — بادئةُ تسلسل: اضغط الضغطةَ الثانية';
+				captureOut.appendChild(s1);
+				/* ⚠️ **المهلةُ تُقال لا تُضمَر.** كانت ثلاثَ ثوانٍ تنقضي والرسالةُ باقيةٌ تطلب
+				   الضغطةَ الثانية، فيضغط الزائرُ S ويقرأ «S — لا أمرَ معروفًا» — الصفحةُ طلبت
+				   ثمّ أنكرت (قِيس، الجولة ‎17‎). فعند الانقضاء تُبدَّل الرسالةُ وتقول ما
+				   حدث. وخمسُ ثوانٍ لا ثلاث: قراءةُ الرسالة وحدَها ~‎2‎ ثانية لمن يراها أوّلَ
+				   مرّة، ثمّ إيجادُ المفتاح — والمحرّرُ نفسُه لا يُمهل أصلًا. */
+				pendingTimer = setTimeout(dropPending, CHORD_WAIT_MS);
+				return;
+			}
+			var found = step.row;
 			captureOut.textContent = '';
+			captureOut.classList.remove('dim');
 			var code = document.createElement('code');
 			code.textContent = chord;
 			captureOut.appendChild(code);
 			var span = document.createElement('span');
+			/* الاسمُ وحدَه لا الملاحظةُ التي تحته (‏`.kbd-note`) — النتيجةُ سطرٌ يُقرأ بعينٍ واحدة. */
 			span.textContent = found
-				? ' ← ' + found.querySelector('td').textContent
+				? ' ← ' + (found.querySelector('td .cmd-name') || found.querySelector('td')).textContent
 				: ' — لا أمرَ معروفًا بهذا الاختصار';
 			captureOut.appendChild(span);
+			/* الصفُّ المُلتقَط يُعلَّم (‏`.kbd-hit`) حتّى الالتقاطةِ التالية: التمريرُ
+			   يضعه وسطَ خمسةِ صفوفٍ والنتيجةُ فوقُ خارجَ الشاشة (قِيس على ‎360‎). */
+			var prev = document.querySelector('tr.kbd-hit');
+			if (prev) { prev.classList.remove('kbd-hit'); }
 			if (found) {
+				found.classList.add('kbd-hit');
 				if (filterInput) { filterInput.value = ''; filterRows(''); }
 				found.scrollIntoView({ block: 'center' });
 			}
 		});
+		captureField.addEventListener('blur', dropPending);
 	}
 }());

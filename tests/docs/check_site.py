@@ -13,6 +13,7 @@ import html as _html
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import uuid
@@ -171,6 +172,47 @@ def main():
         report()
         return 1
 
+    # ── [OUT-02] الأصولُ في المخرَج هي المصدرُ بالبايت ──
+    # الفحوصُ أدناه تقرأ `site/assets/` وتنفّذ دوالَّه، والنشرُ يحزم `site/public/`. ومع
+    # `--no-build` (بوّابةُ `deploy_site.sh`) لا شيءَ يضمن أنّهما واحد: عطبٌ في
+    # `public/assets/docs.js` كان يمرّ أخضرَ ويُشحَن (قِيس بالزرع). و`build.py` ينسخ هذه
+    # الأصولَ بايتًا ببايت، فأيُّ فرقٍ مخرَجٌ ليس من هذا المصدر.
+    _src_assets = os.path.join(SITE, "assets")
+    for _sub in ("", "shots"):
+        _sd = os.path.join(_src_assets, _sub)
+        if not os.path.isdir(_sd):
+            continue
+        for _fn in sorted(os.listdir(_sd)):
+            _sp = os.path.join(_sd, _fn)
+            if not os.path.isfile(_sp):
+                continue
+            _op = os.path.join(OUT, "assets", _sub, _fn)
+            with open(_sp, "rb") as _f1:
+                _sb = _f1.read()
+            if not os.path.isfile(_op):
+                bad("أصلٌ في `site/assets/%s` غائبٌ عن المخرَج [OUT-02]" % os.path.join(_sub, _fn).replace(os.sep, "/"))
+                continue
+            with open(_op, "rb") as _f2:
+                if _f2.read() != _sb:
+                    bad("‏`public/assets/%s` يخالف مصدرَه بالبايت — المخرَجُ ليس من هذا المصدر، "
+                        "أعِد البناء [OUT-02]" % os.path.join(_sub, _fn).replace(os.sep, "/"))
+    # و`fonts/` بالاتّجاه المعاكس: `write_fonts_css` ينسخ الموجودَ من `FONT_FACES` والرخصةَ
+    # وحدَها، فما في المخرَج هو ما يُقابَل بمصدره (خطٌّ مبتورٌ يُشحَن ويسقط صامتًا).
+    _of = os.path.join(OUT, "assets", "fonts")
+    for _fn in sorted(os.listdir(_of)) if os.path.isdir(_of) else []:
+        _sp = os.path.join(_src_assets, "fonts", _fn)
+        with open(os.path.join(_of, _fn), "rb") as _f2:
+            _ob = _f2.read()
+        if not os.path.isfile(_sp):
+            bad("‏`public/assets/fonts/%s` بلا مصدرٍ في `site/assets/fonts` [OUT-02]" % _fn)
+            continue
+        with open(_sp, "rb") as _f1:
+            if _f1.read() != _ob:
+                bad("‏`public/assets/fonts/%s` يخالف مصدرَه بالبايت — أعِد البناء [OUT-02]" % _fn)
+    if fails:
+        report()
+        return 1
+
     home = read("index.html")
     dl = read("download/index.html")
     kbd = read("keyboard/index.html")
@@ -191,6 +233,18 @@ def main():
                             ('id="baked-releases"', dl, "download/index.html")]:
         if sel not in page:
             bad("مِرساةٌ مفقودة في %s: %s" % (name, sel))
+
+    # ── [PRIV-01] ⭐ دعوى الخصوصيّة مضبوطةٌ بقدرِ ما يُبرهَن عليه ───────────
+    # جملةُ خصوصيّةٍ تكذب أسوأُ من غيابها: «بلا تتبّع» مجرّدةً أوسعُ ممّا نبرهن
+    # عليه — الخادمُ يكتب سجلَّ طلباتٍ فيه عنوانُ من طلب. فالدعوى ضُيِّقت إلى ما
+    # يُفحَص في الصفحة نفسِها: لا كعكةَ ولا سكربتَ في هذه الصفحة.
+    if "بلا حساب، وبلا تتبّع." in home:
+        bad("[PRIV-01] الصفحةُ الأولى تُعلن «بلا تتبّع» مجرّدةً — دعوى أوسعُ ممّا "
+            "يُبرهَن عليه: الخادمُ يكتب سجلَّ طلباتٍ فيه عنوانُ من طلب. الصيغةُ "
+            "المضبوطةُ تحدّد ما يُفحَص في هذه الصفحة: لا كعكةَ ولا سكربتَ تتبّع")
+    if "وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة" not in home:
+        bad("[PRIV-01] الصفحةُ الأولى بلا الدعوى المضبوطة — وهي التي تُفحَص فعلًا "
+            "بحارسِ «لا سكربتَ داخليًّا في مخرَج الموقع»")
 
     # docs.js يخرج مبكّرًا بلا هذا الوسم، فيموت مبدّلُ النظام والترشيحُ والالتقاط.
     if "data-kbd-table" not in kbd:
@@ -703,7 +757,7 @@ def main():
     _mono = [f for f in faces if 'font-family:"%s"' % MONO_AR_FAMILY in f]
     assert len(_mono) == 2, (
         "المنتظَر وجهان باسم «%s» في `fonts.css` (‏400 و600) ووُجد %d — بلا "
-        "الاسم الثاني يسقط العربيُّ في كتل الشيفرة إلى `Courier New` [FNT-01]"
+        "الاسم الثاني يسقط العربيُّ في كتل الشيفرة إلى `monospace` العامّ [FNT-01]"
         % (MONO_AR_FAMILY, len(_mono)))
     _ascii = set(range(0x20, 0x7F))
     _gen_punct = set(range(0x2000, 0x2070)) | set(range(0x2E00, 0x2E80))
@@ -714,12 +768,12 @@ def main():
             "العربيّ لا يحمل غيرَ ما يحمله [FNT-01]"
             % (MONO_AR_FAMILY, min(rng - ar_r) if rng - ar_r else 0))
         # و«يغطّي» لا «لا يتجاوز» وحدَه: مدًى من محرفٍ واحدٍ كان يمرّ، والعربيُّ
-        # في كتل الشيفرة يعود إلى `Courier New` — العطبُ الذي أُضيف الاسمُ لمنعه.
+        # في كتل الشيفرة يعود إلى العامّ — العطبُ الذي أُضيف الاسمُ لمنعه.
         _core = set(range(0x0600, 0x0700)) | set(range(0xFB50, 0xFE00)) | set(range(0xFE70, 0xFEFF))
         _gap = _core - rng
         assert not _gap, (
             "مدى «%s» لا يغطّي كتلةَ العربيّة الأساسيّة (ينقص U+%04X وما بعده، "
-            "%d نقطة) — فالعربيُّ في كتل الشيفرة يسقط إلى `Courier New` [FNT-01]"
+            "%d نقطة) — فالعربيُّ في كتل الشيفرة يسقط إلى `monospace` العامّ [FNT-01]"
             % (MONO_AR_FAMILY, min(_gap), len(_gap)))
         for _bad, _why in ((_ascii, "محرفٌ لاتينيٌّ/رقمٌ/مسافة"),
                            (la_r, "مقطعٌ من الوجه اللاتينيّ"),
@@ -743,6 +797,843 @@ def main():
         "أوّلُ `--font-mono` هو %r لا «%s» — الاسمُ الثاني يعمل بمداه وحدَه، فلا "
         "يضرّ أوّلًا ولا ينفع إن سبقه خطٌّ يحمل العربيّةَ بعرضٍ آخر [FNT-01]"
         % (_first, MONO_AR_FAMILY))
+
+    # ── ٥ج) ما رآه محاكي أندرويد يُقاس بالحساب [AND-01] ──
+    # ثلاثُ ملاحظاتٍ ظهرت على المحاكي وأُصلحت في CSS، وكلُّها كانت تعود صامتةً
+    # بطفرةٍ واحدة (قِيست الثلاثُ بالطفرة: خضراء):
+    # (١) `Courier New` في سلسلة أحاديّ المسافة — وهو في `fonts.xml` على أندرويد
+    #     اسمٌ مستعارٌ لـ`serif-monospace` (‏Cutive Mono) يُلتقَط قبل العامّ،
+    #     فالشيفرةُ **سيريفيّةٌ** على كلّ هاتف. وأمثالُه: `courier` و`times`
+    #     و`georgia` و`baskerville` و`goudy` و`fantasy` كلُّها إلى `serif` هناك.
+    #     تُقاس كلُّ سلسلةٍ تصل الزائر: `--font-*` و`font-family` في الأوراق،
+    #     و`<style>` و`style=` في **كلّ** صفحةٍ مبنيّة — فصفحةُ المعاينة خارج
+    #     `page_shell` بورقةٍ داخليّة، وكان الاسمُ فيها بعد أن حُذف من الورقة.
+    # (٢) زرُّ «انسخ» على اللمس ‎44‎ من أعلى ‎8‎ يطمس السطرَ الأوّل الذي يبدأ عند
+    #     ‎16‎ — فحشوُ `pre` العلويُّ تحت `pointer: coarse` يبلغ أسفلَ الزرّ. وفي
+    #     الطباعة الزرُّ مخفيٌّ فيعود الحشوُ — وإلّا طُبعت من الهاتف بثقبٍ فوق
+    #     كلّ كتلة.
+    # (٣) بين البطل واللقطة ‎136‎ (‏‎120‎ جوّالًا): حشوُ البطل + هامشُ آخرِ ابنٍ
+    #     (لا يُبتلَع في الحشو) + هامشُ اللقطة.
+    # تُقاس بتتالٍ مصغَّر: القواعدُ بترتيبها في الورقتين (‏`docs` ثمّ `home`)،
+    # والوسيطُ (عرضٌ/لمس/طباعة) يُقيَّم، والوزنُ يسبق الترتيبَ، والمختصَراتُ تُفكّ،
+    # و`var()` و`calc()` تُحسَب من رموز `:root`. والعنصرُ المقيسُ يُؤخَذ من
+    # **المخرَج** لا يُفترَض: آخرُ أبناء `.hero` في `index.html` كما بُني.
+    from html.parser import HTMLParser as _HP
+
+    def _css_rules(text, name):
+        """قواعدُ الورقة بترتيبها: (وسيطُ @media أو ""، محدِّدٌ واحد، إعلانات)."""
+        rules = []
+
+        def _parse(seg, media):
+            p = 0
+            while True:
+                j = seg.find("{", p)
+                if j < 0:
+                    break
+                head = seg[p:j].rsplit(";", 1)[-1].strip()  # ما قبل آخر `;` جملةٌ مستقلّة (‏`@charset`)
+                d, k = 0, j
+                while k < len(seg):
+                    if seg[k] == "{":
+                        d += 1
+                    elif seg[k] == "}":
+                        d -= 1
+                        if d == 0:
+                            break
+                    k += 1
+                assert d == 0, "قوسٌ لم يُغلَق في %s [AND-01]" % name
+                inner = seg[j + 1:k]
+                p = k + 1
+                if head.startswith("@media"):
+                    _parse(inner, head[len("@media"):].strip())
+                elif head.startswith("@"):
+                    continue
+                else:
+                    decls = []
+                    for st in inner.split(";"):
+                        if ":" in st:
+                            pn, _, pv = st.partition(":")
+                            decls.append((pn.strip().lower(), pv.replace("!important", "").strip()))
+                    for sel in head.split(","):
+                        rules.append((media, sel.strip(), decls))
+
+        _parse(css_strip_comments(text, name), "")
+        return rules
+
+    def _media_ok(cond, vw, coarse, prn):
+        if not cond:
+            return True
+        for alt in cond.split(","):
+            ok = True
+            for term in re.split(r"\band\b", alt):
+                t = term.strip().strip("()").strip().replace(" ", "")
+                if not t:
+                    continue
+                if t == "print":
+                    ok = ok and prn
+                elif t == "screen":
+                    ok = ok and not prn
+                elif t.startswith("max-width:"):
+                    ok = ok and vw <= float(t[len("max-width:"):-2])
+                elif t.startswith("min-width:"):
+                    ok = ok and vw >= float(t[len("min-width:"):-2])
+                elif t == "pointer:coarse":
+                    ok = ok and coarse
+                elif t == "pointer:fine":
+                    ok = ok and not coarse
+                else:  # prefers-* ونحوها: لا تمسّ حشوًا ولا هامشًا — تُعدّ غيرَ مطابِقة
+                    ok = False
+            if ok:
+                return True
+        return False
+
+    _COMP = re.compile(r"\*|[\w-]+|\.[\w-]+|:[\w-]+")
+
+    def _comp_ok(comp, el):
+        """مركّبٌ واحد (`main.page`، `:last-child`) على عنصرٍ (وسم، أصناف، أوّل، آخر).
+        ما لا يُفهَم (‏`:hover`، `[attr]`، `:not(`) لا يطابق — العنصرُ المقيسُ ساكن."""
+        toks = _COMP.findall(comp)
+        if "".join(toks) != comp:
+            return False
+        tag, cls, first, last = el
+        for t in toks:
+            if t == "*":
+                continue
+            if t.startswith("."):
+                if t[1:] not in cls:
+                    return False
+            elif t == ":last-child":
+                if not last:
+                    return False
+            elif t == ":first-child":
+                if not first:
+                    return False
+            elif t.startswith(":"):
+                return False
+            elif t != tag:
+                return False
+        return True
+
+    def _sel_match(sel, path):
+        """يُعيد (يطابق؟، الوزن) — الوزنُ (أصنافٌ+أشباهٌ، وسوم)؛ لا معرِّفاتٍ في الورقتين."""
+        toks = re.findall(r">|[^\s>]+", sel)
+        if not toks or not _comp_ok(toks[-1], path[-1]):
+            return False, (0, 0)
+
+        def rec(ti, pi, direct):
+            if ti < 0:
+                return True
+            tok = toks[ti]
+            if tok == ">":
+                return rec(ti - 1, pi, True)
+            if direct:
+                return pi >= 0 and _comp_ok(tok, path[pi]) and rec(ti - 1, pi - 1, False)
+            for q in range(pi, -1, -1):
+                if _comp_ok(tok, path[q]) and rec(ti - 1, q - 1, False):
+                    return True
+            return False
+
+        if not rec(len(toks) - 2, len(path) - 2, False):
+            return False, (0, 0)
+        flat = _COMP.findall("".join(t for t in toks if t != ">"))
+        return True, (sum(1 for t in flat if t[0] in ".:"),
+                      sum(1 for t in flat if t[0] not in ".:*"))
+
+    def _split_ws(v):
+        out, d, cur = [], 0, ""
+        for ch in v:
+            if ch == "(":
+                d += 1
+            elif ch == ")":
+                d -= 1
+            if ch.isspace() and d == 0:
+                if cur:
+                    out.append(cur)
+                cur = ""
+            else:
+                cur += ch
+        if cur:
+            out.append(cur)
+        return out
+
+    def _side(shorthand, side):
+        p = _split_ws(shorthand)
+        assert 1 <= len(p) <= 4, "مختصَرٌ لا يُفكّ: %r [AND-01]" % shorthand
+        p = (p * 4)[:4] if len(p) == 1 else (p + p) if len(p) == 2 else (p + p[1:2]) if len(p) == 3 else p
+        t, r, b, l = p
+        return {"top": t, "right": r, "bottom": b, "left": l}[side]
+
+    def _px(v, tokens):
+        """قيمةٌ بالبكسل بعد `var()` و`calc()`؛ `None` لما ليس بكسلًا (‏`auto`، `em`)."""
+        for _ in range(8):
+            v2 = re.sub(r"var\(\s*(--[\w-]+)\s*\)", lambda m: tokens.get(m.group(1), "var-missing"), v)
+            if v2 == v:
+                break
+            v = v2
+        v = v.strip()
+        if v.startswith("calc(") and v.endswith(")"):
+            v = v[5:-1]
+        expr = v.replace("px", "")
+        if re.fullmatch(r"[\d\s.+\-*/()]+", expr) and re.search(r"\d", expr):
+            return float(eval(expr, {"__builtins__": {}}, {}))  # أرقامٌ وعوامل فقط (تحقّقٌ فوقه)
+        return None
+
+    def _css_get(rules, tokens, path, prop, vw, coarse=False, prn=False, raw=False):
+        best = None
+        for order, (media, sel, decls) in enumerate(rules):
+            if not _media_ok(media, vw, coarse, prn):
+                continue
+            ok, spec = _sel_match(sel, path)
+            if not ok:
+                continue
+            val = None
+            for pn, pv in decls:
+                if pn == prop:
+                    val = pv
+                elif pn in ("margin", "padding") and prop.startswith(pn + "-"):
+                    val = _side(pv, prop[len(pn) + 1:])
+            if val is not None and (best is None or (spec, order) >= best[:2]):
+                best = (spec, order, val)
+        if best is None:
+            return None
+        if raw:
+            return best[2]
+        px = _px(best[2], tokens)
+        assert px is not None, (
+            "‏`%s` لـ%s تُحسَب إلى %r لا إلى بكسل — الحارسُ لا يستطيع قياسَها "
+            "[AND-01]" % (prop, path[-1][0], best[2]))
+        return px
+
+    _rules, _tokens = [], {}
+    for _cn in ("mihrab-docs.css", "mihrab-home.css"):  # بترتيب التحميل في `page_shell`
+        with open(os.path.join(SITE, "assets", _cn), encoding="utf-8") as _cf5:
+            _rules.extend(_css_rules(_cf5.read(), _cn))
+    for _media, _sel, _decls in _rules:
+        if _sel == ":root" and not _media:
+            _tokens.update((pn, pv) for pn, pv in _decls if pn.startswith("--"))
+    assert "--s1" in _tokens and "--s8" in _tokens, "رموزُ المسافات `--s*` غائبةٌ عن `:root` [AND-01]"
+
+    # ── (١) لا اسمَ يحلّه أندرويد إلى سيريف في أيّ سلسلةٍ تصل الزائر ──
+    _AND_SERIF = {"courier", "courier new", "times", "times new roman", "georgia",
+                  "baskerville", "goudy", "fantasy", "itc stone serif",
+                  "serif-monospace", "serif", "cursive"}
+    _chains = []
+    for _cn in sorted(os.listdir(os.path.join(SITE, "assets"))):
+        if _cn.endswith(".css"):
+            with open(os.path.join(SITE, "assets", _cn), encoding="utf-8") as _cf6:
+                _chains.append((_cn, css_strip_comments(_cf6.read(), _cn)))
+    for base, _dirs, names in os.walk(OUT):
+        for _nm in names:
+            if not _nm.endswith(".html"):
+                continue
+            _hp = os.path.join(base, _nm)
+            with open(_hp, encoding="utf-8") as _hf:
+                _ht = _hf.read()
+            _rel = os.path.relpath(_hp, OUT).replace(os.sep, "/")
+            for _m in re.finditer(r"<style[^>]*>(.*?)</style>", _ht, re.S | re.I):
+                _chains.append((_rel + " <style>", css_strip_comments(_m.group(1), _rel)))
+            for _m in re.finditer(r'\sstyle="([^"]*)"', _ht):
+                _chains.append((_rel + " style=", _html.unescape(_m.group(1))))
+    _n_chains = 0
+    for _where, _txt in _chains:
+        for _m in re.finditer(r"(?<![\w-])(font-family|--font-[\w-]+)\s*:\s*([^;}]+)", _txt):
+            _n_chains += 1
+            for _item in _m.group(2).split(","):
+                _it = _item.strip().strip("\"'").lower()
+                assert _it not in _AND_SERIF, (
+                    "‏`%s` في %s تحمل %r — على أندرويد اسمٌ مستعارٌ لسيريف في "
+                    "`fonts.xml` يُلتقَط قبل العامّ، فالنصُّ سيريفيٌّ على كلّ هاتف "
+                    "[AND-01]" % (_m.group(1), _where, _item.strip()))
+    assert _n_chains >= 3, "لم تُقرأ سلاسلُ الخطوط (%d) — الحارسُ يقيس الهواء [AND-01]" % _n_chains
+
+    # ── [AND-06] لا `letter-spacing` غيرَ صفرٍ في أيّ CSS يصل الزائر ──
+    # التباعدُ يُدخَل بين الحروف العربيّة **المتّصلة** فيفكّ اتّصالَها: عناوينُ الدرج
+    # على محاكي أندرويد («اضبط ووسّع») ظهرت حروفًا متقطّعة. كان في ستّة مواضع
+    # (‏`.site-nav h2`، `.toc-title`، `th`، `.hero h1`، `.footer-in h4`، `.docs-index
+    # h2`) ووسمِ صفحة المعاينة داخل `build.py` — والطفرةُ (إعادةُ `.18em` إلى واحدٍ
+    # منها) كانت تمرّ خضراء. تُقاس السلاسلُ نفسُها التي يقيسها [AND-01].
+    _n_ls = 0
+    for _where, _txt in _chains:
+        for _m in re.finditer(r"(?<![\w-])letter-spacing\s*:\s*([^;}]+)", _txt):
+            _n_ls += 1
+            _v = _m.group(1).strip().lower()
+            assert _v in ("0", "normal", "0px", "0em", "unset", "initial", "inherit"), (
+                "‏`letter-spacing: %s` في %s — يفكّ اتّصالَ الحروف العربيّة (ظهر على "
+                "محاكي أندرويد في عناوين الدرج) [AND-06]" % (_m.group(1).strip(), _where))
+    # والصفرُ المنتظَر لا يميّز حارسًا يرى عن حارسٍ أعمى: يُطعَم التعبيرُ نفسُه
+    # الأشكالَ التي تُكتَب فعلًا (بلا صفرٍ بادئ، سالبة، بلا مسافة، داخل `style=`)
+    # فيلتقطها — ولا يلتقط رمزًا مخصَّصًا يحمل الاسمَ.
+    _LS_RE = r"(?<![\w-])letter-spacing\s*:\s*([^;}]+)"
+    for _probe, _want in (("h2{letter-spacing:.18em}", ".18em"), ("a{letter-spacing: -.01em;}", "-.01em"),
+                          ("th{letter-spacing:normal}", "normal"), ("color:red;letter-spacing:1px", "1px")):
+        _pm = re.search(_LS_RE, _probe)
+        assert _pm and _pm.group(1).strip() == _want, "تعبيرُ [AND-06] لا يلتقط %r" % _probe
+    assert not re.search(_LS_RE, "--letter-spacing-x: 1"), "تعبيرُ [AND-06] يلتقط رمزًا لا خاصّيّة"
+    del _n_ls
+
+    # ── [AND-07] الحجمُ المعروضُ عشريٌّ في **الثلاثة**: المخبوز، وsite.js، والمعاينة ──
+    # الشاهدُ يملكه الحارس: أرشيفُ ويندوز ‎203,053,894‎ بايت يُعرَض ‎203‎ (‏÷‎1e6‎)،
+    # وكان ‎194‎ (‏÷‎1048576‎). صار `fmtSize` عشريًّا وبقي `_fmt_size` في `build.py`
+    # ثنائيًّا — فالصفحةُ المخبوزةُ تقول ‎194‎ ويمحوها السكربتُ بـ‎203‎ بعد التحميل،
+    # ومن عطّل السكربتات يقرأ الأوّل. فتُقاس الأوجهُ الثلاثة، والقاعدةُ نفسُها تُطبَّق
+    # على كلّ أصلٍ في المانيفست المخبوز. و`fmtSize` **تُنفَّذ** بـnode لا تُقرأ بتعبير.
+    _AND07_BYTES, _AND07_WANT = 203053894, "203 ميغابايت"
+
+    def _and07_fmt(_b):
+        _mb = _b / 1e6
+        return ("%.2f غيغابايت" % (_mb / 1000)) if _mb >= 1000 else ("%d ميغابايت" % round(_mb))
+
+    assert _and07_fmt(_AND07_BYTES) == _AND07_WANT, "قاعدةُ [AND-07] نفسُها منحرفة"
+    with open(os.path.join(SITE, "data", "releases.json"), encoding="utf-8") as _rj:
+        _and07_assets = [a for a in json.load(_rj).get("assets", []) if a.get("size")]
+    assert _and07_assets, "لا أصولَ في releases.json — [AND-07] يقيس الهواء"
+    _dl_html = read("download/index.html")
+    for _a in _and07_assets:
+        _dec = _and07_fmt(_a["size"])
+        _bin = "%d ميغابايت" % round(_a["size"] / 1048576.0)
+        assert ">%s<" % _dec in _dl_html, (
+            "صفحةُ التنزيل المخبوزة لا تعرض %s لـ%s (‏%d بايت) — `_fmt_size` في "
+            "`build.py` ليست عشريّة [AND-07]" % (_dec, _a["file"], _a["size"]))
+        if _bin != _dec:
+            assert ">%s<" % _bin not in _dl_html, (
+                "صفحةُ التنزيل تعرض %s الثنائيّ لـ%s بجانب العشريّ [AND-07]" % (_bin, _a["file"]))
+    _sjs = read("assets/site.js")
+    _fm = re.search(r"function fmtSize\(bytes\)\s*\{.*?\n\t\}", _sjs, re.S)
+    assert _fm, "لم تُعرَف `fmtSize` في site.js [AND-07]"
+    # ⚠️ **node مطلوبٌ لا اختياريّ.** كانت كلُّ فحوصِ السلوك أدناه تتراجع بلا node إلى
+    # مطابقةِ نصٍّ هو `old` المُصاب نفسُه — فيُقتَل المُصابُ ولا يُقاس سلوك، و
+    # `site-chord-prefix-never-waits` كان يعيش (قِيس بحذف node من PATH). فالغيابُ أحمرُ بصوت.
+    _node = shutil.which("node")
+    assert _node, ("node غيرُ موجود — فحوصُ السلوك [AND-07][AND-08][CAP-02][CAP-03] تُنفِّذ "
+                   "دوالَّ الموقع به، ولا بديلَ نصّيّ")
+    _nr = subprocess.run([_node, "-e", _fm.group(0) + "\nprocess.stdout.write(fmtSize(%d))" % _AND07_BYTES],
+                         capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert _nr.returncode == 0 and _nr.stdout.strip() == _AND07_WANT, (
+        "‏`fmtSize(%d)` في site.js ⇒ %r لا %r [AND-07]" % (_AND07_BYTES, _nr.stdout.strip(), _AND07_WANT))
+    # وفرعُ الغيغابايت لم يكن يُنفَّذ قطّ (‏203 م.ب وحدَها): القسمةُ على 1024 فيه كانت تمرّ.
+    _AND07_GB = 1500000000
+    _nrg = subprocess.run([_node, "-e", _fm.group(0) + "\nprocess.stdout.write(fmtSize(%d))" % _AND07_GB],
+                          capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert _nrg.returncode == 0 and _nrg.stdout.strip() == _and07_fmt(_AND07_GB), (
+        "‏`fmtSize(%d)` في site.js ⇒ %r لا %r [AND-07]" % (_AND07_GB, _nrg.stdout.strip(), _and07_fmt(_AND07_GB)))
+    _pjs = read("assets/preview-alif.js")
+    _pm2 = re.search(r"a\.size/([0-9e]+)\)", _pjs)
+    assert _pm2 and _pm2.group(1) == "1e6", (
+        "صفحةُ المعاينة تقسم الحجمَ على %r لا 1e6 [AND-07]" % (_pm2.group(1) if _pm2 else None))
+
+    # ── (٢) حافّةُ الشيفرة فوق زرّ النسخ على اللمس، وتعود في الطباعة ──
+    _pre = [("main", {"layout"}, False, False), ("div", {"content"}, False, False),
+            ("pre", set(), False, False)]
+    _btn = _pre + [("button", {"copy-btn"}, False, True)]
+    _b_top = _css_get(_rules, _tokens, _btn, "top", 412, coarse=True)
+    _b_h = _css_get(_rules, _tokens, _btn, "min-height", 412, coarse=True)
+    _pt_touch = _css_get(_rules, _tokens, _pre, "padding-top", 412, coarse=True)
+    _pt_fine = _css_get(_rules, _tokens, _pre, "padding-top", 1200)
+    _pt_print = _css_get(_rules, _tokens, _pre, "padding-top", 412, coarse=True, prn=True)
+    assert None not in (_b_top, _b_h, _pt_touch, _pt_fine, _pt_print), (
+        "تعذّر حسابُ زرّ النسخ/حشو `pre` (top=%r min-height=%r touch=%r fine=%r print=%r) "
+        "[AND-01]" % (_b_top, _b_h, _pt_touch, _pt_fine, _pt_print))
+    assert _b_h >= 44, "زرُّ النسخ على اللمس %gpx — تحت حدّ اللمس ‎44‎ [AND-01]" % _b_h
+    assert _pt_touch >= _b_top + _b_h, (
+        "حشوُ `pre` العلويُّ على اللمس %gpx وأسفلُ زرّ النسخ عند %g+%g=%gpx — الزرُّ "
+        "يطمس السطرَ الأوّل من كلّ كتلة شيفرةٍ على الهاتف [AND-01]"
+        % (_pt_touch, _b_top, _b_h, _b_top + _b_h))
+    assert _pt_print <= _pt_fine, (
+        "حشوُ `pre` العلويُّ في الطباعة من جهاز لمسٍ %gpx والأساسُ %gpx — الزرُّ مخفيٌّ "
+        "في الطباعة وثقبُه باقٍ فوق كلّ كتلة [AND-01]" % (_pt_print, _pt_fine))
+
+    # ── (٣) بين البطل واللقطة: حشوٌ + هامشٌ لا يُبتلَع + هامش — من المخرَج ──
+    class _Kids(_HP):
+        VOID = {"img", "br", "hr", "input", "meta", "link", "path", "circle", "rect",
+                "use", "source", "wbr", "area", "base", "col", "embed", "param", "track"}
+
+        def __init__(self):
+            _HP.__init__(self)
+            self.stack, self.hero_kids, self.after_hero = [], [], None
+            self._hero_depth = self._sib_depth = None
+
+        def handle_starttag(self, tag, attrs):
+            cls = set((dict(attrs).get("class") or "").split())
+            depth = len(self.stack)
+            if self._hero_depth is not None and depth == self._hero_depth + 1:
+                self.hero_kids.append((tag, cls))
+            if self._sib_depth is not None and depth == self._sib_depth and self.after_hero is None:
+                self.after_hero = (tag, cls)
+            if tag == "section" and "hero" in cls:
+                self._hero_depth = depth
+            if tag not in self.VOID:
+                self.stack.append(tag)
+
+        def handle_startendtag(self, tag, attrs):
+            self.handle_starttag(tag, attrs)
+            if tag not in self.VOID:
+                self.stack.pop()
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.stack) - 1, -1, -1):
+                if self.stack[i] == tag:
+                    if self._hero_depth == i and tag == "section":
+                        self._hero_depth, self._sib_depth = None, i
+                    del self.stack[i:]
+                    break
+
+    _kp = _Kids()
+    _kp.feed(read("index.html"))
+    assert _kp.hero_kids and _kp.after_hero, "لا `section.hero` يليه عنصرٌ في `index.html` [AND-01]"
+    _lk_tag, _lk_cls = _kp.hero_kids[-1]
+    assert "shot" in _kp.after_hero[1], (
+        "ما يلي البطلَ في `index.html` هو %r لا `.shot` — حسابُ الفجوة يقيس غيرَ ما "
+        "على الصفحة [AND-01]" % (_kp.after_hero,))
+    _main = ("main", {"page"}, False, False)
+    _hero = ("section", {"hero"}, True, False)
+    _last = (_lk_tag, _lk_cls, len(_kp.hero_kids) == 1, True)
+    _shot = (_kp.after_hero[0], _kp.after_hero[1], False, False)
+    # الميزانيّة: ما قِيس على المحاكي وكان عطبًا ‎120‎ (‏‎136‎ مكتبًا)، وما يُقصَد
+    # حشوُ البطل + هامشُ اللقطة **وحدَهما**: ‎32+32‎ جوّالًا و‎48+64‎ مكتبًا.
+    for _vw, _label, _budget in ((412, "الجوّال", 64), (1200, "المكتب", 112)):
+        _pb = _css_get(_rules, _tokens, [_main, _hero], "padding-bottom", _vw)
+        _mb = _css_get(_rules, _tokens, [_main, _hero, _last], "margin-bottom", _vw)
+        _mt = _css_get(_rules, _tokens, [_main, _shot], "margin-top", _vw)
+        assert None not in (_pb, _mb, _mt), (
+            "تعذّر حسابُ فجوة البطل/اللقطة على %s (pb=%r mb=%r mt=%r) [AND-01]"
+            % (_label, _pb, _mb, _mt))
+        assert _mb == 0, (
+            "هامشُ آخرِ أبناء `.hero` (‏%s.%s) %gpx على %s — يُضاف إلى حشو البطل "
+            "لا يُبتلَع فيه، فيتراكم فوق اللقطة [AND-01]"
+            % (_lk_tag, ".".join(sorted(_lk_cls)) or "-", _mb, _label))
+        assert _pb + _mb + _mt <= _budget, (
+            "بين البطل واللقطة %g+%g+%g=%gpx على %s والميزانيّةُ %g — فراغٌ متراكم "
+            "فوق اللقطة [AND-01]" % (_pb, _mb, _mt, _pb + _mb + _mt, _label, _budget))
+
+    # ── ٥د) الجولةُ ‎13‎: أربعُ طفراتٍ كانت تعود صامتةً [AND-02..05] ──
+    # ما أُصلح بعد المحاكي ليس مقيسًا في الشجرة: حذفُ فرع IME من الالتقاط، وإعادةُ
+    # نصّ iOS إلى «يعمل على جهازك»، وحذفُ ‎44‎ من الدرج، وإعادةُ ‎19/4.6‎ القديمة
+    # إلى الوثائق — كلُّها تمرّ بلا خطأٍ في أيّ طبقة. وكلُّ حارسٍ هنا قِيس بطفرته.
+
+    # ── [AND-02] الالتقاطُ لا يدّعي قراءةَ اختصارٍ لم يصل ──
+    # لوحةُ الهاتف تُطلق keydown بـ`key="Unidentified"` (أندرويد Chrome، قِيس على
+    # المحاكي) أو `"Process"` (‏Chromium وفايرفوكس أثناء تركيب IME — لم يُقَس على
+    # فايرفوكس أندرويد ولا iOS) و`keyCode 229` في الحالين، و`isComposing` اسمُ
+    # الحالة في المواصفة. بلا الفرع كانت النتيجة «Unidentified — لا أمرَ معروفًا».
+    # يُقاس ساكنًا: الفرعُ **قبل** `chordFromEvent` ويعود بعد رسالةٍ لا تحمل
+    # «Unidentified». (والسلوكُ قِيس على msedge: الثلاثُ تُعرَض الرسالةَ نفسَها.)
+    with open(os.path.join(SITE, "assets", "docs.js"), encoding="utf-8") as _dj:
+        _docs_js = _dj.read()
+    _kd = re.search(r"captureField\.addEventListener\('keydown',\s*function \(e\) \{(.*?)var chord = chordFromEvent\(e\);",
+                    _docs_js, re.S)
+    assert _kd, "معالجُ keydown للالتقاط لا يستدعي `chordFromEvent(e)` كما يعرفه الحارس [AND-02]"
+    _pre_chord = re.sub(r"/\*.*?\*/", "", _kd.group(1), flags=re.S)
+    for _cond in ("e.isComposing", "e.key === 'Unidentified'", "e.key === 'Process'", "e.keyCode === 229"):
+        assert _cond in _pre_chord, (
+            "الالتقاطُ لا يفحص `%s` قبل قراءة الاختصار — لوحةُ الهاتف تُعرَض "
+            "«Unidentified — لا أمرَ معروفًا» [AND-02]" % _cond)
+    _ime = re.search(r"if \([^)]*e\.keyCode === 229[^)]*\)\s*\{(.*?)\}", _pre_chord, re.S)
+    assert _ime, "فرعُ IME في الالتقاط ليس `if (…) { … }` واحدًا [AND-02]"
+    _msg = re.search(r"captureOut\.textContent = '([^']*)'", _ime.group(1))
+    assert _msg and _msg.group(1).strip(), "فرعُ IME لا يكتب رسالةً في `.result` — الحقلُ يصمت [AND-02]"
+    assert "Unidentified" not in _msg.group(1) and "لا أمرَ معروفًا" not in _msg.group(1), (
+        "رسالةُ فرع IME تدّعي اختصارًا: %r [AND-02]" % _msg.group(1))
+    assert re.search(r"\breturn;", _ime.group(1)), "فرعُ IME لا يعود — يمضي إلى `chordFromEvent` ويكتب فوق الرسالة [AND-02]"
+
+    # ── [AND-03] بطاقةُ الهاتف تقول بقدر ما قِيس: iOS «لم يُقَس» لا «يعمل على جهازك» ──
+    # وكشفُ iOS يُكتَب **مرّةً واحدة**: كان تعبيرُ `iPhone|iPad|iPod` + `Macintosh`
+    # باللمس مكرَّرًا في كشف الهاتف وفي `IS_IOS` فيصلح أحدُهما ويبقى الآخر —
+    # وiPad يُعرَف «هاتفًا» بتعبيرٍ و«ليس iOS» بالآخر.
+    with open(os.path.join(SITE, "assets", "site.js"), encoding="utf-8") as _sj2:
+        _site_js = _sj2.read()
+    _site_code = re.sub(r"/\*.*?\*/", "", _site_js, flags=re.S)
+    assert len(re.findall(r"iPhone\|iPad\|iPod", _site_code)) == 1, (
+        "تعبيرُ كشف iOS مكتوبٌ %d مرّة في `site.js` — يُكتَب مرّةً في `IS_IOS` "
+        "ويُستعمَل في كشف الهاتف [AND-03]" % len(re.findall(r"iPhone\|iPad\|iPod", _site_code)))
+    assert _site_code.count("maxTouchPoints") == 1, "كشفُ iPadOS باللمس مكرَّرٌ في `site.js` [AND-03]"
+    _is_ios_at = _site_code.find("var IS_IOS = ")
+    _mobile_at = _site_code.find("guess.os = 'mobile'")
+    assert 0 <= _is_ios_at < _mobile_at, "‏`IS_IOS` لا يسبق كشفَ الهاتف في `site.js` [AND-03]"
+    _mob_if = re.search(r"if \(([^{]*)\)\s*\{ guess\.os = 'mobile'; \}", _site_code)
+    assert _mob_if and "IS_IOS" in _mob_if.group(1) and "Android" in _mob_if.group(1), (
+        "كشفُ الهاتف لا يبني على `IS_IOS` و`Android` معًا: %r [AND-03]" % (_mob_if and _mob_if.group(1)))
+    assert "meta.textContent = IS_IOS ? MOBILE_META_IOS : MOBILE_META;" in _site_code, (
+        "بطاقةُ الهاتف لا تختار نصَّ iOS بـ`IS_IOS` — كلُّ هاتفٍ يقرأ نصَّ أندرويد [AND-03]")
+    _metas = dict(re.findall(r"var (MOBILE_META(?:_IOS)?) = '([^']*)';", _site_code))
+    assert set(_metas) == {"MOBILE_META", "MOBILE_META_IOS"}, "نصّا بطاقة الهاتف غيرُ معرَّفين كما يعرفهما الحارس [AND-03]"
+    assert "يعمل على جهازك" in _metas["MOBILE_META"], "نصُّ أندرويد لم يعد يقول ما قِيس: «يعمل على جهازك» [AND-03]"
+    assert ("يعمل على جهازك" not in _metas["MOBILE_META_IOS"] and "iPhone" in _metas["MOBILE_META_IOS"]
+            and re.search(r"لم (?:يُقَس|نقس|نجرّب|يُجرَّب|تُجرَّب)", _metas["MOBILE_META_IOS"])), (
+        "نصُّ iOS يعِد بما لم يُقَس: %r — لم يُجرَّب على iPhone/iPad بعد [AND-03]" % _metas["MOBILE_META_IOS"])
+    assert _metas["MOBILE_META"] != _metas["MOBILE_META_IOS"], "نصُّ iOS هو نصُّ أندرويد [AND-03]"
+
+    # ── [AND-04] أهدافُ اللمس في الدرج والترويسة ‎44‎ — وبلا فليكس يُفكّك الرابط ──
+    # روابطُ الدرج كانت ‎34‎ (الجولة ‎12‎) و«القائمة» ‎31.6‎. تُقاس بالتتالي المصغَّر
+    # أعلاه على ‎412‎ لمسًا. و`display: flex` على `.site-nav a` **مرفوض** ما دام
+    # رابطٌ يحمل ابنًا: نصُّ `.nav-app` وسهمُه ↗ يصيران عنصرين والمسافةُ بينهما
+    # تسقط (قِيست ‎0‎ بكسل على msedge بلمس). فالارتفاعُ بالحشو: ‎10 + 15×1.6 + 10‎.
+    _nav_a = [("nav", {"site-nav"}, False, False), ("ul", set(), False, False),
+              ("li", set(), False, False), ("a", set(), False, False)]
+    _nav_mh = _css_get(_rules, _tokens, _nav_a, "min-height", 412, coarse=True)
+    assert _nav_mh is not None and _nav_mh >= 44, (
+        "روابطُ الدرج على اللمس `min-height` %r — تحت ‎44‎، الإبهامُ يخطئها [AND-04]" % _nav_mh)
+    _nav_pt = _css_get(_rules, _tokens, _nav_a, "padding-top", 412, coarse=True)
+    _nav_pb = _css_get(_rules, _tokens, _nav_a, "padding-bottom", 412, coarse=True)
+    _nav_fs = _css_get(_rules, _tokens, _nav_a, "font-size", 412, coarse=True)
+    _nav_lh = _css_get(_rules, _tokens, _nav_a, "line-height", 412, coarse=True, raw=True)
+    assert None not in (_nav_pt, _nav_pb, _nav_fs, _nav_lh) and re.fullmatch(r"[\d.]+", _nav_lh), (
+        "تعذّر حسابُ ارتفاع رابط الدرج (pt=%r pb=%r fs=%r lh=%r) [AND-04]" % (_nav_pt, _nav_pb, _nav_fs, _nav_lh))
+    _nav_h = _nav_pt + _nav_pb + _nav_fs * float(_nav_lh)
+    assert _nav_h >= 44, (
+        "ارتفاعُ رابط الدرج بالحشو %g+%g×%s+%g=%gpx على اللمس — `min-height` وحدَها "
+        "تمدّ الصندوقَ وتترك النصَّ في أعلاه [AND-04]" % (_nav_pt, _nav_fs, _nav_lh, _nav_pb, _nav_h))
+    _nav_disp = _css_get(_rules, _tokens, _nav_a, "display", 412, coarse=True, raw=True)
+    _nav_pages = [os.path.join(b_, n_) for b_, _d, ns_ in os.walk(OUT) for n_ in ns_ if n_ == "index.html"]
+    _kids = 0
+    for _np in _nav_pages:
+        with open(_np, encoding="utf-8") as _nf:
+            _nt = _nf.read()
+        _nm = re.search(r'<nav class="site-nav"[^>]*>(.*?)</nav>', _nt, re.S)
+        if not _nm:
+            continue
+        for _am in re.finditer(r"<a\b[^>]*>(.*?)</a>", _nm.group(1), re.S):
+            if "<" in _am.group(1):
+                _kids += 1
+    assert _kids, "لا رابطَ في الدرج يحمل ابنًا (‏`.nav-app` وسهمُه) — تغيّر المخرَج، يُراجَع الحارس [AND-04]"
+    assert _nav_disp not in ("flex", "inline-flex", "grid", "inline-grid"), (
+        "‏`.site-nav a` على اللمس `display: %s` و%d رابطًا في الدرج يحمل ابنًا — النصُّ "
+        "والسهمُ عنصران متجاوران والمسافةُ بينهما تسقط [AND-04]" % (_nav_disp, _kids))
+    _hdr_btn = [("header", {"site-header"}, False, False), ("button", {"icon-btn"}, False, False)]
+    _hdr_mh = _css_get(_rules, _tokens, _hdr_btn, "min-height", 412, coarse=True)
+    assert _hdr_mh is not None and _hdr_mh >= 44, (
+        "«القائمة» وزرُّ السمة في الترويسة على اللمس `min-height` %r — كانت ‎31.6‎ [AND-04]" % _hdr_mh)
+
+    # ── [AND-05] أرقامُ أوّل الإقلاع في الوثائق هي المقيسة، لا القديمة ──
+    # الشاهدُ يملكه الحارس: قياسُ ‎2026-09-22‎ على `app.mihrab.dev` عبر CDP (‏msedge،
+    # مخبأٌ فارغ): من الأصل نفسِه ‎20‎ طلبًا و‎5.20‎ م.ب منقولةً؛ والخامُ ‎20.3‎ من
+    # DevTools (الحزمةُ الرئيسةُ ‎4.4‎ مضغوطةً لا يعيدها CDP خامًا). والشجرةُ ‎203‎.
+    # كانت الوثائقُ تقول ‎19/4.6‎ من قياسٍ أقدم، وإعادتُها لا تُخطئ شيئًا.
+    # كلُّ رقمٍ في جملة أوّل الإقلاع يجب أن يكون من المقيس (بعد التقريب)، والعشرون
+    # طلبًا تُذكَر لفظًا أو رقمًا.
+    _BOOT = {"requests": 20, "transfer_mb": 5.2, "raw_mb": 20.3, "tree_mb": 203}
+    _boot_ok = {float(round(_BOOT["transfer_mb"])), float(round(_BOOT["raw_mb"])),
+                float(_BOOT["tree_mb"]), float(_BOOT["requests"])}
+    _AR_DIG = {ord(c): str(i) for i, c in enumerate("٠١٢٣٤٥٦٧٨٩")}
+
+    def _boot_nums(s):
+        s = s.translate(_AR_DIG).replace("\u200e", "").replace("\u200f", "").replace("\u061c", "")
+        return {float(x) for x in re.findall(r"\d+(?:\.\d+)?", s)}, s
+
+    with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as _rf:
+        _readme_row = [ln for ln in _rf.read().splitlines() if ln.startswith("| أوّلُ تحميل |")]
+    assert len(_readme_row) == 1, "صفُّ «أوّلُ تحميل» في README غائبٌ أو مكرَّر [AND-05]"
+    with open(os.path.join(ROOT, "docs", "محراب-في-المتصفّح.md"), encoding="utf-8") as _bf:
+        _boot_doc = re.search(r"\*\*الثابتة\*\*\s*\(`vscode-web`(.*?)\)\.", _bf.read(), re.S)
+    assert _boot_doc, "جملةُ الشجرة الثابتة في `docs/محراب-في-المتصفّح.md` لم تُعرَف [AND-05]"
+    with open(os.path.join(SITE, "data", "site.json"), encoding="utf-8") as _sjb:
+        _lim = [x for x in json.load(_sjb)["browser"]["limits"] if x.startswith("أوّلُ تحميل")]
+    assert len(_lim) == 1, "حدُّ «أوّلُ تحميل» في `site.json` غائبٌ أو مكرَّر [AND-05]"
+    for _where, _txt, _need in (("README.md", _readme_row[0], {5.0, 20.0, 203.0}),
+                                ("docs/محراب-في-المتصفّح.md", _boot_doc.group(1), {5.0, 20.0, 203.0}),
+                                ("site.json", _lim[0], {5.0})):
+        _got, _norm = _boot_nums(_txt)
+        assert _need <= _got, (
+            "جملةُ أوّل الإقلاع في %s بلا الأرقام المقيسة %s (فيها %s) [AND-05]"
+            % (_where, sorted(_need - _got), sorted(_got)))
+        assert _got <= _boot_ok, (
+            "جملةُ أوّل الإقلاع في %s تحمل رقمًا ليس من القياس: %s — الأرقامُ القديمة "
+            "(‏19/4.6) تعود بلا قياس [AND-05]" % (_where, sorted(_got - _boot_ok)))
+        if _where != "site.json":
+            assert re.search(r"عشرين|العشرون|عشرون|20 طلب", _norm), (
+                "جملةُ أوّل الإقلاع في %s لا تذكر أنّها **عشرون** ملفًّا لا الشجرةُ كلُّها [AND-05]" % _where)
+
+    # ── ٥هـ) الجولةُ ‎15‎: الأسهمُ وEscape في نتائج البحث، والترشيحُ يُنطَق [AND-08] ──
+    # ثلاثةُ سلوكاتٍ أُضيفت في docs.js وكلُّها كانت تعود صامتةً بطفرة (قِيست الثلاثُ):
+    # Escape يمنع الحركةَ الأصليّة **ما دامت النتائجُ ظاهرة** (‏Chromium يمسح
+    # `input[type=search]` بنفسه ويُطلق `input`) ولا يمنعها والقائمةُ مطويّة؛ و↓/↑ تسير
+    # في الروابط وتعود من الأولى إلى الحقل ولا تلتفّ؛ وحقلُ الترشيح يكتب عددَ الصفوف في
+    # `role="status"` بصيغةٍ صحيحةِ العدد. `moveIn` و`kbdWord` **تُنفَّذان** بـnode على
+    # صندوقٍ مصنوع كما [AND-07]، ولا تُقرآن نصًّا إلّا حين لا node.
+    _esc = re.search(
+        r"document\.addEventListener\('keydown', function \(e\) \{\s*if \(e\.key !== 'Escape'\) \{ return; \}(.*?)\n\t\t\}\);",
+        _docs_js, re.S)
+    assert _esc, "معالجُ Escape لصناديق البحث لم يُعرَف في docs.js [AND-08]"
+    _esc_body = re.sub(r"/\*.*?\*/", "", _esc.group(1), flags=re.S)
+    _esc_if = re.search(r"if \(!b\.results\.hidden\) \{(.*?)\n\t\t\t\t\}", _esc_body, re.S)
+    assert _esc_if, "معالجُ Escape لا يشترط نتائجَ ظاهرةً قبل أن يفعل شيئًا [AND-08]"
+    assert "e.preventDefault()" in _esc_if.group(1), (
+        "Escape لا يمنع الحركةَ الأصليّة والنتائجُ ظاهرة — Chromium يمسح النصَّ فيطوي "
+        "النتائجَ ويُضيع السؤالَ بضغطةٍ واحدة [AND-08]")
+    assert "e.preventDefault()" not in _esc_body.replace(_esc_if.group(1), ""), (
+        "Escape يمنع الحركةَ الأصليّة **خارج** شرط النتائج الظاهرة — الضغطةُ الثانية لا تمسح "
+        "النصَّ كما اعتاد الزائر [AND-08]")
+    assert "show(b, false)" in _esc_if.group(1) and "announce(b, '')" in _esc_if.group(1), (
+        "Escape لا يطوي النتائجَ أو لا يُصمِت الإعلان [AND-08]")
+    assert "if (b.results.contains(document.activeElement)) { b.input.focus(); }" in _esc_if.group(1), (
+        "Escape من رابطٍ داخل النتائج لا يعيد البؤرةَ إلى الحقل — تبقى على عنصرٍ صار مخفيًّا [AND-08]")
+
+    _mv = re.search(r"function moveIn\(b, from, dir\) \{.*?\n\t\t\}", _docs_js, re.S)
+    assert _mv, "لم تُعرَف `moveIn` في docs.js [AND-08]"
+    _in_kd = re.search(r"b\.input\.addEventListener\('keydown', function \(e\) \{(.*?)\n\t\t\t\}\);", _docs_js, re.S)
+    assert _in_kd, "لا معالجَ keydown على حقل البحث [AND-08]"
+    assert "if (e.key !== 'ArrowDown' || b.results.hidden) { return; }" in _in_kd.group(1), (
+        "↓ من الحقل لا يُشترَط فيه نتائجُ ظاهرة — يُبتلَع السهمُ والقائمةُ مطويّة [AND-08]")
+    assert "if (moveIn(b, null, 1)) { e.preventDefault(); }" in _in_kd.group(1), (
+        "↓ من الحقل لا يدخل القائمةَ، أو يمنع الحركةَ الأصليّة حتّى حين لا رابطَ [AND-08]")
+    _res_kd = re.search(r"b\.results\.addEventListener\('keydown', function \(e\) \{(.*?)\n\t\t\t\}\);", _docs_js, re.S)
+    assert _res_kd and "e.key === 'ArrowDown' ? 1 : -1" in _res_kd.group(1), "↓/↑ داخل النتائج لا تسير [AND-08]"
+
+    _kw = re.search(r"function kbdWord\(n\) \{.*?\n\t\}", _docs_js, re.S)
+    assert _kw, "لم تُعرَف `kbdWord` في docs.js [AND-08]"
+    # قواعدُ العدد: صفرٌ نفيٌ، وواحدٌ مفرد، واثنان مثنًّى، و‎3–10‎ جمعٌ مجرور، و‎11‎ فأكثرَ مفردٌ منصوب.
+    _KW_WANT = {0: "لا اختصارَ يطابق", 1: "اختصارٌ واحد", 2: "اختصاران", 3: "3 اختصارات",
+                10: "10 اختصارات", 11: "11 اختصارًا", 100: "100 اختصارًا"}
+    _AND08_JS = _mv.group(0) + r"""
+var log = [];
+function mk(n) {
+  var links = [];
+  for (var i = 0; i < n; i++) { (function (i) { links.push({ focus: function () { log.push('a' + i); } }); }(i)); }
+  return { input: { focus: function () { log.push('input'); } },
+           results: { querySelectorAll: function () { return links; } }, links: links };
+}
+var e0 = mk(0), b = mk(3), out = [];
+out.push(moveIn(e0, null, 1));
+out.push(moveIn(b, null, 1));
+out.push(moveIn(b, b.links[1], 1));
+out.push(moveIn(b, b.links[2], 1));
+out.push(moveIn(b, b.links[0], -1));
+out.push(moveIn(b, null, -1));
+process.stdout.write(JSON.stringify([out, log]));
+"""
+    _AND08_WANT = [[False, True, True, True, True, True], ["a0", "a2", "input", "a2"]]
+    _nr8 = subprocess.run([_node, "-e", _AND08_JS], capture_output=True, encoding="utf-8",
+                          errors="replace", timeout=60)
+    assert _nr8.returncode == 0, "تعذّر تنفيذُ `moveIn` بـnode: %s [AND-08]" % _nr8.stderr.strip()[-300:]
+    _got8 = json.loads(_nr8.stdout)
+    assert _got8 == _AND08_WANT, (
+        "‏`moveIn` على صندوقٍ مصنوع ⇒ %r لا %r — المنتظَر: بلا روابط false؛ ↓ من الحقل إلى "
+        "الأولى؛ ↓ بين الروابط؛ ↓ من الأخيرة تبقى بلا التفاف؛ ↑ من الأولى إلى الحقل؛ "
+        "↑ بلا مصدرٍ إلى الأخيرة [AND-08]" % (_got8, _AND08_WANT))
+    _nr9 = subprocess.run(
+        [_node, "-e", _kw.group(0) + "\nprocess.stdout.write(JSON.stringify(%s.map(kbdWord)))"
+         % json.dumps(sorted(_KW_WANT))],
+        capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+    assert _nr9.returncode == 0, "تعذّر تنفيذُ `kbdWord` بـnode: %s [AND-08]" % _nr9.stderr.strip()[-300:]
+    for _n, _s in zip(sorted(_KW_WANT), json.loads(_nr9.stdout)):
+        assert _s == _KW_WANT[_n], (
+            "‏`kbdWord(%d)` ⇒ %r لا %r — قواعدُ العدد العربيّ [AND-08]" % (_n, _s, _KW_WANT[_n]))
+
+    _kb_html = read("keyboard/index.html")
+    assert _kb_html.count('class="sr-only kbd-status" role="status" aria-live="polite"') == 1, (
+        "صفحةُ الاختصارات بلا سطرِ حالةٍ واحدٍ `role=\"status\" aria-live=\"polite\"` للترشيح — "
+        "قارئُ الشاشة لا يسمع عددَ الصفوف [AND-08]")
+    assert re.search(r"var msg = q \? kbdWord\(total\) : '';\n\s*if \(kbdStatus && kbdStatus\.textContent !== msg\) "
+                     r"\{ kbdStatus\.textContent = msg; \}", _docs_js), (
+        "‏`filterRows` لا تكتب العددَ في `.kbd-status` مشروطًا بتغيّر النصّ، أو تنطق والحقلُ فارغ [AND-08]")
+    with open(os.path.join(SITE, "assets", "mihrab-home.css"), encoding="utf-8") as _hf2:
+        assert re.search(r"\.sr-only\s*\{", css_strip_comments(_hf2.read(), "mihrab-home.css")), (
+            "لا قاعدةَ `.sr-only` في الورقة التي تصل صفحةَ الاختصارات — سطرُ الحالة يُرى لا يُنطَق وحدَه [AND-08]")
+    assert "assets/mihrab-home.css" in _kb_html, "صفحةُ الاختصارات لا تحمّل `mihrab-home.css` حيث `.sr-only` [AND-08]"
+
+    # ── [PRN-01] الطباعةُ تُخفي مقدّمةَ صفحة الاختصارات لا متنَ كلّ صفحة ──
+    # `.content > p` في كتلة الطباعة كانت بلا قيدٍ (الجولة ‎15‎) فتُخفي فقراتِ وعناوينَ
+    # وكتلَ **كلّ** صفحةِ توثيقٍ عند الطباعة: `/start/` تُطبَع بلا فقراتها السبع وعناوينها
+    # الخمسة وكتلتها. التتالي المصغَّر لا يفهم `:has()` فلا يطابقه — وهذا المقصود: يُقاس
+    # أنّ ابنًا مباشرًا لـ`main.content` لا يُخفى في الطباعة **بقاعدةٍ عامّة**، وأنّ القيدَ
+    # موجودٌ في الورقة وجدولُه في الصفحة.
+    _mc = [("main", {"content"}, False, False)]
+    for _tag in ("p", "h2", "pre"):
+        _d = _css_get(_rules, _tokens, _mc + [(_tag, set(), False, False)], "display", 1200, prn=True, raw=True)
+        assert _d != "none", (
+            "‏`main.content > %s` في الطباعة `display: none` بقاعدةٍ عامّة — متنُ كلّ صفحةِ "
+            "توثيقٍ يختفي من الورق [PRN-01]" % _tag)
+    _cc = _css_get(_rules, _tokens, _mc, "column-count", 1200, prn=True, raw=True)
+    assert _cc in (None, "auto", "1"), (
+        "‏`main.content` في الطباعة أعمدةٌ (%r) بقاعدةٍ عامّة — لصفحة الاختصارات وحدَها [PRN-01]" % _cc)
+    with open(os.path.join(SITE, "assets", "mihrab-docs.css"), encoding="utf-8") as _pf:
+        _prn_css = css_strip_comments(_pf.read(), "mihrab-docs.css")
+    assert re.search(r"\.content:has\(\[data-kbd-table\]\)\s*>\s*p\b", _prn_css), (
+        "قاعدةُ إخفاء مقدّمة صفحة الاختصارات في الطباعة غائبةٌ أو بلا قيد `:has([data-kbd-table])` [PRN-01]")
+    assert "data-kbd-table" in _kb_html, "صفحةُ الاختصارات بلا `data-kbd-table` — قيدُ الطباعة لا يجد جدولَه [PRN-01]"
+    _start_html = read("start/index.html")
+    assert re.search(r'<main class="content">\s*<h1', _start_html) and "<p>" in _start_html, (
+        "صفحةُ `/start/` ليست `main.content` بفقراتٍ مباشرة — شاهدُ [PRN-01] زال")
+
+    # ── [CAP-01] ما يُقارَن به الالتقاطُ بترتيب `chordFromEvent` نفسِه ──
+    # ‏`data-chords` كانت السلسلةَ كما كُتبت في البيانات («Shift+Alt+Cmd+C»)، والحدثُ
+    # يبنيها Ctrl ثمّ Cmd ثمّ Shift ثمّ Alt («Cmd+Shift+Alt+C») — فثلاثةُ اختصاراتِ ماك
+    # كانت تُلتقَط «لا أمرَ معروفًا» والصفُّ أمام الزائر. الترتيبُ يُقرأ من docs.js لا يُكتَب.
+    _ord = re.findall(r"if \(e\.(ctrl|meta|shift|alt)Key\) \{ parts\.push\('(\w+)'\); \}", _docs_js)
+    assert [m for m, _ in _ord] == ["ctrl", "meta", "shift", "alt"], (
+        "ترتيبُ المعدِّلات في `chordFromEvent` %r — يُراجَع `_canon_chord` في build.py [CAP-01]" % (_ord,))
+    _mods = [n for _, n in _ord]
+    _chords = [c for m in re.finditer(r'data-chords="([^"]*)"', _kb_html)
+               for c in _html.unescape(m.group(1)).split("|") if c]
+    assert len(_chords) >= 40, "عددُ الاختصارات في الصفحة %d — الحارسُ يقيس الهواء [CAP-01]" % len(_chords)
+    for _c in _chords:
+        for _press in _c.split(" "):
+            _parts = _press.split("+")
+            _pm = _parts[:-1]
+            assert all(m in _mods for m in _pm), "معدِّلٌ لا يعرفه `chordFromEvent` في %r [CAP-01]" % _c
+            assert _pm == [m for m in _mods if m in _pm], (
+                "‏`data-chords` تحمل %r وترتيبُ معدِّلاتها ليس ترتيبَ `chordFromEvent` (%s) — "
+                "الالتقاطُ يقارن حرفًا بحرف فيردّ «لا أمرَ معروفًا» والصفُّ أمام الزائر [CAP-01]"
+                % (_c, "، ".join(_mods)))
+            assert _parts[-1], "اختصارٌ ينتهي بـ`+` في %r [CAP-01]" % _c
+    # وشاهدُ تفعيل: البياناتُ تحمل ترتيبًا غيرَ قانونيٍّ **عمدًا** (المعروضُ يبقى كما كُتب:
+    # «Shift+Alt+Cmd» ترتيبُ ماك المألوف) فيُرى التقنينُ وهو يعمل. من قنّن البياناتِ كلَّها
+    # فليُبقِ مثالًا واحدًا أو يُغذِّ الحارسَ به.
+    with open(os.path.join(SITE, "data", "keybindings.json"), encoding="utf-8") as _kbf:
+        _kb_raw = [e.get(k) for g in json.load(_kbf)["groups"] for e in g["items"]
+                   for k in ("win", "mac") if e.get(k)]
+    _raw_noncanon = [v for v in _kb_raw for _press in v.split(" ")
+                     if _press.split("+")[:-1] != [m for m in _mods if m in _press.split("+")[:-1]]]
+    assert _raw_noncanon, (
+        "لا اختصارَ في `keybindings.json` بترتيبٍ غيرِ قانونيّ — شاهدُ تفعيل [CAP-01] زال؛ أبقِ "
+        "مثالًا («Shift+Alt+Cmd+C») أو غذِّ الحارسَ بغيره")
+
+    # ── [CAP-02] الالتقاطُ يلتقط تسلسلَ ضغطتين، ويُلغي التعليقَ حين يجب ──
+    # `Ctrl+K` وحدَه ليس اختصارًا وهو بادئةُ تسلسلات؛ كان يُلتقَط «لا أمرَ معروفًا» ولا سبيلَ
+    # إلى تسلسلٍ (الجولة ‎16‎). `chordStep` نقيّةٌ **فتُنفَّذ** بـnode على جدول الصفحة
+    # المبنيّة نفسِه لا على صندوقٍ مصنوع: Ctrl+K ⇒ انتظار؛ ثمّ Ctrl+S ⇒ «اختصارات لوحة
+    # المفاتيح»؛ Ctrl+P فوريّ؛ بعد انقضاء المهلة Ctrl+S ⇒ «حفظ الملفّ»؛ Ctrl+K S ⇒ «حفظ
+    # الكلّ»؛ Ctrl+K Ctrl+K ⇒ لا أمرَ ولا تعليقَ ثانٍ. وساكنًا: المهلةُ ‎1–8‎ ث بمفتاحٍ لا
+    # قيمة، والتعليقُ يُلغى في Escape وIME وblur والمهلة (الجولة ‎17‎: كان Escape يعود
+    # قبل التصفير وblur لا يمسّه، فمن غادر الحقلَ وعاد خلال المهلة دُمجت ضغطتُه في تسلسلٍ
+    # لم يقصده). كلُّ فرعٍ قِيس بمُصابه في tests/meta/mutants.json.
+    _cs = re.search(r"function chordStep\(chord, pending, entries\) \{.*?\n\t\}", _docs_js, re.S)
+    assert _cs, "لم تُعرَف `chordStep(chord, pending, entries)` في docs.js [CAP-02]"
+    _cw = re.search(r"var CHORD_WAIT_MS = (\d+);", _docs_js)
+    assert _cw, "لا `var CHORD_WAIT_MS = N;` في docs.js — المهلةُ رقمٌ مدفون [CAP-02]"
+    assert 1000 <= int(_cw.group(1)) <= 8000, (
+        "مهلةُ التسلسل %s مث — دون ثانيةٍ لا تُدرَك الضغطةُ الثانية، وفوق ثمانٍ يُدمَج ما لم "
+        "يُقصَد [CAP-02]" % _cw.group(1))
+    _cp = re.search(r"function clearPending\(\) \{(.*?)\n\t\}", _docs_js, re.S)
+    assert _cp and "pendingChord = null;" in _cp.group(1) and "clearTimeout(pendingTimer)" in _cp.group(1), (
+        "‏`clearPending` لا تصفّر التعليقَ ومهلتَه معًا [CAP-02]")
+    _cap = re.search(r"captureField\.addEventListener\('keydown', function \(e\) \{(.*?)\n\t\t\}\);", _docs_js, re.S)
+    assert _cap, "معالجُ keydown للالتقاط لم يُعرَف بحدوده [CAP-02]"
+    _cap_body = re.sub(r"/\*.*?\*/", "", _cap.group(1), flags=re.S)
+    _esc2 = re.search(r"if \(e\.key === 'Escape'\) \{([^}]*)\}", _cap_body)
+    _ro = re.search(r"function resetOut\(\) \{(.*?)\n\t\t\}", _docs_js, re.S)
+    assert _esc2 and _ro and "resetOut();" in _esc2.group(1) and "clearPending();" in _ro.group(1), (
+        "Escape يُغلق الالتقاطَ ولا يُلغي التعليق — Ctrl+K ثمّ Escape ثمّ فتحٌ وS خلال المهلة "
+        "⇒ «Ctrl+K S ← حفظ الكلّ» [CAP-02]")
+    assert "clearPending();" in _ime.group(1), (
+        "ضغطةُ IME أثناء التعليق لا تُلغيه — تُدمَج الضغطةُ المفهومةُ التالية في تسلسلٍ لم يُقصَد [CAP-02]")
+    _dp = re.search(r"function dropPending\(\) \{(.*?)\n\t\t\}", _docs_js, re.S)
+    assert _dp and "if (!pendingChord) { return; }" in _dp.group(1) and "clearPending();" in _dp.group(1), (
+        "‏`dropPending` لا تُسقِط التعليقَ أو لا تعود حين لا تعليق [CAP-02]")
+    assert "لم تصل الضغطةُ الثانية" in _dp.group(1), "سقوطُ التعليق صامتٌ — السطرُ يبقى يطلب الضغطةَ الثانية [CAP-02]"
+    assert "captureField.addEventListener('blur', dropPending);" in _docs_js, (
+        "فقدانُ البؤرة لا يُسقِط التعليق — المعالجُ على الحقل وحدَه لكنّ التعليقَ يبقى للعائد خلال "
+        "المهلة [CAP-02]")
+    assert re.search(r"var step = chordStep\(chord, pendingChord, chordTable\);\n\s*clearPending\(\);", _cap_body), (
+        "المعالجُ لا يستدعي `chordStep(chord, pendingChord, chordTable)` ثمّ يصفّر التعليقَ قبل الحسم [CAP-02]")
+    assert re.search(r"if \(step\.wait\) \{.*?pendingChord = chord;.*?pendingTimer = setTimeout\(dropPending, CHORD_WAIT_MS\);\s*return;",
+                     _cap_body, re.S), (
+        "فرعُ الانتظار لا يعلّق الضغطةَ بمهلة `CHORD_WAIT_MS` تسقط بـ`dropPending` ويعود [CAP-02]")
+    _rows2 = [{"row": _html.unescape(m.group(2)), "chords": _html.unescape(m.group(1)).split("|")}
+              for m in re.finditer(r'data-chords="([^"]*)"><td><span class="cmd-name">([^<]*)</span>', _kb_html)]
+    assert len(_rows2) >= 40, "صفوفُ الاختصارات بأسمائها %d — الحارسُ يقيس الهواء [CAP-02]" % len(_rows2)
+    _CAP02_JS = _cs.group(0) + "\nvar entries = " + json.dumps(_rows2, ensure_ascii=False) + r""";
+function step(c, p) { var s = chordStep(c, p, entries); return [s.chord, s.row, s.wait]; }
+var out = [];
+out.push(step('Ctrl+K', null));
+out.push(step('Ctrl+S', 'Ctrl+K'));
+out.push(step('Ctrl+P', null));
+out.push(step('Ctrl+S', null));
+out.push(step('S', 'Ctrl+K'));
+out.push(step('Ctrl+K', 'Ctrl+K'));
+out.push(step('F24', null));
+process.stdout.write(JSON.stringify(out));
+"""
+    _CAP02_WANT = [["Ctrl+K", None, True],
+                   ["Ctrl+K Ctrl+S", "اختصارات لوحة المفاتيح", False],
+                   ["Ctrl+P", "الانتقال السريع إلى ملفّ", False],
+                   ["Ctrl+S", "حفظ الملفّ", False],
+                   ["Ctrl+K S", "حفظ الكلّ", False],
+                   ["Ctrl+K Ctrl+K", None, False],
+                   ["F24", None, False]]
+    _nr10 = subprocess.run([_node, "-e", _CAP02_JS], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=60)
+    assert _nr10.returncode == 0, "تعذّر تنفيذُ `chordStep` بـnode: %s [CAP-02]" % _nr10.stderr.strip()[-300:]
+    _got10 = json.loads(_nr10.stdout)
+    assert _got10 == _CAP02_WANT, (
+        "‏`chordStep` على جدول الصفحة ⇒ %r لا %r — المنتظَر: Ctrl+K ينتظر؛ Ctrl+K Ctrl+S "
+        "«اختصارات لوحة المفاتيح»؛ Ctrl+P فوريّ؛ Ctrl+S بلا تعليقٍ «حفظ الملفّ»؛ Ctrl+K S "
+        "«حفظ الكلّ»؛ Ctrl+K Ctrl+K لا أمرَ ولا انتظار؛ F24 لا شيء [CAP-02]" % (_got10, _CAP02_WANT))
+
+    # ── [CAP-03] الالتقاطُ يقرأ المفتاحَ لا المحرفَ المطبوع ──
+    # على لوحةٍ عربيّة `Ctrl+S` تصل `key="س"`، و`Shift` يقلب «`» إلى «~»، وOption على ماك
+    # يقلب C إلى «ç» — فكان «Ctrl+Shift+`» (طرفيّةٌ جديدة) و«Cmd+Shift+Alt+C» لا يُلتقَطان
+    # أبدًا والصفُّ أمام الزائر. `chordFromEvent` **تُنفَّذ** بأحداثٍ مصنوعة.
+    _cfe = re.search(r"\tvar CODE_KEY = \{.*?\n\tfunction chordFromEvent\(e\) \{.*?\n\t\}", _docs_js, re.S)
+    assert _cfe, "لم تُعرَف `CODE_KEY` ثمّ `chordFromEvent` في docs.js [CAP-03]"
+    _CAP03 = [({"ctrlKey": True, "key": "س", "code": "KeyS"}, "Ctrl+S"),
+              ({"ctrlKey": True, "shiftKey": True, "key": "~", "code": "Backquote"}, "Ctrl+Shift+`"),
+              ({"metaKey": True, "shiftKey": True, "altKey": True, "key": "ç", "code": "KeyC"}, "Cmd+Shift+Alt+C"),
+              ({"ctrlKey": True, "shiftKey": True, "key": "{", "code": "BracketLeft"}, "Ctrl+Shift+["),
+              ({"key": "س", "code": "KeyS"}, "S"),
+              ({"key": "F1", "code": "F1"}, "F1"),
+              ({"ctrlKey": True, "key": "k", "code": "KeyK"}, "Ctrl+K"),
+              # الحرفُ الصغيرُ يُكبَّر: بلا ذلك يُبنى «Ctrl+s» فلا يطابق صفًّا واحدًا بحرف
+              ({"ctrlKey": True, "key": "s", "code": "KeyS"}, "Ctrl+S"),
+              # المعدِّلُ وحدَه ليس ضغطة: بلا ذلك يُكتب «Ctrl+Control» قبل أن يكمل الزائر
+              ({"ctrlKey": True, "key": "Control", "code": "ControlLeft"}, None),
+              ({"shiftKey": True, "key": "Shift", "code": "ShiftLeft"}, None),
+              ({"key": " ", "code": "Space"}, "Space"),
+              # المتصفّحُ يرسل `ArrowUp` والجدولُ يكتب `Up`: بلا ترجمةٍ لا يُلتقَط «Alt+Up» أبدًا
+              ({"altKey": True, "key": "ArrowUp", "code": "ArrowUp"}, "Alt+Up"),
+              # المفتاحُ الميّت (‏Option+E على ماك) يصل `Dead` لا محرفًا
+              ({"metaKey": True, "altKey": True, "key": "Dead", "code": "KeyE"}, "Cmd+Alt+E")]
+    # ورحلةُ ذهابٍ وإياب: كلُّ ضغطةٍ في جدول الصفحة تُصنَع حدثًا لاتينيًّا كما يرسله
+    # المتصفّح، ثمّ تُعاد بـ`chordFromEvent` فيجب أن تعطي نصَّها نفسَه — وإلّا فصفٌّ في
+    # الجدول لا يمكن أن يُلتقَط أبدًا.
+    _CODE_OF = {"`": "Backquote", "-": "Minus", "=": "Equal", "[": "BracketLeft", "]": "BracketRight",
+                "\\": "Backslash", ";": "Semicolon", "'": "Quote", ",": "Comma", ".": "Period", "/": "Slash"}
+    # ⚠️ **الحدثُ كما يرسله المتصفّح، لا كما يكتبه الجدول.** كان الفرعُ الأخير يصنع
+    # `key=الرمز` لكلّ ما لم يُعرَف، فمرّت الأسهمُ (المتصفّحُ يرسل `ArrowUp`) والرحلةُ تصدّق
+    # نفسَها؛ وكانت ضغطاتُ Shift تُصنَع بالمحرف غيرِ المُزاح فبقي `CODE_KEY` وفرعُ `Digit`
+    # بلا حارسٍ فعليّ (قِيس بالزرع). فمع Shift يُرسَل المحرفُ المُزاح على تخطيط US، والمفاتيحُ
+    # المسمّاةُ من قائمةٍ صريحة، و**ما لا يُعرَف اسمُ حدثه يُفشِل الحارس** لا يمرّ صامتًا.
+    _US_SHIFTED = {"`": "~", "-": "_", "=": "+", "[": "{", "]": "}", "\\": "|", ";": ":", "'": '"',
+                   ",": "<", ".": ">", "/": "?", "1": "!", "2": "@", "3": "#", "4": "$", "5": "%",
+                   "6": "^", "7": "&", "8": "*", "9": "(", "0": ")"}
+    _NAMED = {"Up": "ArrowUp", "Down": "ArrowDown", "Left": "ArrowLeft", "Right": "ArrowRight",
+              "Enter": "Enter", "Escape": "Escape", "Tab": "Tab", "Backspace": "Backspace",
+              "Delete": "Delete", "Insert": "Insert", "Home": "Home", "End": "End",
+              "PageUp": "PageUp", "PageDown": "PageDown"}
+    _MODS = {"Ctrl": "ctrlKey", "Cmd": "metaKey", "Shift": "shiftKey", "Alt": "altKey"}
+    for _press in sorted({p for c in _chords for p in c.split(" ")}):
+        _toks = _press.split("+")
+        _key = _toks[-1]
+        _ev = {_MODS[t]: True for t in _toks[:-1] if t in _MODS}
+        _shift = bool(_ev.get("shiftKey"))
+        if re.fullmatch(r"[A-Z]", _key):
+            _ev.update(key=_key if _shift else _key.lower(), code="Key" + _key)
+        elif re.fullmatch(r"[0-9]", _key):
+            _ev.update(key=_US_SHIFTED[_key] if _shift else _key, code="Digit" + _key)
+        elif _key in _CODE_OF:
+            _ev.update(key=_US_SHIFTED[_key] if _shift else _key, code=_CODE_OF[_key])
+        elif _key == "Space":
+            _ev.update(key=" ", code="Space")
+        elif _key in _NAMED:
+            _ev.update(key=_NAMED[_key], code=_NAMED[_key])
+        elif re.fullmatch(r"F([1-9]|1[0-9]|2[0-4])", _key):
+            _ev.update(key=_key, code=_key)
+        else:
+            bad("ضغطةٌ في جدول الصفحة لا يُعرَف اسمُ حدثها في المتصفّح: %r — أضِفها إلى "
+                "`_NAMED` بما يرسله المتصفّح فعلًا، أو صحّح الجدول [CAP-03]" % _press)
+            continue
+        _CAP03.append((_ev, _press))
+    _js3 = _cfe.group(0) + "\nprocess.stdout.write(JSON.stringify(%s.map(function (o) { return chordFromEvent(" \
+        "Object.assign({ctrlKey: false, metaKey: false, shiftKey: false, altKey: false}, o)); })))" \
+        % json.dumps([e for e, _ in _CAP03], ensure_ascii=False)
+    _nr11 = subprocess.run([_node, "-e", _js3], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=60)
+    assert _nr11.returncode == 0, "تعذّر تنفيذُ `chordFromEvent` بـnode: %s [CAP-03]" % _nr11.stderr.strip()[-300:]
+    for (_ev, _want), _got in zip(_CAP03, json.loads(_nr11.stdout)):
+        assert _got == _want, (
+            "‏`chordFromEvent(%s)` ⇒ %r لا %r — المحرفُ المطبوعُ قُرئ مفتاحًا [CAP-03]"
+            % (json.dumps(_ev, ensure_ascii=False), _got, _want))
+    _known = set(_chords) | {p for c in _chords for p in c.split(" ")}
+    assert {"Ctrl+Shift+`", "Cmd+Shift+Alt+C"} <= _known, (
+        "شاهدا [CAP-03] لم يعودا في جدول الصفحة — يُغذّى الحارسُ بغيرهما")
 
     # ── ٥ب) صفحةُ ‎404‎: أصولُها تصل من **كلّ** أصلٍ تُقدَّم منه [W404] ──
     # هي الصفحةُ الوحيدةُ التي تُقدَّم من أصلين — `mihrab.dev` و`app.mihrab.dev`
@@ -1026,6 +1917,50 @@ def main():
                     % (asset, sha, declared_assets.get(asset)))
         for asset in sorted(set(declared_assets) - set(pinned)):
             bad("صفحةُ المعاينة تُعلن حزمةً لا يجلبها الجالب: %s" % asset)
+
+    # ── [MAN-01] مَن يبقى على الخادم: المانيفستُ المخبوزُ أم الحيّ ──
+    # ‏`deploy_site.sh` يسأل `build/lib/manifest_pick.py` ولا يقرّر بنفسه، والقرارُ يُقاس هنا
+    # جدوليًّا: كان سطورًا داخل السكربت بلا اختبار، وقِيس فيه أنّ مرشَّحًا يحلّ محلَّ
+    # النهائيّ، وأنّ `v` البادئة تُقرأ صفرًا، وأنّ التساوي يمحو أصلًا رُفع بعد آخر مزامنة.
+    import importlib.util as _ilu
+    _mspec = _ilu.spec_from_file_location("_manifest_pick", os.path.join(ROOT, "build", "lib", "manifest_pick.py"))
+    _mp = _ilu.module_from_spec(_mspec)
+    _mspec.loader.exec_module(_mp)
+    _A = {"id": "win-x64-zip", "file": "a.zip", "sha256": "11"}
+    _B = {"id": "linux-x64-tar", "file": "b.tar.gz", "sha256": "22"}
+    _MAN01 = [  # (المخبوز، الحيّ، المنتظَر)
+        ({"version": "1.121.05803"}, None, "baked"),                          # مرآةٌ جديدة
+        ({"version": "1.121.05803"}, {"version": "1.121.5802"}, "baked"),     # أصفارٌ بادئة
+        ({"version": "1.121.5803"}, {"version": "1.122.0"}, "live"),          # الحيُّ أحدث
+        ({"version": "1.2"}, {"version": "1.2.0.1"}, "live"),                 # الحشوُ بأصفار
+        ({"version": "1.2.0-rc1"}, {"version": "1.2.0"}, "live"),             # مرشَّحٌ لا يحلّ محلَّ نهائيّ
+        ({"version": "1.2.0"}, {"version": "1.2.1-rc1"}, "live"),             # مرشَّحٌ أحدثُ رقمًا
+        ({"version": "1.2.0"}, {"version": "1.2.0-rc1"}, "baked"),            # النهائيُّ يحلّ محلَّ مرشَّحه
+        ({"version": "1.2.0-rc2"}, {"version": "1.2.0-rc10"}, "live"),        # ‏rc10 عددٌ لا نصّ
+        ({"version": "1.2.0-rc.10"}, {"version": "1.2.0-rc.9"}, "baked"),
+        ({"version": "1.121.0"}, {"version": "v1.122.0"}, "live"),            # `v` البادئة
+        ({"version": "1.2.0", "assets": [_A]}, {"version": "1.2.0", "assets": [_A, _B]}, "live"),  # أصلٌ رُفع بعدُ
+        ({"version": "1.2.0", "assets": [_A, _B]}, {"version": "1.2.0", "assets": [_A]}, "baked"),
+        ({"version": "1.2.0", "assets": [_A]}, {"version": "1.2.0", "assets": [_A]}, "baked"),
+        ({"version": "1.2.0"}, {"version": ""}, "baked"),                     # حيٌّ بلا إصدار
+    ]
+    for _bk, _lv, _want in _MAN01:
+        _got = _mp.pick(_bk, _lv)[0]
+        if _got != _want:
+            bad("‏`manifest_pick` المخبوزُ %s والحيُّ %s ⇒ %s لا %s [MAN-01]"
+                % (_bk.get("version"), (_lv or {}).get("version"), _got, _want))
+    for _badv in ("latest", "1.x.0", "", 5):
+        try:
+            _mp.pick({"version": _badv}, {"version": "1.0"})
+            bad("‏`manifest_pick` قبل إصدارًا مخبوزًا غيرَ مفهوم %r بلا خطأ [MAN-01]" % _badv)
+        except ValueError:
+            pass
+    for _badl in ("nightly", 5):
+        try:
+            _mp.pick({"version": "1.0"}, {"version": _badl})
+            bad("‏`manifest_pick` قبل إصدارًا حيًّا غيرَ مفهوم %r بلا خطأ — يُقرأ صفرًا فيُمحى [MAN-01]" % (_badl,))
+        except ValueError:
+            pass
 
     report()
     return 1 if fails else 0

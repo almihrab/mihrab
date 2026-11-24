@@ -51,7 +51,7 @@
 .hero .mark-lg { width: 76px; height: 76px; color: var(--gold); margin-bottom: var(--s4); }
 .hero h1 {
 	font-size: 58px; line-height: 1.15; margin: 0 0 var(--s3);
-	color: var(--gold); letter-spacing: -.01em;
+	color: var(--gold);
 }
 .hero .tagline { font-size: 24px; line-height: 1.5; color: var(--text); margin: 0 0 var(--s4); }
 .hero .lede {
@@ -112,6 +112,15 @@
 /* ════════ لقطةُ الشاشة / الرسمُ البديل ════════
    إطارٌ واحدٌ عريض. حافّتُه العلويّة تحمل أزرارَ نافذةٍ **يسارًا** — النافذةُ عنصرُ
    نظامِ تشغيل لا عنصرَ صفحة، فلا تنقلب مع اتّجاه النصّ. */
+/* ⚠️ **وبين الشريط واللقطة ‎136‎ بكسلًا** (‏‎120‎ على الجوّال): حشوُ `.hero`
+   السفليُّ ‎48‎ + هامشُ `.move-note` ‎24‎ (وهو آخرُ أبناء البطل، فهامشُه يُضاف
+   إلى الحشو لا يُبتلَع) + هامشُ `.shot` ‎64‎. قِيس على محاكي أندرويد ثمّ بالحساب.
+   يُصفَّر هامشُ آخرِ ابنٍ في البطل — والهامشُ نفسُه كان يبقى على `/docs/` و`/download/`
+   حيث كان الشريطُ في الرأس ويحتاجه.
+   (الجولة ‎15‎: أُزيل `.move-note` وصار `.trust` آخرَ الأبناء، ولا هامشَ سفليًّا له —
+   فالقاعدةُ اليومَ حارسٌ لا مصحِّح: الفجوةُ ‎64‎/‎112‎ على الحيّ، وأيُّ ابنٍ يُضاف
+   آخرًا بهامشٍ لا يفتحها ثانيةً.) */
+.hero > :last-child { margin-bottom: 0; }
 .shot {
 	margin: var(--s8) auto 0; max-width: 980px;
 	border: 1px solid var(--border); border-radius: 12px;
@@ -230,21 +239,6 @@
    نقول للزائر «هذا لك». عند ‎6%‎: ‎4.62‎ فاتحًا و‎5.87‎ داكنًا، والتظليلُ يبقى مرئيًّا. */
 .dl-table tr.mine { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 
-/* شريطُ الانتقال: يُقرأ أوّلًا ولا يصرخ. حدٌّ على جهة البداية لا إطارٌ كامل —
-   المنطقيّةُ لا الفيزيائيّة، فالصفحةُ يمينيّة. */
-.move-note {
-  margin: 0 0 24px;
-  padding: 12px 16px;
-  border-inline-start: 3px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  border-radius: 6px;
-  font-size: 14px;
-  line-height: 1.8;
-  /* ‏`/docs/` تعيش داخل `main.home` وهي `text-align: center` — فكان الشريطُ
-     وحدَه يُوسَّط داخل إطارٍ حدُّه على جهة البداية، فيبدو منزاحًا عن حدّه. */
-  text-align: start;
-}
-.move-note code { font-size: 13px; }
 
 /* ── الخفوتُ في اللون لا في `opacity` ──
    كان `opacity: .55` على صفٍّ خليّتُه أصلًا `--text-dim`، **فيتضاعف الخفوت**:
@@ -268,7 +262,20 @@
 	.btn-sm { min-height: 44px; }
 	/* و«نزِّل» في الترويسة (‏39.8) وزرُّ النسخ (‏26) — قِيسا تحت ‎44‎ على الجوّال. */
 	.site-header .site-links a.cta { min-height: 44px; display: inline-flex; align-items: center; }
+	/* وأخواه «التوثيق» و«جرّبه في المتصفّح» ‎37.8‎ على اللوحيّ باللمس (‏768 و1024،
+	   الجولة ‎13‎) — على الهاتف مخفيّان فلا أثر. والترويسةُ لا تعلو: العلامةُ ‎44‎. */
+	.site-header .site-links a { min-height: 44px; display: inline-flex; align-items: center; }
+	/* و«اقرأ أكثر ←» في الخطوات ‎54×21‎: حشوٌ يُوسَّع بهامشٍ سالبٍ يعادله — الهدفُ
+	   ‎45‎ والتخطيطُ لا يتحرّك بكسلًا. */
+	.step a { display: inline-block; padding: 12px 0; margin: -12px 0; }
 	.copy-btn { min-height: 44px; min-width: 44px; opacity: 1; }
+	/* ⚠️ **ورفعُه إلى ‎44‎ جعله يطمس السطرَ الأوّل.** على الفأرة الزرُّ ‎26‎ يظهر
+	   عند التحويم فوق سطرٍ يُقرأ خلفَه؛ على اللمس ظاهرٌ دائمًا وارتفاعُه ‎44‎ من
+	   أعلى ‎8‎، والسطرُ الأوّل يبدأ عند ‎16‎ — فتقاطعا (قِيس على محاكي أندرويد
+	   ‎412‎: الزرُّ ‎y=616..660‎ والمحرفُ الأوّل ‎y=627‎). فتُرفَع حافّةُ الشيفرة
+	   العلويّة فوق الزرّ: ‎8 + 44 + 4 = 56‎ — والحشوُ لا الإزاحةُ، لأنّ السطرَ
+	   الطويل يمرّ تحت الزرّ أينما وُضع. */
+	pre { padding-top: calc(var(--s2) + 44px + var(--s1)); }
 }
 
 /* حالةُ الفراغ — لا إصدارَ بعد. صريحةٌ لا صامتة: جدولٌ فارغٌ بلا تفسير يقرؤه
@@ -293,10 +300,16 @@
 	max-width: 1080px; margin: 0 auto;
 	display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: var(--s6);
 }
-.footer-in h4 { margin: 0 0 var(--s3); font-size: 12px; letter-spacing: .18em; color: var(--gold); font-weight: 600; }
+.footer-in h4 { margin: 0 0 var(--s3); font-size: 12px; color: var(--gold); font-weight: 600; }
 .footer-in ul { list-style: none; padding: 0; margin: 0; }
 .footer-in li { margin-bottom: var(--s2); }
 .footer-in a { color: var(--text-dim); }
+/* هدفُ اللمس ‎28‎ لا ‎22‎ (قِيس على الحيّ ‎360‎/‎412‎: الرابطُ ‎22‎ بكسلًا وبينه
+   وجارِه ‎8‎). منطقةُ النقر تُمدّ بعنصرٍ زائفٍ مطلقٍ لا بحشو: `inline-block` مع
+   حشوٍ وهامشٍ سالب جُرِّب أوّلًا فرفع خطوةَ السطر من ‎30‎ إلى ‎35‎ (محاذاةُ الأساس
+   تضيف فراغَ الهابطة) — والزائفُ لا يحرّك سطرًا واحدًا. */
+.footer-in li a { position: relative; }
+.footer-in li a::after { content: ""; position: absolute; inset: -3px 0; }
 .footer-in a:hover { color: var(--accent); }
 .footer-brand .brand { font-size: 20px; margin-bottom: var(--s3); }
 .footer-brand p { color: var(--text-dim); font-size: 14px; line-height: 1.75; margin: 0; }
@@ -318,7 +331,7 @@
 
 /* فهرسُ التوثيق الكامل — روابطُ `<a>` تعمل بلا جافاسكربت. */
 .docs-index { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s6); margin-top: var(--s7); text-align: start; }
-.docs-index h2 { font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 var(--s3); letter-spacing: .02em; }
+.docs-index h2 { font-size: 15px; color: var(--text-dim); font-weight: 600; margin: 0 0 var(--s3); }
 .docs-index .sec-note { margin: 0 0 var(--s3); font-size: 13.5px; color: var(--text-dim); line-height: 1.6; }
 .docs-index ul { list-style: none; margin: 0; padding: 0; }
 .docs-index li + li { margin-top: 6px; }
@@ -340,6 +353,7 @@
 	   على ‎320px‎ — انظر كتلةَ ‎560px‎ أدناه، فهي تمامُ العلاج لا زينتُه. */
 	.header-search { min-width: 0; }
 	.hero { padding: var(--s7) 0 var(--s6); }
+	.shot { margin-top: var(--s6); }
 	.hero h1 { font-size: 40px; }
 	.hero .tagline { font-size: 19px; }
 	.section > h2 { font-size: 24px; }
@@ -418,7 +432,11 @@
 }
 
 /* سطرُ المنصّات المنتظَرة فوق الجدول: يقرأ «قريبًا» لا «لا». */
-.dl-pending { margin: var(--s4) 0 calc(var(--s4) * -1); font-size: 14px; }
+/* ⚠️ **والهامشُ السفليُّ موجبٌ لا سالب.** كان ‎−16‎ فيدخل صندوقُ الفقرة ‎16‎ بكسلًا
+   في رأس الجدول، وآخرُ سطرٍ فيها («بلا تاريخٍ موعود.») يعلو نصَّ «المنصّة» بـ‎2.1‎
+   بكسل — على ‎360‎ و‎412‎ و‎1280‎ سواء (الجولة ‎12‎، قِيس بحدود النصّ لا الصندوق).
+   ولا شيءَ فوق الجدول يبرّر السحب: `.table-wrap` بلا هامشٍ علويّ أصلًا. */
+.dl-pending { margin: var(--s4) 0 var(--s3); font-size: 14px; }
 
 /* ════════ الطباعة ════════ */
 @media print {
@@ -428,4 +446,9 @@
 	   لأجل البصمات**، فابتلاعُها يُفرِغ الطباعةَ من غرضها. */
 	.dl-table .sha { max-width: none; overflow: visible; white-space: normal; }
 	.site-header, .site-footer, .shot, .closer { display: none !important; }
+	/* ⚠️ **وحشوُ اللمس لا يُطبَع.** `pointer: coarse` أعلاه يرفع حافّةَ `pre`
+	   العلويّة ‎56‎ لأجل زرّ النسخ، و`mihrab-docs.css` تُخفي الزرَّ في الطباعة —
+	   ومن طبع من هاتفه (وسيطُ اللمس لا يزول بالطباعة) كان يأخذ ثقبًا ‎40‎
+	   فوق كلّ كتلة. فيعود الحشوُ إلى أساسه؛ وهذه الكتلةُ بعد كتلة اللمس فتغلبها. */
+	pre { padding-top: var(--s4); }
 }
