@@ -134,6 +134,16 @@ test("الاختصاراتُ تُسطَّح بحفظ ترتيب المجموعا
   assert.ok(rows.some((r) => r.win === "F5" && r.ar.includes("التنقيح")),
     "لوحةُ المساعدة تعرف F5 بمعناه في محراب");
   assert.ok(rows.every((r) => r.ar && r.win));
+  // ‏`note` (الجولة 16/17): «فتح مجلّد» على ماك بلا اختصارٍ مستقلّ — الملاحظةُ تصل الصفَّ
+  // وتُرى في HTML اللوحة تحت الاسم؛ بلاها كانت اللوحةُ تعرض «فتح مجلّد | Cmd+O» فتكذب على ماك.
+  const folder = rows.find((r) => r.ar === "فتح مجلّد");
+  assert.ok(folder && folder.note && folder.note.includes("Cmd+O"),
+    "صفُّ «فتح مجلّد» يحمل note غيرَ فارغة تذكر Cmd+O: " + JSON.stringify(folder));
+  const panel = H.buildHtml([], [folder]);
+  assert.ok(panel.includes(JSON.stringify(folder.note)), "الملاحظةُ تصل بياناتِ اللوحة");
+  assert.ok(/el\('small', 'note', r\.note\)/.test(panel) && /\.note \{/.test(panel),
+    "اللوحةُ ترسم `note` تحت الاسم وتنسّقه");
+  assert.ok(rows.every((r) => typeof r.note === "string"), "كلُّ صفٍّ يحمل note نصًّا ولو فارغًا");
 });
 
 test("‏[DX-01 حيًّا] البحثُ يجد رغم اختلاف الهمزة والتاء المربوطة والتشكيل", () => {

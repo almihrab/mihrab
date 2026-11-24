@@ -121,15 +121,18 @@ function glossaryRows(glossary) {
 
 /**
  * يسطّح مجموعاتِ الاختصارات إلى صفوف. يحفظ ترتيبَ المجموعات كما كُتِبت (ترتيبٌ تعليميٌّ
- * مقصود: أساسيّاتٌ ثمّ تحريرٌ ثمّ تنقّل)، ولا يفرزه عربيًّا — فالفرزُ هنا يُفقِد المعنى.
+ * مقصود: أساسيّاتٌ ثمّ محرابٌ ثمّ تحريرٌ ثمّ تنقّل)، ولا يفرزه عربيًّا — فالفرزُ هنا يُفقِد المعنى.
  */
 function keybindingRows(kb) {
   const out = [];
   for (const g of (kb && kb.groups) || []) {
     for (const it of g.items || []) {
       if (!it || !it.ar) continue;
+      // ‏`note` اختياريّ (الجولة 16): «فتح مجلّد» على ماك بلا اختصارٍ مستقلّ — الصفحةُ تقوله
+      // تحت الاسم، واللوحةُ كانت تعرض «فتح مجلّد | Cmd+O» بلا الملاحظة فتكذب على ماك.
       out.push({ group: String(g.title || g.id || ""), ar: String(it.ar),
-                 win: String(it.win || ""), mac: String(it.mac || it.win || "") });
+                 win: String(it.win || ""), mac: String(it.mac || it.win || ""),
+                 note: String(it.note || "") });
     }
   }
   return out;
@@ -165,7 +168,8 @@ function buildHtml(glossary, keys, arabicDigits) {
   const shown = arabicDigits
     ? {
         glossary: glossary.map((g) => ({ ...g, ar: toArabicIndic(g.ar) })),
-        keys: keys.map((k) => ({ ...k, ar: toArabicIndic(k.ar), group: toArabicIndic(k.group) })),
+        keys: keys.map((k) => ({ ...k, ar: toArabicIndic(k.ar), group: toArabicIndic(k.group),
+                                  note: toArabicIndic(k.note || "") })),
       }
     : { glossary, keys };
   const data = JSON.stringify(shown).replace(/</g, "\\u003c");
@@ -196,6 +200,10 @@ function buildHtml(glossary, keys, arabicDigits) {
   /* المفاتيح والأصلُ اللاتينيّ: اتّجاهٌ صريحٌ لا موروث — وإلّا قفزت المحايداتُ (‏Ctrl+Shift+P). */
   .key, .en { direction: ltr; unicode-bidi: isolate; text-align: start; font-family: var(--vscode-editor-font-family); }
   .group { margin: 14px 0 4px; font-weight: 600; opacity: .75; }
+  /* ‏descriptionForeground لا opacity: الشفافيّةُ فوق الفاتحة تُنزل ‎#616161‎ إلى ~‎3.2:1‎
+     على الأبيض (دون AA)، ورمزُ السمة مضمونُ التباين في الداكنة والفاتحة معًا. و‎.92em‎ من
+     ‎13px‎ = ‎12‎ لا ‎11‎: الملاحظةُ تُقرأ لا تُلمَح. */
+  .note { display: block; font-size: .92em; color: var(--vscode-descriptionForeground); margin-top: 2px; }
   .empty { padding: 24px 0; opacity: .7; }
   .count { margin: 6px 0 0; font-size: .88em; opacity: .7; min-height: 1.2em; }
 </style>
@@ -295,7 +303,9 @@ function buildHtml(glossary, keys, arabicDigits) {
         table.appendChild(tr);
       }
       const tr = el('tr');
-      tr.appendChild(el('td', null, r.ar));
+      const tdAr = el('td', null, r.ar);
+      if (r.note) tdAr.appendChild(el('small', 'note', r.note));
+      tr.appendChild(tdAr);
       tr.appendChild(el('td', tab === 'glossary' ? 'en' : 'key',
         tab === 'glossary' ? r.en : (IS_MAC ? r.mac : r.win)));
       table.appendChild(tr);

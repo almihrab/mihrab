@@ -1,5 +1,5 @@
 {
-  "_comment": "اختصاراتُ محراب. المفاتيحُ لا تُترجَم: Ctrl يبقى Ctrl لا «تحكّم» — فالمكتوبُ على لوحة المستخدم لاتينيّ، وترجمتُه تفصل التوثيقَ عن الجهاز. الوصفُ العربيّ هو العمودُ الأوّل لأنّ المستخدم يبحث بالمعنى لا بالمفتاح. مصدرُ المعرّفات: أوامر VS Code القياسيّة التي يرثها محراب.",
+  "_comment": "اختصاراتُ محراب. حقلُ `note` اختياريٌّ: ملاحظةٌ تُعرَض سطرًا باهتًا تحت اسم الأمر لا داخلَه (انظر build.py؛ ولوحةُ المساعدة في المحرّر تعرضه كذلك — help-panel.js). المفاتيحُ لا تُترجَم: Ctrl يبقى Ctrl لا «تحكّم» — فالمكتوبُ على لوحة المستخدم لاتينيّ، وترجمتُه تفصل التوثيقَ عن الجهاز. الوصفُ العربيّ هو العمودُ الأوّل لأنّ المستخدم يبحث بالمعنى لا بالمفتاح. مصدرُ المعرّفات: أوامر VS Code القياسيّة التي يرثها محراب.",
   "groups": [
     {
       "id": "أساسيّات",
@@ -16,6 +16,44 @@
           "win": "Ctrl+P",
           "mac": "Cmd+P",
           "id": "workbench.action.quickOpen"
+        },
+        {
+          "ar": "ملفّ جديد",
+          "win": "Ctrl+N",
+          "mac": "Cmd+N",
+          "id": "workbench.action.files.newUntitledFile"
+        },
+        {
+          "ar": "فتح ملفّ",
+          "note": "على ماك يفتح Cmd+O حوارَ «فتح…» الذي يقبل ملفًّا أو مجلّدًا",
+          "win": "Ctrl+O",
+          "mac": "Cmd+O",
+          "id": "workbench.action.files.openFile"
+        },
+        {
+          "ar": "فتح مجلّد",
+          "note": "على ماك لا اختصارَ مستقلًّا له: Cmd+O نفسُه يفتح حوارَ «فتح…» ويقبل مجلّدًا",
+          "win": "Ctrl+K Ctrl+O",
+          "mac": "Cmd+O",
+          "id": "workbench.action.files.openFolder"
+        },
+        {
+          "ar": "حفظ الملفّ",
+          "win": "Ctrl+S",
+          "mac": "Cmd+S",
+          "id": "workbench.action.files.save"
+        },
+        {
+          "ar": "حفظ باسم",
+          "win": "Ctrl+Shift+S",
+          "mac": "Cmd+Shift+S",
+          "id": "workbench.action.files.saveAs"
+        },
+        {
+          "ar": "حفظ الكلّ",
+          "win": "Ctrl+K S",
+          "mac": "Cmd+Alt+S",
+          "id": "workbench.action.files.saveAll"
         },
         {
           "ar": "الإعدادات",
@@ -56,7 +94,7 @@
         {
           "ar": "انسخ التحديدَ ليُعرَض صحيحًا خارج محراب",
           "win": "Ctrl+Alt+C",
-          "mac": "⌥⇧⌘C",
+          "mac": "Shift+Alt+Cmd+C",
           "id": "mihrab.copyForSharing"
         },
         {
@@ -71,6 +109,12 @@
       "id": "تحرير-النصّ",
       "title": "تحرير النصّ",
       "items": [
+        {
+          "ar": "تحديد الكلّ",
+          "win": "Ctrl+A",
+          "mac": "Cmd+A",
+          "id": "editor.action.selectAll"
+        },
         {
           "ar": "قصّ السطر",
           "win": "Ctrl+X",
