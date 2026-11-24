@@ -38,7 +38,7 @@
 // الاستعمال:
 //   node tests/perf/size.mjs                  # قِس واحكم على budget.json
 //   node tests/perf/size.mjs --json           # أخرِج القياسَ خامًا (لا حكم)
-//   node tests/perf/size.mjs --establish      # أعِد تأسيسَ الميزانيّة (يكتب budget.json)
+//   node tests/perf/size.mjs --establish --reason "<لماذا>"   # أعِد تأسيسَ الميزانيّة (يكتب budget.json)
 //   node tests/perf/size.mjs --require-measured   # اعتبر «لا بناء» فشلًا (بوّابةُ إصدار)
 //   MIHRAB_PERF_PROFILE=lean node tests/perf/size.mjs   # بناءٌ بلا المكوّنات الاختياريّة (إعلانٌ صريح)
 //
@@ -235,11 +235,35 @@ if (has("--json")) { console.log(JSON.stringify(measured, null, 2)); process.exi
 if (has("--establish")) {
   const up = JSON.parse(readFileSync(join(ROOT, "upstream.json"), "utf8"));
   const prev = existsSync(BUDGET) ? JSON.parse(readFileSync(BUDGET, "utf8")) : {};
+  // **السببُ يُكتب مع الأساس لا بعده.** كان `_provenance` و`_version_note` يُنسخان كما هما
+  // إلى كلّ أساسٍ جديد، فبقيا يشهدان لأساس 2026-09-04 (‏1.126، 5712 ملفًّا) فوق أساسٍ آخر
+  // يناقضهما في الملفّ نفسِه. فالأساسُ السابقُ ونسبُه يُنقلان إلى `_history`، والجديدُ
+  // يحمل سببَه (`--reason`) وقياسَه (`_measured`) — ونسبٌ لا يُعاد كتابتُه مع الأساس حكايةٌ
+  // عن بناءٍ آخر.
+  const ri = argv.indexOf("--reason");
+  // ‏`--reason --force` لا يُقرأ سببًا اسمُه «--force».
+  const rv = ri >= 0 ? (argv[ri + 1] || "").trim() : "";
+  const reason = rv.startsWith("--") ? "" : rv;
+  if (prev.established_at && !reason) {
+    console.error("❌ إعادةُ التأسيس بلا سبب: أعِد بـ`--reason \"<لماذا تغيّر الأساس>\"` — "
+      + "يُكتب في `_provenance`، وينتقل نسبُ الأساس السابق إلى `_history`.");
+    process.exit(2);
+  }
+  // **كلُّ** حاشيةٍ `_*` من الأساس السابق تنتقل، لا قائمةٌ مسمّاة: قائمةٌ مسمّاةٌ أسقطت
+  // ‏`_removal_note` صامتًا عند تأسيس 2026-11-24. ولا يُستثنى إلّا ما يُعاد كتابتُه هنا.
+  const REWRITTEN = new Set(["_description", "_bounds", "_history"]);
+  const lineage = Object.fromEntries(Object.entries(prev).filter(([k]) => k.startsWith("_") && !REWRITTEN.has(k)));
+  const history = prev.established_at ? [{
+    established_at: prev.established_at,
+    upstream_vscodium_tag: prev.upstream_vscodium_tag,
+    product_version: prev.product_version,
+    ...lineage,
+  }, ...(prev._history || [])] : (prev._history || []);
   const ceil = n => Math.round(n * 1.15);
   const floor = n => Math.round(n * 0.60);
   const budget = {
     _description: "[PF-01] ميزانيّةُ حجمِ محراب. **لا تُحرَّر يدويًّا برفعِ سقف**: أعِد التأسيس "
-      + "بـ`node tests/perf/size.mjs --establish` والتزِم الفرقَ مرئيًّا. الأساسُ مقرونٌ بوسم "
+      + "بـ`node tests/perf/size.mjs --establish --reason \"…\"` والتزِم الفرقَ مرئيًّا. الأساسُ مقرونٌ بوسم "
       + "المنبع أدناه — ترقيةُ المنبع تُبطِله عمدًا.",
     _bounds: "لكلِّ مكوّنٍ سقفٌ (+15%) **وأرضيّةٌ** (−40%). الأرضيّةُ ليست تجميلًا: "
       + "بسقفٍ وحدَه يكون البناءُ الفارغ أخضرَ.",
@@ -247,16 +271,19 @@ if (has("--establish")) {
     upstream_vscodium_tag: up.vscodium.tag,
     product_version: measured.product_version,
     profile: measured._profile,
-    // تُصان عبر إعادة التأسيس: إعادةُ التأسيس لا يجوز أن تمحوَ غيابًا مُعلَنًا فتحوّله صامتًا،
-    // ولا أن تمحوَ نسبَ القياس فيصير الرقمُ بلا مصدر.
-    ...(prev._provenance ? { _provenance: prev._provenance } : {}),
-    ...(prev._version_note ? { _version_note: prev._version_note } : {}),
+    ...(reason ? { _provenance: reason } : {}),
+    _measured: {
+      total_bytes: all.bytes, file_count: all.files,
+      sourcemaps_bytes: maps.bytes, sourcemaps_files: maps.files,
+    },
+    // إعادةُ التأسيس لا يجوز أن تمحوَ غيابًا مُعلَنًا فتحوّله صامتًا، ولا نسبًا سابقًا.
     known_absent: prev.known_absent || [],
     // هامشُ المجموع ضيّقٌ (±10%) لأنّ المنبعَ مثبَّتُ الوسم فحجمُه شبهُ ثابت؛ وهامشُ
     // المكوّنات أوسعُ (‏+15%/−40%) لأنّها تنمو وتنكمش مع المنبع.
     max_total_bytes: Math.round(all.bytes * 1.10),
     min_total_bytes: Math.round(all.bytes * 0.90),
     components: Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, { min: floor(v.bytes), max: ceil(v.bytes) }])),
+    _history: history,
   };
   // ── بوّابةُ التأسيس: لا يُثبَّت خرابٌ صامتًا ────────────────────────────────────
   // `--establish` كان يكتب الأساسَ بلا أن يقارنه بالأساس السابق. فنسخةٌ ناقصةٌ (‏`cp -r`

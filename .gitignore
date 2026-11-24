@@ -50,3 +50,7 @@ site/public/
 
 # مخرَجُ build/fetch_alif_extension.sh — إضافةٌ مجلوبةٌ لبناءِ المعاينة، لا تُودَع.
 .preview-extensions/
+
+# حارسُ الحرّاس: قفلُ التشغيل وسجلُّ استعادة المُصاب الجاري
+/tests/meta/.mutation.lock
+/tests/meta/.mutation-journal.json
