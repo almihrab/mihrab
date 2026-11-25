@@ -30,6 +30,10 @@ SITE = os.path.join(ROOT, "site")
 OUT = os.path.join(SITE, "public")
 
 fails = []
+# عددُ الفحوص المُقيَّمة (‏`check` و`need`) — يُطبع في اللافتة الخضراء. إعادةُ تنظيمٍ «لا تغيّر
+# السلوك» يجب أن تُبقيه كما هو: وحدةٌ لا تُستدعى، أو فحصٌ يسقط خلف `need`، يبقى أخضرَ
+# ويبقى تفريغُ المُصابات مطابقًا (‏65 مُصابًا لا تلمس كلَّ فحص) — والعددُ ينقص.
+evaluated = [0]
 
 
 def bad(msg):
@@ -47,6 +51,7 @@ def check(cond, msg):
 
     كانت `assert`: أوّلُ فشلٍ يُخفي كلَّ ما بعده (قِيس: مُصابُ W404 احمرّ على FNT-01 قبله
     فلم يُرَ W404 قطّ)، و`python -O` ينزعها كلَّها فيصير الحارسُ أخضرَ بلا قياس."""
+    evaluated[0] += 1
     if not cond:
         bad(msg() if callable(msg) else msg)
     return bool(cond)
@@ -54,6 +59,7 @@ def check(cond, msg):
 
 def need(cond, msg):
     """كـ`check` لكنّ ما بعده لا يُقاس بلاه: يُسجَّل ويوقف الحارسَ بعد عرض ما جُمع."""
+    evaluated[0] += 1
     if not cond:
         raise _Stop(msg() if callable(msg) else msg)
     return True
@@ -227,7 +233,39 @@ def css_strip_comments(raw, name="?"):
     return "".join(out)
 
 
+_DET_IMPORT = re.compile(r"^\s*(?:import\s+(?:[\w.]+\s*,\s*)*|from\s+)(time|datetime|random|uuid|secrets)\b")
+_DET_CALL = re.compile(r"\b(?:os\.getpid|getmtime|getctime|getatime|os\.l?stat)\s*\(")
+_DET_LIST = re.compile(r"\b(?:os\.listdir|os\.scandir|os\.walk|glob\.i?glob)\s*\(")
+_DET_OK = "# ترتيبٌ لا يؤثّر"
+
+
+def det_violations(src):
+    """⇒ [(رقم السطر، السطر)] لكلّ ما يجعل البناءَ رهنَ اللحظة أو الجهاز [DET-01]."""
+    out = []
+    for i, line in enumerate(src.splitlines(), 1):
+        if line.lstrip().startswith("#"):
+            continue
+        if _DET_IMPORT.search(line) or _DET_CALL.search(line):
+            out.append((i, line.strip()))
+        elif _DET_LIST.search(line) and not re.search(r"sorted\(\s*(?:os\.listdir|os\.scandir|os\.walk|glob\.i?glob)\s*\(", line) \
+                and _DET_OK not in line:
+            out.append((i, line.strip()))
+    return out
+
+
 def main():
+    # ── [DET-01] البناءُ لا يقرأ اللحظةَ ولا الجهاز ──
+    # ‏`same_output.py` يبني بمناطقَ زمنيّةٍ وبذورٍ وترميزاتٍ متباينة فيكشف ما يتبعها — ولا يبلغ
+    # ‏`time.time()` ولا `random` ولا `getpid` ولا mtime (قِيس: تاريخٌ مزروعٌ في `BUILD_MARK`
+    # مرّ «متطابقًا بالبايت»)، ولا ترتيبَ `listdir` (أبجديٌّ على NTFS، عشوائيٌّ على ext4).
+    # فيُمنع ساكنًا: لا وحداتِ وقتٍ ولا عشوائيّة، وكلُّ سردٍ لمجلّدٍ إمّا `sorted(…)` وإمّا
+    # موسومٌ `# ترتيبٌ لا يؤثّر` بسطرِه (نسخٌ أو محوٌ لا يجمع شيئًا).
+    for _py in sorted(glob.glob(os.path.join(SITE, "*.py"))):
+        with open(_py, encoding="utf-8") as _f:
+            _dv = det_violations(_f.read())
+        check(not _dv, lambda: "[DET-01] %s يقرأ اللحظةَ أو الجهازَ أو ترتيبَ مجلّد — البناءُ لا يعود حتميًّا: %s"
+              % (os.path.basename(_py), "؛ ".join("سطر %d: %s" % d for d in _dv[:5])))
+
     if "--no-build" not in sys.argv:
         # ── بائتٌ يُزرَع في المخرَج **الحقيقيّ** قبل البناء [OUT-01] ──
         # الحارسُ في ٨) يبني في مجلّدٍ مؤقّتٍ بـ`MIHRAB_SITE_OUT` — فبناءٌ يمحو
@@ -2174,7 +2212,8 @@ def report():
         for f in fails:
             print("   · %s" % f)
     else:
-        print("✅ الموقعُ سليمٌ بنيويًّا: الصفحات، والمراسي، والمانيفست، وروابطُ الهويّة.")
+        print("✅ الموقعُ سليمٌ بنيويًّا: الصفحات، والمراسي، والمانيفست، وروابطُ الهويّة."
+              " (%d فحصًا مُقيَّمًا)" % evaluated[0])
 
 
 def _run():
