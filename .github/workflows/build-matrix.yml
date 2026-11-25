@@ -66,7 +66,9 @@ jobs:
       - name: حراسُ بناءِ المعاينة
         run: bash tests/static/check_extra_ext_dirs.sh
 
+      # البايتكودُ خارج الشجرة: ‏`site/__pycache__` بجانب المصدر يُحمِّر [GEN-01] في الخطوة التالية.
       - name: صياغةُ المرقِّعات
+        env: { PYTHONPYCACHEPREFIX: "${{ runner.temp }}/pyc" }
         run: python -m compileall -q build/ tests/ site/ && echo "✅ بايثون سليمة"
 
       - name: بنيةُ الموقع

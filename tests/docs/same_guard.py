@@ -37,7 +37,9 @@ BANNER = re.compile(r"\((\d+) فحصًا مُقيَّمًا · البصمة ([0-
 
 
 def run_guard(root, label, tmp):
-    keys = os.path.join(tmp, "keys-%s.json" % label)
+    # الاسمُ من المجلّد لا من التسمية: ‏`origin/main (4615ce5)` فيها `/` فيقع الملفُّ في مجلّدٍ
+    # غائبٍ ويُقرأ الانهيارُ «الحارسُ أحمر».
+    keys = os.path.join(tmp, "keys-%s.json" % os.path.basename(root))
     r = subprocess.run([sys.executable, os.path.join(root, "tests", "docs", "check_site.py")], cwd=root,
                        capture_output=True, encoding="utf-8", errors="replace",
                        env=dict(os.environ, PYTHONIOENCODING="utf-8", MIHRAB_GUARD_KEYS=keys))

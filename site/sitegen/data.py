@@ -3,14 +3,16 @@
 import json
 import os
 
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONTENT = os.path.join(HERE, "content")
-ASSETS = os.path.join(HERE, "assets")
-DATA = os.path.join(HERE, "data")
+# جذرُ `site/` لا مجلّدُ هذه الوحدة: درجتان فوق `sitegen/data.py`. وكلُّ مسارٍ مطلقٌ منه،
+# فالبناءُ لا يتعلّق بمجلّد العمل.
+SITE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONTENT = os.path.join(SITE_DIR, "content")
+ASSETS = os.path.join(SITE_DIR, "assets")
+DATA = os.path.join(SITE_DIR, "data")
 # ‏`MIHRAB_SITE_OUT` يسمح بالبناء إلى مجلّدٍ مؤقّت: حارسُ [SITE-01] يبني في
 # كلّ تشغيلٍ للطبقة الساكنة **ليُثبِت أنّ الموقعَ يُبنى**، ولا يجوز أن يدوس
 # مخرَجًا قائمًا لأجل فحص.
-OUT = os.environ.get("MIHRAB_SITE_OUT") or os.path.join(HERE, "public")
+OUT = os.environ.get("MIHRAB_SITE_OUT") or os.path.join(SITE_DIR, "public")
 # شاهدُ البناء: وجودُه في `OUT` هو ما يأذن للبناء التالي بمحو المجلّد (انظر `main`).
 BUILD_MARK = ".mihrab-site-build"
 

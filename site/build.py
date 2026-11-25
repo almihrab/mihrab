@@ -9,6 +9,10 @@
 
 الاستعمال:  python site/build.py            → site/public/
             python site/build.py --check    → لا كتابة؛ يتحقّق من السلامة فقط
+
+هذا الملفُّ نقطةُ الدخول وحدَها (‏`main` و`write`)، والمولِّدُ في `sitegen/` — والجدولُ
+في `site/README.md`. ولا ملفَّ بايثون آخرَ في جذر `site/`: مجلّدُ السكربت أوّلُ `sys.path`،
+فـ`site/json.py` مثلًا يظلّل المكتبةَ القياسيّة لكلّ وحدة (يحرسه [DET-01]).
 """
 import html
 import json
@@ -25,11 +29,16 @@ for _s in (sys.stdout, sys.stderr):
 # المولِّدُ مقسَّمٌ في `sitegen/`. ولا `__pycache__` في شجرة المصدر: البناءُ يُشغَّل من
 # النسخة المصدريّة نفسِها، وما يكتبه بجانبها يظهر في `git status` وفي أدوات الإثبات.
 sys.dont_write_bytecode = True
+# و`sitegen` يُستورَد من مجلّد هذا الملفّ صراحةً: `python -I`/`-P` و`PYTHONSAFEPATH` لا
+# تضع مجلّدَ السكربت في `sys.path`، فكان البناءُ يسقط بـ`ModuleNotFoundError` (قِيس بـ`-I`).
+_SITE_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SITE_DIR not in sys.path:
+    sys.path.insert(0, _SITE_DIR)
 
 from sitegen.data import ASSETS, BUILD_MARK, CONTENT, NAV, OUT, RELEASES, SLUG_SECTION, SLUG_TITLE
 from sitegen.fonts import write_fonts_css
 from sitegen.pages import build_download, build_keyboard_page, build_landing, build_not_found
-from sitegen.preview import _ALIF_JS, build_alif_preview
+from sitegen.preview import ALIF_JS, build_alif_preview
 from sitegen.templates import (
     DOCS_SECTION_NOTE,
     MARK_SVG,
@@ -254,7 +263,7 @@ def main():
     write(os.path.join(OUT, "404.html"), build_not_found())
     write(os.path.join(OUT, "download", "index.html"), build_download())
     write(os.path.join(OUT, "preview", "alif", "index.html"), build_alif_preview())
-    write(os.path.join(OUT, "assets", "preview-alif.js"), _ALIF_JS)
+    write(os.path.join(OUT, "assets", "preview-alif.js"), ALIF_JS)
 
     # مانيفستُ الإصدار بجوار الصفحة: نسخةٌ متماسكة للمرآة. وعلى الخادم الأصليّ
     # يُستبدَل بالحيّ عند رفع بناءٍ جديد — ولذلك يستثني سكربتُ النشر `dl/`.

@@ -756,8 +756,16 @@ def _docs_urls_resolve_to_pages():
     slugs = {fn[:-3] for fn in os.listdir(content) if fn.endswith(".md")}
     # وصفحاتٌ تُولَّد بلا ملفِّ محتوى (‏`docs/` و`download/`) — تُقرأ من المولِّد نفسِه
     # لا من قائمةٍ ثانيةٍ تنجرف.
-    slugs |= set(re.findall(r'write\(os\.path\.join\(OUT,\s*"([^"]+)",\s*"index\.html"',
-                            _read(os.path.join(ROOT, "site", "build.py"))))
+    # والمولِّدُ مقسَّم: `build.py` نقطةُ الدخول ووحداتُه في `site/sitegen/` — فيُمسَح الكلّ،
+    # ويُشترَط أن يُرى ما يُعرَف وجودُه (‏`docs` و`download`) كي لا يقيس التعبيرُ الهواءَ
+    # إن نُقلت الكتابةُ إلى وحدةٍ أو تغيّرت صيغتُها.
+    _gen_src = "".join(_read(p) for p in [os.path.join(ROOT, "site", "build.py")]
+                       + sorted(glob.glob(os.path.join(ROOT, "site", "sitegen", "*.py"))))
+    _gen_slugs = set(re.findall(r'write\(os\.path\.join\(OUT,\s*"([^"]+)",\s*"index\.html"', _gen_src))
+    assert {"docs", "download"} <= _gen_slugs, (
+        "قراءةُ الصفحات المولَّدة بلا ملفّ محتوى من site/build.py وsite/sitegen/ لم تجد "
+        f"docs وdownload (وجدت: {sorted(_gen_slugs) or 'لا شيء'}) — تغيّرت صيغةُ `write(...)`؛ يُحدَّث الفحص")
+    slugs |= _gen_slugs
     # ‏المساراتُ التي يخدمها nginx لا مولِّدُ الموقع — والكتلةُ تُعفي
     # إن خدمت محتوًى (`alias` أو `root` أو `try_files`) لا إن وُجِدت: كتلةٌ تردّ ‎404‎
     # صراحةً لا تُعفي رابطًا من فحصٍ اسمُه «لا 404».

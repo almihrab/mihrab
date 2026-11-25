@@ -112,7 +112,7 @@ function clearTimeout_(id) { timers = timers.filter(t => t.id !== id); }
 function fireTimers() { const t = timers; timers = []; t.forEach(x => x.fn()); return t; }
 
 // ── الصفحةُ هي `keyboard/index.html` المبنيّةُ نفسُها ─────────────────────────
-// كانت تُصنَع باليد، فإعادةُ تسمية `id="capture-btn"` أو `.result` في `build.py` تُميت
+// كانت تُصنَع باليد، فإعادةُ تسمية `id="capture-btn"` أو `.result` في `sitegen/pages.py` تُميت
 // الالتقاطَ في الصفحة الحقيقيّة والصندوقُ أخضر يصنع الاسمَ القديم بنفسه (قِيس بالزرع). فبايثون
 // يحلّل الصفحةَ المبنيّة شجرةً `[وسم، سمات، أبناء]` والنصُّ سلاسل، والصندوقُ يبنيها `El`
 // ويجد ما يحتاجه **بمحدِّدات docs.js نفسِها** — وغيابُ أيّها عطبٌ في العقد يُسمّى.
@@ -180,7 +180,7 @@ async function main() {
 	const built = buildPage();
 	const P = built.P;
 	if (built.missing.length) {
-		// العقدُ بين `build.py` و`docs.js` انكسر: ما تبحث عنه الشيفرةُ غائبٌ عن الصفحة المبنيّة
+		// العقدُ بين `sitegen/pages.py` و`docs.js` انكسر: ما تبحث عنه الشيفرةُ غائبٌ عن الصفحة المبنيّة
 		process.stdout.write(JSON.stringify({ ran: 1, fails: ['عقدُ الصفحة: ' + built.missing.join('، ')
 			+ ' غائبٌ عن keyboard/index.html المبنيّة وdocs.js يبحث عنه — الميزةُ ميّتةٌ في الموقع [CAP-04]'] }));
 		return;

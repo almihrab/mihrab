@@ -15,7 +15,7 @@ from .templates import data_island
 # يُفسِد صفحةً منسيّةً لا يفتحها أحدٌ منّا.
 # سكربتُ صفحة المعاينة، على مستوى الوحدة ليُكتَب ملفًّا مجاورًا:
 # سياسةُ `script-src 'self'` تحجب الداخليَّ، والصفحةُ تُصيَّر بلا جدولِ تنزيلٍ بصمت.
-_ALIF_JS = """(function(){
+ALIF_JS = """(function(){
   var baked=JSON.parse(document.getElementById("baked").textContent);
   var labels=JSON.parse(document.getElementById("labels").textContent);
   function render(m){

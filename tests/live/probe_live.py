@@ -87,7 +87,7 @@ except (OSError, ssl.SSLError, KeyError, ValueError) as e:
 st, hd, body = get(ORIGIN + "/assets/fonts.css")
 live_css = body.decode("utf-8", "replace")
 faces_live = re.findall(r'url\("fonts/([^"]+)"\)', live_css)
-with open(os.path.join(SITE, "build.py"), encoding="utf-8") as _b:
+with open(os.path.join(SITE, "sitegen", "fonts.py"), encoding="utf-8") as _b:
     _bpy = _b.read()
 _i = _bpy.index("FONT_FACES = [")
 wanted = sorted(set(re.findall(r'\("([^"]+\.woff2)"', _bpy[_i:_bpy.index("]", _i)])))

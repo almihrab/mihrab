@@ -68,7 +68,7 @@ export const makeNorm = (root, tmp) => {
     .replace(TMP_RE, "<TMP>")
     .replace(/(<ROOT>|<TMP>)([^\s"'»)]*)/g, seps)
     // [OUT-01] يزرع بوائتَ بأسماءٍ عشوائيّةٍ عمدًا (‏`stale-2f548b84`) كي لا يمرّ محوٌ بالاسم.
-    .replace(/(stale(?:-dir)?)-[0-9a-f]{8}\b/g, "$1-<RAND>")
+    .replace(/(stale(?:-dir|-page)?)-[0-9a-f]{8}\b/g, "$1-<RAND>")
     // ‏`node --test` يطبع زمنَ كلّ اختبارٍ تحت `not ok` — يختلف بين كلّ تشغيلين.
     .replace(/^(\s*duration_ms:).*$/gm, "$1 <T>");
 };

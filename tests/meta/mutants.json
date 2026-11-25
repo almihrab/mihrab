@@ -1140,7 +1140,7 @@
       "old": "id=\"capture-btn\"",
       "new": "id=\"capture-button\"",
       "expect": "عقدُ الصفحة",
-      "why": "‏`build.py` يسمّي الزرَّ باسمٍ لا يبحث عنه docs.js: الالتقاطُ ميّتٌ في الموقع. وكان الصندوقُ يصنع الاسمَ القديم بنفسه فيبقى أخضر."
+      "why": "‏`sitegen/pages.py` يسمّي الزرَّ باسمٍ لا يبحث عنه docs.js: الالتقاطُ ميّتٌ في الموقع. وكان الصندوقُ يصنع الاسمَ القديم بنفسه فيبقى أخضر."
     },
     {
       "id": "sb-contract-result-class",
@@ -1511,6 +1511,76 @@
       "new": "            if False:",
       "expect": "DET-01/builtin",
       "why": "‏hash() و__import__('time') بابان خلفيّان."
+    },
+    {
+      "id": "split-mod-order-const",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/pages.py",
+      "old": "_MOD_ORDER = (\"Ctrl\", \"Cmd\", \"Shift\", \"Alt\")",
+      "new": "_MOD_ORDER = (\"Ctrl\", \"Shift\", \"Cmd\", \"Alt\")",
+      "expect": "ترتيبُ معدِّلاتها ليس",
+      "why": "بعد التقسيم صار ترتيبُ المعدِّلات في `sitegen/text.py` و`site-chords-not-canonical` يُصيب موضعَ الاستدعاء في `pages.py` وحدَه: ترتيبٌ منحرفٌ في الثابت نفسِه يُقنِّن «Shift+Cmd» ويقتل التقاطَ اختصاراتِ ماك. ويُثبت أيضًا أنّ الحارسَ يرى `text.py`."
+    },
+    {
+      "id": "split-preview-size-binary",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/preview.py",
+      "old": "var mb=(a.size/1e6).toFixed(0);",
+      "new": "var mb=(a.size/1048576).toFixed(0);",
+      "expect": "صفحةُ المعاينة تقسم الحجمَ",
+      "why": "الوجهُ الثالثُ من [AND-07] كان بلا مُصاب: `_ALIF_JS` يُكتَب `preview-alif.js` من `sitegen/preview.py`، وقسمتُه الثنائيّةُ تعيد ‎194‎ بجانب ‎203‎. ويُثبت أنّ الحارسَ يرى `preview.py`."
+    },
+    {
+      "id": "split-preview-letter-spacing",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/preview.py",
+      "old": ".tag{display:inline-block;font-size:.8rem;",
+      "new": ".tag{display:inline-block;font-size:.8rem;letter-spacing:.18em;",
+      "expect": "في preview/alif/index.html <style>",
+      "why": "تعليقُ [AND-06] يَعِد بفحص «وسمِ صفحة المعاينة» وهو `<style>` داخليٌّ في `sitegen/preview.py` لا في `site/assets` — وكان بلا مُصاب يُثبت أنّ السلسلةَ المقيسةَ تبلغه."
+    },
+    {
+      "id": "split-data-out-ignores-env",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/data.py",
+      "old": "OUT = os.environ.get(\"MIHRAB_SITE_OUT\") or os.path.join(SITE_DIR, \"public\")",
+      "new": "OUT = os.path.join(SITE_DIR, \"public\")",
+      "expect": "لم يُبنَ شيءٌ [OUT-01]",
+      "why": "‏`OUT` في `sitegen/data.py` يُهمل `MIHRAB_SITE_OUT` فتبني بناءاتُ الحارس المؤقّتةُ فوق `site/public` الحقيقيّ — يدوس مخرَجًا قائمًا لأجل فحص. ويُثبت أنّ الحارسَ يرى `data.py`."
+    },
+    {
+      "id": "split-gen-cycle-lazy",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/templates.py",
+      "old": "    payload = json.dumps(obj, ensure_ascii=False, separators=(\",\", \":\"))",
+      "new": "    from .pages import MARK_SVG as _unused  # noqa: F401\n    payload = json.dumps(obj, ensure_ascii=False, separators=(\",\", \":\"))",
+      "expect": "حلقةُ استيرادٍ بين وحدات sitegen/",
+      "why": "[GEN-01]: استيرادٌ كسولٌ داخل دالّةٍ يُغلق حلقةَ pages ⇄ templates والبناءُ يمرّ أخضر — لا يمسكها إلّا مسحُ ast لكلّ العقد لا لرأس الملفّ."
+    },
+    {
+      "id": "split-gen-dead-preview",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "from sitegen.preview import ALIF_JS, build_alif_preview",
+      "new": "ALIF_JS, build_alif_preview = \"\", lambda: \"\"",
+      "expect": "لا تصل إليها build.py",
+      "why": "[GEN-01]: نقطةُ الدخول تكفّ عن استيراد preview فتصير sitegen/preview.py شيفرةً ميّتةً تبدو حيّة — تعديلُها لا يغيّر الموقع."
+    },
+    {
+      "id": "split-gen-writes-unseen",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "file": "site/build.py",
+      "old": "    write(os.path.join(OUT, \"download\", \"index.html\"), build_download())",
+      "new": "    write(os.path.join(OUT, \"download\" , \"index.html\"), build_download())",
+      "expect": "لم تجد docs وdownload",
+      "why": "قراءةُ الصفحات المولَّدة في lint_patchers: صيغةُ write(...) تنجرف فيقيس التعبيرُ الهواء — والصفحةُ نفسُها تُبنى سليمة."
     }
   ],
   "uncovered": [

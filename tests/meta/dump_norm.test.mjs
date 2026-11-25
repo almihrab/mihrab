@@ -29,6 +29,7 @@ test("زمنُ node --test وأسماءُ OUT-01 العشوائيّة", () => {
   assert.equal(norm("  ---\n  duration_ms: 1.3874\n  ..."), "  ---\n  duration_ms: <T>\n  ...");
   assert.equal(norm("stale-2f548b84.html، stale-dir-866e5da4\\index.html"),
     "stale-<RAND>.html، stale-dir-<RAND>\\index.html");
+  assert.equal(norm("stale-page-1a2b3c4d"), "stale-page-<RAND>");
   assert.equal(norm("a\r\nb"), "a\nb");
 });
 
