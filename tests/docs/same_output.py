@@ -5,15 +5,18 @@
     python tests/docs/same_output.py [المرجع]           المرجع (HEAD افتراضًا) ⇐ شجرة العمل
     python tests/docs/same_output.py <مرجع١> <مرجع٢>     إيداعان، بلا شجرة العمل
     python tests/docs/same_output.py --dirs <أ> <ب>      مجلّدا `site` (لاختبار الأداة نفسِها)
+    … --builds <ن>                                       بناءاتُ كلّ طرف (الافتراضيّ 8، والأدنى 2)
 
 ١) **كلُّ طرفٍ يُبنى في مجلّدٍ مؤقّتٍ ليس فيه غيرُ `site/`**: المرجعُ بـ`git archive`، وشجرةُ
    العمل بنسخ ما يراه git فيها (متتبَّعًا أو جديدًا غيرَ مُهمَل). فمولِّدٌ يقرأ يومًا من خارج
    ‏`site/` ينكسر بصوتٍ في الطرفين، لا يقارن مدخلاتٍ مختلفةً والأداةُ لا تدري.
-٢) **كلُّ طرفٍ يُبنى مرّاتٍ في بيئاتٍ متباينة** ويُشترط تطابقُها: بذورُ تجزئةٍ مختلفة (ترتيبُ
-   المجموعات)، ومنطقتان زمنيّتان بينهما ‎26‎ ساعة (التاريخُ نفسُه يتغيّر)، و`PYTHONUTF8`
-   مُطفأٌ ومُشعَل (‏`open()` بلا ترميزٍ يقرأ بمحلّيّة الجهاز). ستُّ بذورٍ للمرجع: عدمُ حتميّةٍ
-   ثنائيٌّ (ترتيبٌ من اثنين) يفلت من بذرتين ثابتتين في نصف الحالات **ودائمًا**، ومن ستٍّ
-   باحتمال ‎1/32‎. وما لا تبلغه البيئة (‏`time.time()`، ‏`random`) يمنعه [DET-01] في check_site.
+٢) **كلُّ طرفٍ يُبنى ثماني مرّاتٍ في بيئاتٍ متباينة** ويُشترط تطابقُها: بذورُ تجزئةٍ مختلفة
+   (ترتيبُ المجموعات)، ومنطقتان زمنيّتان بينهما ‎26‎ ساعة (التاريخُ نفسُه يتغيّر)، و`PYTHONUTF8`
+   مُطفأٌ ومُشعَل. **والطرفان سواء**: الطرفُ الثاني يحمل التغييرَ المختبَر، وكان يُبنى مرّتين
+   فأفلت منه عدمُ حتميّةٍ ثنائيٌّ (ترتيبٌ من اثنين) في ‎46%‎ من المجموعات (قِيس على ‎200‎).
+   والبذورُ ثابتة، فما يفلت يفلت **في كلّ تشغيل** (لا تذبذب) — وعلاجُه كثرتُها: ثمانٍ ⇒ ‎1/128‎.
+   ⚠️ ‏`PYTHONUTF8` لا يكشف شيئًا على لينكس (محلّيّتُه UTF-8 أصلًا)؛ الحمايةُ هناك ساكنة: [DET-01]
+   يرفض `open()` نصّيًّا بلا ترميز، ويمنع ما لا تبلغه البيئةُ أصلًا (‏`time.time()`، ‏`random`).
 ٣) يقارن المخرَجين ملفًّا ملفًّا بالبايت، والمجلّداتِ الفارغةَ معها، ويطبع بصمةَ sha256.
 
 الخروج: 0 متطابق · 1 مختلف (أو غيرُ حتميّ) · 2 خطأٌ تشغيليّ — **وكلُّ استثناءٍ غيرِ متوقَّعٍ 2**،
@@ -35,8 +38,8 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-REF_BUILDS = 6
-WORK_BUILDS = 2
+BUILDS = 8
+MIN_BUILDS = 2
 
 
 class OpError(Exception):
@@ -110,13 +113,15 @@ def stable_tree(site_dir, tmp, label, n, seed0):
     return first, []
 
 
-def compare(site_a, site_b, tmp, label_a, label_b, n_a=REF_BUILDS, n_b=WORK_BUILDS):
-    """⇒ (رمز الخروج، السطور). يُستورَد في `test_same_output.py`."""
+def compare(site_a, site_b, tmp, label_a, label_b, n=BUILDS):
+    """⇒ (رمز الخروج، السطور). يُستورَد في `test_same_output.py`. الطرفان يُبنيان العددَ نفسَه."""
+    if n < MIN_BUILDS:
+        raise OpError("بناءٌ واحدٌ لا يُثبت حتميّة (الأدنى %d)" % MIN_BUILDS)
     lines = []
-    ta, nd = stable_tree(site_a, tmp, "a", n_a, 1)
+    ta, nd = stable_tree(site_a, tmp, "a", n, 1)
     if nd:
         return 1, ["❌ البناءُ غيرُ حتميّ في %s — لا يُوثَق بمقارنةٍ بعده:" % label_a] + nd[:40]
-    tb, nd = stable_tree(site_b, tmp, "b", n_b, 101)
+    tb, nd = stable_tree(site_b, tmp, "b", n, 101)
     if nd:
         return 1, ["❌ البناءُ غيرُ حتميّ في %s — لا يُوثَق بمقارنةٍ بعده:" % label_b] + nd[:40]
     d = diff(ta, tb, label_a, label_b)
@@ -126,7 +131,7 @@ def compare(site_a, site_b, tmp, label_a, label_b, n_a=REF_BUILDS, n_b=WORK_BUIL
         lines.append("❌ المخرَجُ يختلف في %d موضعًا:" % len(d))
         lines.extend(d[:60])
         return 1, lines
-    lines.append("✅ متطابق بالبايت — والبناءُ حتميّ (%d بناءً و%d، في بيئاتٍ متباينة)" % (n_a, n_b))
+    lines.append("✅ متطابق بالبايت — والبناءُ حتميّ (%d بناءاتٍ لكلّ طرف، في بيئاتٍ متباينة)" % n)
     return 0, lines
 
 
@@ -139,13 +144,13 @@ def git(*args, binary=False):
     return r.stdout
 
 
-def export_ref(ref, dest):
-    """‏`site/` من المرجع إلى dest/site ⇒ (المسار، sha)."""
+def export_ref(ref, dest, paths=("site",)):
+    """المساراتُ من المرجع إلى dest ⇒ (dest/site، sha)."""
     try:
         sha = git("rev-parse", "--verify", "-q", ref + "^{commit}").strip()
     except OpError:
         raise OpError("مرجعٌ غيرُ معروف: %s" % ref)
-    data = git("archive", "--format=tar", sha, "site", binary=True)
+    data = git("archive", "--format=tar", sha, *paths, binary=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as tf:
         try:
             tf.extractall(dest, filter="data")
@@ -154,9 +159,9 @@ def export_ref(ref, dest):
     return os.path.join(dest, "site"), sha
 
 
-def export_work(dest):
-    """ما يراه git في `site/` من شجرة العمل (متتبَّعًا أو جديدًا غيرَ مُهمَل) إلى dest/site."""
-    names = [n for n in git("ls-files", "-co", "--exclude-standard", "-z", "--", "site").split("\0") if n]
+def export_work(dest, paths=("site",)):
+    """ما يراه git في المسارات من شجرة العمل (متتبَّعًا أو جديدًا غيرَ مُهمَل) إلى dest ⇒ dest/site."""
+    names = [n for n in git("ls-files", "-co", "--exclude-standard", "-z", "--", *paths).split("\0") if n]
     for rel in names:
         src = os.path.join(ROOT, rel)
         if not os.path.isfile(src):      # محذوفٌ لم يُودَع بعد
@@ -167,14 +172,32 @@ def export_work(dest):
     return os.path.join(dest, "site")
 
 
+def take_builds(argv):
+    """‏`--builds <ن>` من الوسائط ⇒ (ن، البقيّة)."""
+    if "--builds" not in argv:
+        return BUILDS, argv
+    i = argv.index("--builds")
+    try:
+        n = int(argv[i + 1])
+    except (IndexError, ValueError):
+        raise OpError("‏--builds <عدد>")
+    if n < MIN_BUILDS:
+        raise OpError("‏--builds %d: بناءٌ واحدٌ لا يُثبت حتميّة (الأدنى %d)" % (n, MIN_BUILDS))
+    return n, argv[:i] + argv[i + 2:]
+
+
 def main(argv):
+    n, argv = take_builds(argv)
     with tempfile.TemporaryDirectory(prefix="mihrab-same-") as tmp:
         if argv[:1] == ["--dirs"]:
             if len(argv) != 3:
                 raise OpError("‏--dirs <أ> <ب>")
+            for d in argv[1:]:
+                if not os.path.isfile(os.path.join(d, "build.py")):
+                    raise OpError("‏%s ليس مجلّدَ site (لا build.py فيه)" % d)
             a = shutil.copytree(argv[1], os.path.join(tmp, "a", "site"))
             b = shutil.copytree(argv[2], os.path.join(tmp, "b", "site"))
-            rc, lines = compare(a, b, tmp, "أ", "ب")
+            rc, lines = compare(a, b, tmp, "أ", "ب", n)
         elif len(argv) <= 2:
             ref = argv[0] if argv else "HEAD"
             a, sa = export_ref(ref, os.path.join(tmp, "a"))
@@ -186,7 +209,7 @@ def main(argv):
                 lb = "شجرة العمل"
                 if git("status", "--porcelain", "--", "site").strip():
                     print("⚠️ في `site/` ما لم يُودَع — البصمةُ بصمةُ شجرة العمل لا إيداعٍ بعينه")
-            rc, lines = compare(a, b, tmp, "%s (%s)" % (ref, sa[:7]), lb)
+            rc, lines = compare(a, b, tmp, "%s (%s)" % (ref, sa[:7]), lb, n)
         else:
             raise OpError("وسائطُ زائدة: %s" % " ".join(argv))
     print("\n".join(lines))

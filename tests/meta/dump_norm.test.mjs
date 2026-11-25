@@ -37,6 +37,35 @@ test("سطورُ الفشل تُختار مع تفصيلها، وسطورُ ال
   assert.equal(failureText(out), "❌ 2 عطب:\n   · [B-02] مكسور\n   · [C-03] ناقص");
 });
 
+test("سطرُ نجاحٍ يحمل كلمةَ خطأ لا يُختار (PASS_LINE)", () => {
+  const out = "✅ [X-01] لا TypeError في الوحدة\n# Subtest: يرفض RangeError\nok 2 - Error مُعالَج";
+  assert.equal(failureText(out), "");
+});
+
+test("حرفُ القرص بأيّ حالة، والمرساة: ‏/tmp داخل مسارٍ آخر لا يُطبَّع", () => {
+  assert.equal(norm(ROOT.replace(/^C:/, "c:") + "\\x"), "<ROOT>/x");
+  const nl = makeNorm("/home/u/repo", "/tmp");
+  assert.equal(nl("/tmp/abc/d.txt و /home/u/tmp/zz"), "<TMP>/d.txt و /home/u/tmp/zz");
+  assert.equal(norm("at file:///" + ROOT.replace(/\\/g, "/") + "/t.js:3"), "at file:///<ROOT>/t.js:3");
+});
+
+// خرجُ TAP حقيقيّ من `assert.equal` (‏node 22): سطرٌ من مسافاتٍ يفصل الفرقَ عن القيمتين.
+const tap = (actual) => [
+  "TAP version 13", "# Subtest: x", "not ok 1 - x", "  ---", "  duration_ms: 1.4745",
+  "  failureType: 'testCodeFailure'", "  error: |-", "    Expected values to be strictly equal:",
+  "    + actual - expected", "    ", `    + '${actual}'`, "    - 'متوقَّع'", "    ",
+  "  code: 'ERR_ASSERTION'", "  name: 'AssertionError'", `  actual: '${actual}'`, "  stack: |-",
+  "    TestContext.<anonymous> (file:///x/t.test.mjs:2:38)", "    Test.run (node:internal/test_runner/test:1047:25)",
+  "  ...", "1..1", "# fail 1"].join("\n");
+
+test("TAP: القيمتان بعد السطر الفارغ تبقيان، والمكدّسُ يُسقَط", () => {
+  const a = failureText(tap("رسالة أ")), b = failureText(tap("رسالة ب مختلفة"));
+  assert.notEqual(a, b, "رسالتان مختلفتان أعطتا تفريغًا واحدًا: السطرُ الفارغ قطع التفصيل");
+  assert.match(a, /\+ 'رسالة أ'/);
+  assert.match(a, /actual: 'رسالة أ'/);
+  assert.doesNotMatch(a, /node:internal|TestContext/, "المكدّسُ يتبع نسخةَ node");
+});
+
 test("dumpText: رمزُ الخروج، والذيلُ حين لا علامةَ فشل", () => {
   assert.equal(dumpText({ code: 0, out: "" }), "‹أخضر›");
   assert.equal(dumpText({ code: null, why: "ETIMEDOUT", out: "" }), "‹لم ينتهِ: ETIMEDOUT›");

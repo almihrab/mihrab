@@ -56,7 +56,8 @@ const opt = {};
   const argv = process.argv.slice(2);
   for (let i = 0; i < argv.length; i += 2) {
     if (!FLAGS.includes(argv[i])) usage(`علمٌ مجهول: ${argv[i]}`);
-    if (!argv[i + 1] || argv[i + 1].startsWith("--")) usage(`${argv[i]} بلا قيمة`);
+    // القيمةُ قد تبدأ بـ`--` (‏`--guard --snapshot` مقصود) ما لم تكن علمًا من هذه الأعلام.
+    if (!argv[i + 1] || FLAGS.includes(argv[i + 1])) usage(`${argv[i]} بلا قيمة`);
     if (argv[i] in opt) usage(`${argv[i]} مكرَّر`);
     opt[argv[i]] = argv[i + 1];
   }
@@ -71,7 +72,21 @@ const GUARD = opt["--guard"] ?? null;
 // **والمجلّدُ فارغٌ أو غائب**: ملفُّ تشغيلٍ سابقٍ يبقى لمُصابٍ لم يُكتب له شيءٌ الآن، فيقول
 // ‏`diff -r` «متطابق» كذبًا. والمسحُ التلقائيّ أخطرُ من الرفض (مسارٌ خاطئٌ يُمحى).
 const DUMP = opt["--dump-failures"] ?? null;
-if (DUMP && existsSync(DUMP) && readdirSync(DUMP).length) usage(`--dump-failures: ${DUMP} غيرُ فارغ`);
+if (DUMP && existsSync(DUMP)) {
+  if (!statSync(DUMP).isDirectory()) usage(`--dump-failures: ${DUMP} ملفٌّ لا مجلّد`);
+  if (readdirSync(DUMP).length) usage(`--dump-failures: ${DUMP} غيرُ فارغ`);
+}
+// و**التشغيلُ نفسُه له ملفّ** (‏`_run.txt`) يُكتب عند كلّ خروج — حتّى المبكّرِ قبل حلقة المُصابات
+// (قفلٌ محجوز، سجلُّ استعادةٍ مرفوض، مرشِّحٌ فارغ): بلاه يتطابق تفريغان فارغان في `diff -r`.
+let selectedIds = null;
+if (DUMP) {
+  process.on("exit", code => {
+    try {
+      mkdirSync(DUMP, { recursive: true });
+      writeFileSync(join(DUMP, "_run.txt"), `‹خرج ${code}›\n` + (selectedIds ? (selectedIds.length ? selectedIds.join("\n") : "‹لا مُصاب›") + "\n" : "‹قبل الاختيار›\n"), "utf8");
+    } catch {}
+  });
+}
 
 if (!existsSync(SPEC)) { console.error(`❌ لا ${SPEC}`); process.exit(2); }
 const spec = JSON.parse(readFileSync(SPEC, "utf8"));
@@ -207,6 +222,7 @@ const runGuard = (cmd) => {
 };
 
 const selected = spec.mutants.filter(m => (!ONLY || m.id === ONLY) && (!GUARD || m.guard.includes(GUARD)));
+selectedIds = selected.map(m => m.id);
 if ((ONLY || GUARD) && !selected.length) {
   // مرشِّحٌ لا يطابق شيئًا كان يطبع اللافتةَ الخضراء ويخرج بـ0 — أخضرُ لم يقِس شيئًا.
   const f = [ONLY && "--only " + ONLY, GUARD && "--guard " + GUARD].filter(Boolean).join(" و");
