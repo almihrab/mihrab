@@ -1581,6 +1581,36 @@
       "new": "    write(os.path.join(OUT, \"download\" , \"index.html\"), build_download())",
       "expect": "لم تجد docs وdownload",
       "why": "قراءةُ الصفحات المولَّدة في lint_patchers: صيغةُ write(...) تنجرف فيقيس التعبيرُ الهواء — والصفحةُ نفسُها تُبنى سليمة."
+    },
+    {
+      "id": "pkg02-no-fail-flag",
+      "guardFile": "tests/static/test_curl_shim.sh",
+      "guard": "bash tests/static/test_curl_shim.sh",
+      "file": "build/lib/curl_shim.sh",
+      "old": "OPTS=(-fsSL --retry",
+      "new": "OPTS=(-sSL --retry",
+      "expect": "429 ثم احتياط ناجح",
+      "why": "عينُ حادثة #43: بلا -f يُحفظ «429: …» سكربتًا ويخرج curl بـ0، فلا يقع الاحتياطُ وينهار perl بعده."
+    },
+    {
+      "id": "pkg02-no-shebang-check",
+      "guardFile": "tests/static/test_curl_shim.sh",
+      "guard": "bash tests/static/test_curl_shim.sh",
+      "file": "build/lib/curl_shim.sh",
+      "old": "    && [[ \"$(head -c2 \"$out.part\")\" == \"#!\" ]]; then",
+      "new": "    ; then",
+      "expect": "HTML مرمّزًا",
+      "why": "صفحةُ خطأٍ من googlesource مرمّزةٌ base64 تُفكّ وتحلّ محلَّ السكربت."
+    },
+    {
+      "id": "pkg02-pipe-decode",
+      "guardFile": "tests/static/test_curl_shim.sh",
+      "guard": "bash tests/static/test_curl_shim.sh",
+      "file": "build/lib/curl_shim.sh",
+      "old": "format=TEXT\" -o \"$out.b64\" \\\n    && base64 -d \"$out.b64\" > \"$out.part\" 2>/dev/null",
+      "new": "format=TEXT\" | base64 -d > \"$out.part\" 2>/dev/null",
+      "expect": "مبتور",
+      "why": "أنبوبٌ يأخذ رمزَ base64 لا curl: نقلٌ مبتورٌ يبدأ بـ#! يُقبَل (قِيس)."
     }
   ],
   "uncovered": [

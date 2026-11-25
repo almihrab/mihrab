@@ -82,6 +82,10 @@ jobs:
           python tests/docs/test_det_check.py
           node --test tests/meta/dump_norm.test.mjs
 
+      # ‏[PKG-02] غلافُ curl لتغليف لينكس: بلا هذا لا يُرى يعمل إلّا في بناء لينكس بعد ساعة.
+      - name: غلافُ curl للتغليف
+        run: bash tests/static/test_curl_shim.sh
+
       # منصّةٌ خاطئةٌ في السطر الأوّل أرخصُ اكتشافًا من فشلٍ في الدقيقة الأربعين.
       - name: كشفُ المنصّة في build.sh
         run: |
