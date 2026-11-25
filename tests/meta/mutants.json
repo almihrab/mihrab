@@ -707,8 +707,8 @@
       "guardFile": "tests/docs/check_site.py",
       "guard": "python tests/docs/check_site.py",
       "file": "site/build.py",
-      "old": "for _e in os.listdir(OUT):",
-      "new": "for _e in (os.listdir(OUT) if os.environ.get(\"MIHRAB_SITE_OUT\") else []):",
+      "old": "for _e in sorted(os.listdir(OUT)):",
+      "new": "for _e in (sorted(os.listdir(OUT)) if os.environ.get(\"MIHRAB_SITE_OUT\") else []):",
       "expect": "نجت البناءَ الحقيقيّ",
       "why": "المحوُ في المجلّد المؤقّت وحدَه يترك `site/public` البائتَ يُحزَم ويُنشَر — الطفرةُ الموصوفةُ في تعليق [OUT-01] نفسِه، وكانت بلا مُصاب."
     },
@@ -1058,7 +1058,7 @@
       "guard": "python tests/docs/check_site.py",
       "file": "site/build.py",
       "old": "    write_fonts_css(dst_assets)\n",
-      "new": "    write_fonts_css(dst_assets)\n    open(os.path.join(dst_assets, \"stale-old.js\"), \"w\").close()\n",
+      "new": "    write_fonts_css(dst_assets)\n    open(os.path.join(dst_assets, \"stale-old.js\"), \"w\", encoding=\"utf-8\").close()\n",
       "expect": "بلا مصدرٍ في `site/assets`",
       "why": "ملفٌّ في public/assets بلا مصدرٍ ولا إعلانٍ يُحزَم ويُنشَر."
     },
@@ -1263,16 +1263,6 @@
       "why": "فحصُ الحتميّة يقارن البناءَ بنفسه: مقارنةٌ بعد بناءٍ غيرِ حتميٍّ تُقرأ متطابقةً صدفة."
     },
     {
-      "id": "so-work-built-once",
-      "guardFile": "tests/docs/test_same_output.py",
-      "guard": "python tests/docs/test_same_output.py",
-      "file": "tests/docs/same_output.py",
-      "old": "WORK_BUILDS = 2\n",
-      "new": "WORK_BUILDS = 1\n",
-      "expect": "[SO-03]",
-      "why": "شجرةُ العمل تُبنى مرّةً فلا تُثبَت حتميّتُها: تغييرٌ يُدخل ترتيبَ مجموعةٍ يطابق المرجعَ بالبذرة صدفةً ويُدمج."
-    },
-    {
       "id": "so-tz-constant",
       "guardFile": "tests/docs/test_same_output.py",
       "guard": "python tests/docs/test_same_output.py",
@@ -1307,8 +1297,8 @@
       "guardFile": "tests/meta/dump_norm.test.mjs",
       "guard": "node --test tests/meta/dump_norm.test.mjs",
       "file": "tests/meta/dump_norm.mjs",
-      "old": "  const TMP_RE = new RegExp(escRe(tmp) + \"[\\\\\\\\/]+[^\\\\\\\\/\\\\s\\\"'»)]+\", \"gi\");\n",
-      "new": "  const TMP_RE = new RegExp(escRe(tmp) + \"[\\\\\\\\/][^\\\\s\\\"'»)]*\", \"gi\");\n",
+      "old": "  const TMP_RE = new RegExp(ANCHOR + escRe(tmp) + \"[\\\\\\\\/]+[^\\\\\\\\/\\\\s\\\"'»)]+\", \"gi\");\n",
+      "new": "  const TMP_RE = new RegExp(ANCHOR + escRe(tmp) + \"[\\\\\\\\/][^\\\\s\\\"'»)]*\", \"gi\");\n",
       "expect": "relpath",
       "why": "‏<TMP> يبتلع المسارَ داخل المؤقّت: تفريغا صفحتين مختلفتين يتطابقان، فيقول `diff -r` «لم يتغيّر سببُ الاحمرار» كذبًا."
     },
@@ -1341,6 +1331,186 @@
       "new": "    for fn in os.listdir(ASSETS):\n",
       "expect": "[DET-01]",
       "why": "ترتيبُ `listdir` أبجديٌّ على NTFS فلا يكشفه same_output على ويندوز، وعشوائيٌّ على ext4."
+    },
+    {
+      "id": "so-builds-too-few",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "BUILDS = 8\n",
+      "new": "BUILDS = 2\n",
+      "expect": "[SO-11]",
+      "why": "بناءان لكلّ طرفٍ ببذرتين ثابتتين: عدمُ حتميّةٍ ثنائيٌّ يفلت في ‎46%‎ من المجموعات، ودائمًا."
+    },
+    {
+      "id": "so-min-builds-one",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "MIN_BUILDS = 2\n",
+      "new": "MIN_BUILDS = 1\n",
+      "expect": "[SO-11]",
+      "why": "‏--builds 1 يُقبَل: بناءٌ واحدٌ لا يُقارَن بشيء فيُعلَن «حتميًّا»."
+    },
+    {
+      "id": "so-b-equals-a",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "                b = export_work(os.path.join(tmp, \"b\"))\n",
+      "new": "                b = a\n",
+      "expect": "[SO-01]",
+      "why": "المرجعُ يُقارَن بنفسه: أخضرُ دائمًا في المسار الذي يُستعمل فعلًا."
+    },
+    {
+      "id": "so-missing-file-blind",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "    for k in sorted(set(a) - set(b)):",
+      "new": "    for k in []:",
+      "expect": "[SO-08]",
+      "why": "ملفٌّ يختفي من المخرَج (صفحةٌ حُذفت) يمرّ متطابقًا."
+    },
+    {
+      "id": "so-untracked-dropped",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "\"ls-files\", \"-co\",",
+      "new": "\"ls-files\", \"-c\",",
+      "expect": "[SO-02]",
+      "why": "ملفٌّ جديدٌ لم يُودَع بعد لا يُنسخ إلى البناء — المقارنةُ لا ترى التغييرَ الذي يُختبَر."
+    },
+    {
+      "id": "so-oserror-green",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "        print(\"❌ خطأٌ تشغيليّ: %s: %s\" % (type(e).__name__, e))\n    return 2\n",
+      "new": "        print(\"❌ خطأٌ تشغيليّ: %s: %s\" % (type(e).__name__, e))\n    return 0\n",
+      "expect": "[SO-10]",
+      "why": "انهيارُ الأداة (مجلّدٌ غائب) يخرج 0 فيُقرأ «متطابقًا»."
+    },
+    {
+      "id": "so-empty-dir-blind",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "        if not dn and not fn and rel != \".\":",
+      "new": "        if False:",
+      "expect": "[SO-12]",
+      "why": "مجلّدٌ فارغٌ في المخرَج لا يُحصى."
+    },
+    {
+      "id": "dump-blank-line-stops",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "    while (i + 1 < lines.length && nextDeep(i + 1, base)) {",
+      "new": "    while (i + 1 < lines.length && lines[i + 1].trim() && indent(lines[i + 1]) > base) {",
+      "expect": "TAP",
+      "why": "السطرُ الفارغ في كتلة YAML يقطع التفصيل فتسقط القيمتان: رسالتان مختلفتان تمامًا بتفريغٍ واحد (قِيس)."
+    },
+    {
+      "id": "dump-stack-kept",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "      if (STACK.test(l)) {",
+      "new": "      if (false) {",
+      "expect": "TAP",
+      "why": "سطورُ المكدّس تتبع نسخةَ node: تفريغان على نسختين يختلفان والحارسُ لم يتغيّر."
+    },
+    {
+      "id": "dump-pass-line-ignored",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "    if (PASS_LINE.test(lines[i]) || !FAIL_MARK.test(lines[i])) continue;",
+      "new": "    if (!FAIL_MARK.test(lines[i])) continue;",
+      "expect": "PASS_LINE",
+      "why": "سطرُ نجاحٍ فيه «Error» يُختار سطرَ فشل فيُطابقه `expect` والفحصُ لم يحمرّ."
+    },
+    {
+      "id": "dump-root-case-sensitive",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "new RegExp(ANCHOR + escRe(root), \"gi\")",
+      "new": "new RegExp(ANCHOR + escRe(root), \"g\")",
+      "expect": "حرفُ القرص",
+      "why": "‏c: مقابل C: — الجذرُ لا يُطبَّع في نصف الحرّاس."
+    },
+    {
+      "id": "dump-anchor-missing",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "const ANCHOR = \"(?<![\\\\w.-])\";",
+      "new": "const ANCHOR = \"\";",
+      "expect": "المرساة",
+      "why": "‏/tmp يُطبَّع داخل أيّ مسارٍ على لينكس."
+    },
+    {
+      "id": "det-open-noenc",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "\".nojekyll\"), \"w\", encoding=\"utf-8\").close()",
+      "new": "\".nojekyll\"), \"w\").close()",
+      "expect": "[DET-01]",
+      "why": "‏open() نصّيٌّ بلا ترميز يقرأ بمحلّيّة الجهاز — و`PYTHONUTF8` لا يكشفه على لينكس."
+    },
+    {
+      "id": "det-listdir-any-parent",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "old": "        return p.func.id in (\"sorted\", \"len\")",
+      "new": "        return True",
+      "expect": "DET-01/listdir",
+      "why": "‏`list(os.listdir(d))` يُقبل مرتَّبًا."
+    },
+    {
+      "id": "det-env-any-key",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "old": "                ok = _str_const(p.slice, ENV_PREFIX)",
+      "new": "                ok = True",
+      "expect": "DET-01/env",
+      "why": "‏os.environ[أيّ مفتاح] يُقبل: اسمُ المستخدم يدخل المخرَج."
+    },
+    {
+      "id": "det-open-binary-only",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "old": "                if not binary and not any(",
+      "new": "                if False and not any(",
+      "expect": "DET-01/open",
+      "why": "‏open() بلا ترميزٍ يمرّ."
+    },
+    {
+      "id": "det-from-os-names",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "old": "                    if a.name in BANNED_NAMES or a.name in (\"listdir\", \"environ\", \"getenv\", \"*\"):",
+      "new": "                    if a.name in BANNED_NAMES:",
+      "expect": "DET-01/from-os",
+      "why": "‏from os import listdir ثمّ listdir(d) يمرّ بلا ترتيب."
+    },
+    {
+      "id": "det-builtins-allowed",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "old": "            if isinstance(node.func, ast.Name) and n in BANNED_BUILTINS:",
+      "new": "            if False:",
+      "expect": "DET-01/builtin",
+      "why": "‏hash() و__import__('time') بابان خلفيّان."
     }
   ],
   "uncovered": [

@@ -13,14 +13,31 @@ export const PASS_LINE = /^\s*(✅|✔|ok\b|# Subtest:)/;
 export const FAIL_MARK = /❌|✗|✖|^\s*not ok\b|^\s*FAIL\b|Traceback \(most recent call last\)|\b\w*(Error|Exception)\b/;
 const indent = l => l.match(/^\s*/)[0].length;
 
+// **والسطرُ الفارغ لا يقطع التفصيل** ما دام ما بعده أعمق: كتلةُ YAML في TAP تفصل
+// `+ actual - expected` عن القيمتين بسطرٍ من مسافات، فكان القطعُ عنده يُسقط القيمتين ونصَّ
+// الرسالة كلَّه — ورسالتان مختلفتان تمامًا تعطيان تفريغًا واحدًا (قِيس).
+// و**‏`stack:` يُسقَط** بما تحته: سطورُ `node:internal/…:1047:25` تتبع نسخةَ node لا الحارس.
+const STACK = /^\s*stack:\s*\|?-?\s*$/;
 export const failureText = (out) => {
-  const lines = out.split("\n");
+  const lines = out.split("\n").map(l => l.replace(/\r$/, ""));
   const keep = [];
+  const nextDeep = (j, base) => {             // أوّلُ سطرٍ غيرِ فارغٍ من j أعمقُ من base؟
+    while (j < lines.length && !lines[j].trim()) j++;
+    return j < lines.length && indent(lines[j]) > base;
+  };
   for (let i = 0; i < lines.length; i++) {
     if (PASS_LINE.test(lines[i]) || !FAIL_MARK.test(lines[i])) continue;
     const base = indent(lines[i]);
     keep.push(lines[i]);
-    while (i + 1 < lines.length && lines[i + 1].trim() && indent(lines[i + 1]) > base) keep.push(lines[++i]);
+    while (i + 1 < lines.length && nextDeep(i + 1, base)) {
+      const l = lines[++i];
+      if (STACK.test(l)) {                    // تخطَّ الكتلةَ كلَّها
+        const sb = indent(l);
+        while (i + 1 < lines.length && (!lines[i + 1].trim() || indent(lines[i + 1]) > sb) && nextDeep(i + 1, sb)) i++;
+        continue;
+      }
+      keep.push(l.trim() ? l : "");
+    }
   }
   return keep.join("\n");
 };
@@ -34,11 +51,15 @@ export const tail = (out, n = 3) => out.split("\n").filter(l => l.trim()).slice(
 export const escRe = p => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\\|\//g, "[\\\\/]+");
 
 // ⇒ دالّةُ تطبيعٍ لجذرٍ ومؤقّتٍ بعينهما. الترتيبُ مقصود: الجذرُ أوّلًا (قد يقع داخل المؤقّت).
+// ‏`gi`: حرفُ القرص يُطبع `c:` و`C:` بحسب من حسبه. و**المسارُ مرسًى**: لا يُطبَّع إن سبقه
+// حرفُ اسم — ‏`tmpdir()` على لينكس `/tmp`، فبلا مرساةٍ يصير `/home/x/tmp/y` ‏`/home/x<TMP>`.
+// (والفاصلُ قبله مقبول: ‏`file:///C:/…` في مكدّس node.)
+const ANCHOR = "(?<![\\w.-])";
 export const makeNorm = (root, tmp) => {
-  const ROOT_RE = new RegExp(escRe(root), "gi");
+  const ROOT_RE = new RegExp(ANCHOR + escRe(root), "gi");
   // **مكوّنٌ واحدٌ بعد المؤقّت** (اسمُ المجلّد العشوائيّ) لا بقيّةُ المسار: ابتلاعُ البقيّة كان
   // يُطابق `…\tmpab\docs\index.html` بـ`…\tmpzz\start\index.html` — أيُّ صفحةٍ فشلت يضيع.
-  const TMP_RE = new RegExp(escRe(tmp) + "[\\\\/]+[^\\\\/\\s\"'»)]+", "gi");
+  const TMP_RE = new RegExp(ANCHOR + escRe(tmp) + "[\\\\/]+[^\\\\/\\s\"'»)]+", "gi");
   // وما بعد العلامة يُوحَّد فاصلُه: الحارسُ نفسُه يطبع `\` على ويندوز و`/` على غيره.
   const seps = (_, mark, rest) => mark + rest.replace(/\\+/g, "/");
   return t => t

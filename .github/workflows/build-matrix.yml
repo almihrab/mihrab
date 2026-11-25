@@ -77,6 +77,7 @@ jobs:
       - name: أداتا إثبات الموقع
         run: |
           python tests/docs/test_same_output.py
+          python tests/docs/test_det_check.py
           node --test tests/meta/dump_norm.test.mjs
 
       # منصّةٌ خاطئةٌ في السطر الأوّل أرخصُ اكتشافًا من فشلٍ في الدقيقة الأربعين.

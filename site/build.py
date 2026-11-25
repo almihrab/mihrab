@@ -1388,7 +1388,7 @@ def main():
     # `MIHRAB_SITE_OUT` قد يشير إلى أيّ مكان — فيُرفَض بصوتٍ ولا يُمحى.
     # ويحرس الوجهين [OUT-01] ببناءين حقيقيَّين في مجلّدٍ مؤقّت.
     if os.path.isdir(OUT):
-        if os.listdir(OUT) and not os.path.isfile(os.path.join(OUT, BUILD_MARK)):  # ترتيبٌ لا يؤثّر
+        if os.listdir(OUT) and not os.path.isfile(os.path.join(OUT, BUILD_MARK)):
             raise SystemExit(
                 "مجلّدُ المخرَج غيرُ فارغٍ وليس من بناءٍ سابق (لا %s فيه) — لن يُمحى: %s"
                 % (BUILD_MARK, OUT))
@@ -1425,7 +1425,7 @@ def main():
                     os.chmod(path, 0o666)
                     os.remove(path)
 
-        for _e in os.listdir(OUT):  # ترتيبٌ لا يؤثّر
+        for _e in sorted(os.listdir(OUT)):
             if _e != BUILD_MARK:
                 _wipe(os.path.join(OUT, _e))
         _mk = os.path.join(OUT, BUILD_MARK)
@@ -1555,7 +1555,7 @@ def main():
           json.dumps(index, ensure_ascii=False, separators=(",", ":")))
 
     # .nojekyll — نحن نولّد HTML جاهزًا، ومعالجةُ Jekyll تحذف ما يبدأ بشرطةٍ سفليّة.
-    open(os.path.join(OUT, ".nojekyll"), "w").close()
+    open(os.path.join(OUT, ".nojekyll"), "w", encoding="utf-8").close()
 
     print("✅ بُني الموقع: صفحةٌ أولى + تنزيل + مركزُ توثيق + %d صفحة → %s"
           % (len(pages), OUT))

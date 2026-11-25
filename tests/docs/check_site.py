@@ -9,7 +9,9 @@
     python tests/docs/check_site.py          # يبني ثمّ يفحص
     python tests/docs/check_site.py --no-build
 """
+import collections
 import glob
+import hashlib
 import html as _html
 import json
 import os
@@ -30,10 +32,42 @@ SITE = os.path.join(ROOT, "site")
 OUT = os.path.join(SITE, "public")
 
 fails = []
-# عددُ الفحوص المُقيَّمة (‏`check` و`need`) — يُطبع في اللافتة الخضراء. إعادةُ تنظيمٍ «لا تغيّر
-# السلوك» يجب أن تُبقيه كما هو: وحدةٌ لا تُستدعى، أو فحصٌ يسقط خلف `need`، يبقى أخضرَ
-# ويبقى تفريغُ المُصابات مطابقًا (‏65 مُصابًا لا تلمس كلَّ فحص) — والعددُ ينقص.
-evaluated = [0]
+# عددُ الفحوص المُقيَّمة (‏`check` و`need`) وبصمتُها — تُطبعان في اللافتة الخضراء، ويقارنهما
+# ‏`same_guard.py` بين مرجعٍ وشجرة عمل. إعادةُ تنظيمٍ «لا تغيّر السلوك» يجب أن تُبقيهما:
+# وحدةٌ لا تُستدعى، أو فحصٌ يسقط خلف `need`، يبقى أخضرَ ويبقى تفريغُ المُصابات مطابقًا
+# (المُصاباتُ لا تلمس كلَّ فحص) — والعددُ ينقص. و**البصمةُ** تُحصي الفحوصَ بمفتاحها: وسمُها
+# ‏`[XXX-NN]` إن كان في رسالتها، وإلّا أوّلُ نصّها. فاستبدالُ فحصٍ بآخرَ بالعدد نفسه يغيّرها،
+# ونقلُ فحصٍ إلى وحدةٍ أخرى برسالته لا يغيّرها. (وإضعافُ شرطٍ برسالته نفسِها لا يراه هذا —
+# ذاك عملُ المُصابات.)
+evaluated = collections.Counter()
+_TAG = re.compile(r"\[([A-Z]{2,5}-\d{2})")
+
+
+def _strings(code):
+    for c in code.co_consts:
+        if isinstance(c, str):
+            yield c
+        elif hasattr(c, "co_consts"):
+            yield from _strings(c)
+
+
+def _key(msg):
+    strs = list(_strings(msg.__code__)) if callable(msg) and hasattr(msg, "__code__") else [str(msg)]
+    for s_ in strs:
+        m = _TAG.search(s_)
+        if m:
+            return m.group(1)
+    return next((s_.strip()[:40] for s_ in strs if s_.strip()), "؟")
+
+
+def _count(msg):
+    evaluated[_key(msg)] += 1
+
+
+def fingerprint():
+    """⇒ (العدد، بصمةٌ من 12 خانة)."""
+    h = hashlib.sha256("\n".join("%s\t%d" % kv for kv in sorted(evaluated.items())).encode("utf-8"))
+    return sum(evaluated.values()), h.hexdigest()[:12]
 
 
 def bad(msg):
@@ -51,7 +85,7 @@ def check(cond, msg):
 
     كانت `assert`: أوّلُ فشلٍ يُخفي كلَّ ما بعده (قِيس: مُصابُ W404 احمرّ على FNT-01 قبله
     فلم يُرَ W404 قطّ)، و`python -O` ينزعها كلَّها فيصير الحارسُ أخضرَ بلا قياس."""
-    evaluated[0] += 1
+    _count(msg)
     if not cond:
         bad(msg() if callable(msg) else msg)
     return bool(cond)
@@ -59,7 +93,7 @@ def check(cond, msg):
 
 def need(cond, msg):
     """كـ`check` لكنّ ما بعده لا يُقاس بلاه: يُسجَّل ويوقف الحارسَ بعد عرض ما جُمع."""
-    evaluated[0] += 1
+    _count(msg)
     if not cond:
         raise _Stop(msg() if callable(msg) else msg)
     return True
@@ -233,38 +267,20 @@ def css_strip_comments(raw, name="?"):
     return "".join(out)
 
 
-_DET_IMPORT = re.compile(r"^\s*(?:import\s+(?:[\w.]+\s*,\s*)*|from\s+)(time|datetime|random|uuid|secrets)\b")
-_DET_CALL = re.compile(r"\b(?:os\.getpid|getmtime|getctime|getatime|os\.l?stat)\s*\(")
-_DET_LIST = re.compile(r"\b(?:os\.listdir|os\.scandir|os\.walk|glob\.i?glob)\s*\(")
-_DET_OK = "# ترتيبٌ لا يؤثّر"
-
-
-def det_violations(src):
-    """⇒ [(رقم السطر، السطر)] لكلّ ما يجعل البناءَ رهنَ اللحظة أو الجهاز [DET-01]."""
-    out = []
-    for i, line in enumerate(src.splitlines(), 1):
-        if line.lstrip().startswith("#"):
-            continue
-        if _DET_IMPORT.search(line) or _DET_CALL.search(line):
-            out.append((i, line.strip()))
-        elif _DET_LIST.search(line) and not re.search(r"sorted\(\s*(?:os\.listdir|os\.scandir|os\.walk|glob\.i?glob)\s*\(", line) \
-                and _DET_OK not in line:
-            out.append((i, line.strip()))
-    return out
-
-
 def main():
-    # ── [DET-01] البناءُ لا يقرأ اللحظةَ ولا الجهاز ──
-    # ‏`same_output.py` يبني بمناطقَ زمنيّةٍ وبذورٍ وترميزاتٍ متباينة فيكشف ما يتبعها — ولا يبلغ
-    # ‏`time.time()` ولا `random` ولا `getpid` ولا mtime (قِيس: تاريخٌ مزروعٌ في `BUILD_MARK`
-    # مرّ «متطابقًا بالبايت»)، ولا ترتيبَ `listdir` (أبجديٌّ على NTFS، عشوائيٌّ على ext4).
-    # فيُمنع ساكنًا: لا وحداتِ وقتٍ ولا عشوائيّة، وكلُّ سردٍ لمجلّدٍ إمّا `sorted(…)` وإمّا
-    # موسومٌ `# ترتيبٌ لا يؤثّر` بسطرِه (نسخٌ أو محوٌ لا يجمع شيئًا).
-    for _py in sorted(glob.glob(os.path.join(SITE, "*.py"))):
+    # ── [DET-01] البناءُ لا يقرأ اللحظةَ ولا الجهازَ ولا ترتيبَ القرص ──
+    # القواعدُ وعلّتُها في `det_check.py`، وجدولُ حالاتها في `test_det_check.py`. والمسحُ على
+    # كلّ `site/**/*.py` (عدا المخرَج): وحدةٌ فرعيّةٌ يستوردها البناءُ يومًا تُفحَص معه.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from det_check import violations as _det
+    _det_files = sorted(p for p in glob.glob(os.path.join(SITE, "**", "*.py"), recursive=True)
+                        if not os.path.abspath(p).startswith(os.path.abspath(OUT) + os.sep))
+    need(_det_files, lambda: "[DET-01] لا ملفَّ بايثون في site/ — المسحُ لا يرى البناء")
+    for _py in _det_files:
         with open(_py, encoding="utf-8") as _f:
-            _dv = det_violations(_f.read())
-        check(not _dv, lambda: "[DET-01] %s يقرأ اللحظةَ أو الجهازَ أو ترتيبَ مجلّد — البناءُ لا يعود حتميًّا: %s"
-              % (os.path.basename(_py), "؛ ".join("سطر %d: %s" % d for d in _dv[:5])))
+            _dv = _det(_f.read(), _py)
+        check(not _dv, lambda: "[DET-01] %s يقرأ اللحظةَ أو الجهازَ أو ترتيبَ القرص — البناءُ لا يعود حتميًّا: %s"
+              % (os.path.relpath(_py, SITE).replace(os.sep, "/"), "؛ ".join("سطر %d: %s" % d for d in _dv[:5])))
 
     if "--no-build" not in sys.argv:
         # ── بائتٌ يُزرَع في المخرَج **الحقيقيّ** قبل البناء [OUT-01] ──
@@ -2207,13 +2223,18 @@ process.stdout.write(JSON.stringify(out));
 
 
 def report():
+    # ‏`same_guard.py` يقارن هذه المفاتيحَ بين مرجعٍ وشجرة عمل، فيسمّي ما تغيّر لا البصمةَ وحدها.
+    _keys = os.environ.get("MIHRAB_GUARD_KEYS")
+    if _keys:
+        with open(_keys, "w", encoding="utf-8") as _kf:
+            json.dump(dict(sorted(evaluated.items())), _kf, ensure_ascii=False, indent=0)
     if fails:
         print("❌ %d عطبٌ بنيويّ:" % len(fails))
         for f in fails:
             print("   · %s" % f)
     else:
         print("✅ الموقعُ سليمٌ بنيويًّا: الصفحات، والمراسي، والمانيفست، وروابطُ الهويّة."
-              " (%d فحصًا مُقيَّمًا)" % evaluated[0])
+              " (%d فحصًا مُقيَّمًا · البصمة %s)" % fingerprint())
 
 
 def _run():
