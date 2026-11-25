@@ -850,7 +850,7 @@
       "old": "captureField.addEventListener('blur', dropPending);",
       "new": "// captureField.addEventListener('blur', dropPending);",
       "expect": "فقدانُ البؤرة بعد Ctrl+K لا يُسقِط",
-      "why": "السطرُ تعليقٌ والنصُّ باقٍ: الفحصُ النصّيُّ يجده ويمرّ. الصندوقُ يُفقِد الحقلَ بؤرتَه ويقرأ ما يراه الزائر."
+      "why": "السطرُ تعليقٌ والنصُّ باقٍ: الفحصُ النصّيُّ يجده ويمرّ. الصندوقُ يُفقِد الحقلَ بؤرتَه ويقرأ ما يراه الزائر. (والسطرُ المعلَّق يُجرَّد من المنشور، فيحمرّ الفحصُ النصّيّ [CAP-02] معه.)"
     },
     {
       "id": "site-capture-escape-no-reset",
@@ -1701,6 +1701,166 @@
       "new": "                raise StripError(\"شيفرةٌ بعد `*/` في %s:%d — حذفُ سطر التعليق يحذفها معه\" % (name, j + 1))\n            i = j + 2",
       "expect": "لا يُجرَّد",
       "why": "مجرِّدٌ يتجاوز سطرًا بعد كلّ كتلة تعليق: يقع داخل التعليق التالي فيرفض البناءُ بصوت (علامةُ القالب في نصّ التعليق)، وإلّا فـ[MIN-01] يرى سطرَ الشيفرة المحذوف. لا يُشحَن صامتًا."
+    },
+    {
+      "id": "strip-css-eats-string",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "        if c in \"\\\"'\":",
+      "new": "        if False:",
+      "expect": "MIN-01/css-string",
+      "why": "مجرِّدٌ لا يحفظ السلاسل يبتلع `content: \"/*\"` — والمصدرُ اليوم بلا هذه الحالة فالحارسُ لا يراها."
+    },
+    {
+      "id": "strip-css-eats-url",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "        if src[i:i + 4].lower() == \"url(\":",
+      "new": "        if False:",
+      "expect": "MIN-01/css-url",
+      "why": "‏`url(data:…*/…)` بلا اقتباس رمزٌ واحد؛ مجرِّدٌ لا يعرفه يقطعه."
+    },
+    {
+      "id": "strip-css-glues-idents",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "            if not _sep(prev, True) and not _sep(nxt, False):",
+      "new": "            if False:",
+      "expect": "MIN-01/css-ident",
+      "why": "تعليقٌ ملاصقٌ من جانبيه يُنزَع فيلتصق الرمزان (‏`a/**/b`، ‏`1/**/.5em`) — وماسحُ الحارس يلصقهما مثله فلا يراه."
+    },
+    {
+      "id": "strip-css-sep-too-loose",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "    return not ch or ch.isspace() or ch in \"{};,:)[]>\" or (before and ch == \"(\")",
+      "new": "    return not ch or ch.isspace() or ch in \"{};,:)[]>.\" or (before and ch == \"(\")",
+      "expect": "MIN-01/css-ident",
+      "why": "عدُّ `.` فاصلًا يُجيز `1/**/.5em` ⇒ `1.5em`."
+    },
+    {
+      "id": "strip-css-nested-ok",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "            if \"/*\" in src[i + 2:end]:",
+      "new": "            if False:",
+      "expect": "MIN-01/css-nested",
+      "why": "تعليقٌ يُظنّ متداخلًا يُغلَق مبكّرًا ويترك بقيّتَه نصًّا طليقًا."
+    },
+    {
+      "id": "strip-css-escape-ignored",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "        if c == \"\\\\\":\n            out.append(src[i:i + 2])",
+      "new": "        if False:\n            out.append(src[i:i + 2])",
+      "expect": "MIN-01/css-escape",
+      "why": "الهروبُ خارج السلسلة محرفٌ واحد؛ مجرِّدٌ لا يعرفه يقرأ `\\/*` بدايةَ تعليق."
+    },
+    {
+      "id": "strip-js-template-ok",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "        if \"`\" in bare:",
+      "new": "        if False and \"`\" in bare:",
+      "expect": "MIN-01/js-template",
+      "why": "سطرٌ داخل قالبٍ يبدأ بـ`//` نصٌّ لا تعليق — والحارسُ يعدّه تعليقًا و`node --check` يمرّ."
+    },
+    {
+      "id": "strip-js-code-after-close",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "            if lines[j][lines[j].find(\"*/\", k) + 2:].strip():",
+      "new": "            if False:",
+      "expect": "MIN-01/js-after-close",
+      "why": "‏`/* … */ x();` يُحذف سطرُه كلُّه ومعه الشيفرة — والحارسُ يعدّ كلَّ سطرٍ يبدأ بـ`/*` تعليقًا فلا يراه."
+    },
+    {
+      "id": "strip-js-close-from-0",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "            j, k = i, lines[i].index(\"/*\") + 2",
+      "new": "            j, k = i, 0",
+      "expect": "MIN-01/js-block",
+      "why": "‏`/*/` يُقرأ مغلَقًا في سطره فيبقى ما بعده داخلَ تعليقٍ يظنّه المجرِّدُ شيفرة."
+    },
+    {
+      "id": "strip-js-midopen-ok",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "        if bare.rfind(\"/*\") > bare.rfind(\"*/\"):",
+      "new": "        if False:",
+      "expect": "MIN-01/js-midopen",
+      "why": "تعليقٌ يُفتح في منتصف السطر ثمّ كتلةٌ تُحذف تحذف إغلاقَه فيبتلع الشيفرة."
+    },
+    {
+      "id": "min02-css-not-stripped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "old": "_strip = strip_css if fn.endswith(\".css\") else",
+      "new": "_strip = strip_css if fn.endswith(\".scss\") else",
+      "expect": "[MIN-02]",
+      "why": "سقفُ الحجم يحمرّ وحدَه لو حُذف [MIN-01]: تعليقاتٌ تعود فتتضاعف البايتات.",
+      "file": "site/build.py"
+    },
+    {
+      "id": "min01-js-drops-code-line",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "old": "            i = j + 1\n            continue\n        bare = _QUOTED.sub",
+      "new": "            i = j + 1\n            out and out.pop()\n            continue\n        bare = _QUOTED.sub",
+      "expect": "ليس المصدرَ بلا أسطر تعليقه",
+      "why": "مجرِّدٌ يحذف سطرَ الشيفرة قبل كلّ كتلة تعليقٍ ولا يرفض شيئًا: يراه شاهدُ JS في [MIN-01] (أسطرُ المصدر بترتيبها).",
+      "file": "site/sitegen/strip.py"
+    },
+    {
+      "id": "strip-js-continuation-ok",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "        if lines[i].endswith(\"\\\\\"):",
+      "new": "        if False:",
+      "expect": "MIN-01/js-continuation",
+      "why": "سلسلةٌ تمتدّ بـ\\ إلى السطر التالي: سطرٌ يبدأ بـ// فيها نصٌّ يحذفه المجرِّد."
+    },
+    {
+      "id": "strip-css-escaped-sep",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "            if out and out[-1].startswith(\"\\\\\"):",
+      "new": "            if False:",
+      "expect": "MIN-01/css-escape",
+      "why": "محرفٌ مهرَّبٌ قبل التعليق (‏`\\ `) يُعدّ فاصلًا فيُنزع التعليقُ ويصير `.a\\ /**/b` اسمًا واحدًا."
+    },
+    {
+      "id": "strip-css-paren-after-ok",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "site/sitegen/strip.py",
+      "old": "    return not ch or ch.isspace() or ch in \"{};,:)[]>\" or (before and ch == \"(\")",
+      "new": "    return not ch or ch.isspace() or ch in \"{};,:)[]>\" or (ch == \"(\")",
+      "expect": "MIN-01/css-ident",
+      "why": "‏`(` بعد التعليق آمنًا يُجيز `rgb/**/(` ⇒ دالّة — آمنٌ قبله وحدَه."
+    },
+    {
+      "id": "guard-css-escape-ignored",
+      "guardFile": "tests/docs/test_strip.py",
+      "guard": "python tests/docs/test_strip.py",
+      "file": "tests/docs/check_site.py",
+      "old": "        if raw[pos] == \"\\\\\":",
+      "new": "        if False:",
+      "expect": "MIN-01/guard-escape",
+      "why": "ماسحُ الحارس شاهدُ [MIN-01]: إن جهل الهروبَ خارج السلسلة قرأ `'` بدايةَ سلسلةٍ فابتلع ما بعدها، وعمي عنه الشاهد. والمصدرُ الحاليّ لا يُظهر هذا الفرع."
     }
   ],
   "uncovered": [

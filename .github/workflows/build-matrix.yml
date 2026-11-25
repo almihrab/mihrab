@@ -84,6 +84,7 @@ jobs:
         run: |
           python tests/docs/test_same_output.py
           python tests/docs/test_det_check.py
+          python tests/docs/test_strip.py
           node --test tests/meta/dump_norm.test.mjs
 
       # ‏[PKG-02] غلافُ curl لتغليف لينكس: بلا هذا لا يُرى يعمل إلّا في بناء لينكس بعد ساعة.
