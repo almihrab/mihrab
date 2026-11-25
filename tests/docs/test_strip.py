@@ -104,7 +104,7 @@ CASES = [
 ]
 
 
-# ‏**وماسحُ الحارس** (‏`css_strip_comments` في check_site.py) شاهدُ [MIN-01] على المجرِّد، فما
+# ‏**وماسحُ الحارس** (‏`css_strip_comments` في `site_guard/core.py`) شاهدُ [MIN-01] على المجرِّد، فما
 # يجهله يعمى عنه الشاهد. والمصدرُ الحاليّ لا يحوي هروبًا خارج تعليق، فلا يُرى فرعُه إلّا هنا.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 _argv, sys.argv = sys.argv, ["check_site.py"]
