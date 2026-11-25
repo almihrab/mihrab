@@ -713,16 +713,6 @@
       "why": "المحوُ في المجلّد المؤقّت وحدَه يترك `site/public` البائتَ يُحزَم ويُنشَر — الطفرةُ الموصوفةُ في تعليق [OUT-01] نفسِه، وكانت بلا مُصاب."
     },
     {
-      "id": "site-assets-not-verbatim",
-      "guardFile": "tests/docs/check_site.py",
-      "guard": "python tests/docs/check_site.py",
-      "file": "site/build.py",
-      "old": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read())",
-      "new": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read().replace(b\"\\t\", b\"  \"))",
-      "expect": "[OUT-02]",
-      "why": "الحارسُ يفحص `site/assets` والنشرُ يحزم `site/public`: أصلٌ مشحونٌ يخالف مصدرَه يجب أن يُرى قبل النشر."
-    },
-    {
       "id": "man-rc-replaces-final",
       "guardFile": "tests/docs/check_site.py",
       "guard": "python tests/docs/check_site.py",
@@ -1611,6 +1601,66 @@
       "new": "format=TEXT\" | base64 -d > \"$out.part\" 2>/dev/null",
       "expect": "مبتور",
       "why": "أنبوبٌ يأخذ رمزَ base64 لا curl: نقلٌ مبتورٌ يبدأ بـ#! يُقبَل (قِيس)."
+    },
+    {
+      "id": "out-public-not-clean-build",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "    open(os.path.join(OUT, \".nojekyll\"), \"w\", encoding=\"utf-8\").close()\n",
+      "new": "    open(os.path.join(OUT, \".nojekyll\"), \"w\", encoding=\"utf-8\").close()\n    if not os.environ.get(\"MIHRAB_SITE_OUT\"):\n        with open(os.path.join(OUT, \"assets\", \"docs.js\"), \"a\", encoding=\"utf-8\") as _x:\n            _x.write(\" \")\n",
+      "expect": "يخالف البناءَ النظيفَ بالبايت",
+      "why": "[OUT-02] البناءُ يكتب في `site/public/` (ما يحزمه النشر) شيئًا لا يكتبه في مجلّدٍ آخر: يُشحَن ما لم يُقَس. والمرجعُ بناءٌ نظيفٌ في مجلّدٍ مؤقّت لا مصدرُ الأصول."
+    },
+    {
+      "id": "out-shipped-js-broken",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read())",
+      "new": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read().replace(b\"e.preventDefault()\", b\"void 0\"))",
+      "expect": "Escape",
+      "why": "البناءُ يحوِّل الأصلَ فيُعطِب `docs.js` المشحونَ والمصدرُ سليم: الحارسُ يجب أن يقيس ما يُشحَن (‏`OUT/assets`) لا المصدر — وإلّا فتجريدُ التعليقات يكسر الموقعَ والحارسُ أخضر."
+    },
+    {
+      "id": "out-nobuild-compares-self",
+      "guardFile": "tests/docs/test_check_site_nobuild.py",
+      "guard": "python tests/docs/test_check_site_nobuild.py",
+      "file": "tests/docs/check_site.py",
+      "old": "        _pub, _cln = _tree(OUT), _tree(_clean)\n",
+      "new": "        _pub, _cln = _tree(OUT), (_tree(_clean) if \"--no-build\" not in sys.argv else _tree(OUT))\n",
+      "expect": "لا ترفض مخرَجًا ليس من هذا المصدر",
+      "why": "[OUT-02] يجب أن يعمل في --no-build (بوّابةُ النشر في deploy_site.sh)، وكلُّ مُصابٍ آخر يمرّ عبر البناء فلا يرى هذا الفرع."
+    },
+    {
+      "id": "out-env-dir-not-wiped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "for _e in sorted(os.listdir(OUT)):",
+      "new": "for _e in (sorted(os.listdir(OUT)) if not os.environ.get(\"MIHRAB_SITE_OUT\") else []):",
+      "expect": "نجا البناءَ الجديد",
+      "why": "[OUT-01] المحوُ في public وحده يترك مخرَجَ MIHRAB_SITE_OUT بائتًا. كان شاهدُ هذا الفحص الوحيدُ split-data-out-ignores-env، وصار يقف عند [OUT-02]."
+    },
+    {
+      "id": "out-foreign-dir-wiped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "        if os.listdir(OUT) and not os.path.isfile(os.path.join(OUT, BUILD_MARK)):",
+      "new": "        if False and os.listdir(OUT) and not os.path.isfile(os.path.join(OUT, BUILD_MARK)):",
+      "expect": "بنى فوق مجلّدٍ غيرِ فارغٍ بلا شاهد",
+      "why": "[OUT-01] رفضُ البناء فوق مجلّدٍ غيرِ فارغٍ بلا شاهد لم يكن له مُصاب، وشاهدُه العرَضيُّ الوحيد سقط مع [OUT-02]."
+    },
+    {
+      "id": "out-nobuild-link-unseen",
+      "guardFile": "tests/docs/test_check_site_nobuild.py",
+      "guard": "python tests/docs/test_check_site_nobuild.py",
+      "file": "tests/docs/check_site.py",
+      "old": "                    if _linked(os.path.join(_dp, _d)):",
+      "new": "                    if False and _linked(os.path.join(_dp, _d)):",
+      "expect": "لا ترفض مخرَجًا ليس من هذا المصدر",
+      "why": "[OUT-02] os.walk لا ينزل في وصلة، فمجلّدٌ موصولٌ في public/ يغيب عن الطرفين ويتطابقان، وtar يحزم الوصلةَ ويُنشَر ما وراءها."
     }
   ],
   "uncovered": [
