@@ -596,6 +596,36 @@ def main():
                 bad("[OUT-03] %s يحمّل موردًا من أصلٍ آخر: <%s %s=\"%s…\">"
                     % (os.path.relpath(_pf, OUT).replace(os.sep, "/"), _rm.group(1), _rm.group(2), _rm.group(3)))
 
+    # ── [MIN-01] تجريدُ التعليقات وقتَ البناء لا يغيّر إلّا التعليقات ──
+    # البناءُ يجرّد تعليقاتِ CSS (‏`site/sitegen/strip.py`). وماسحُ الحارس (‏`css_strip_comments`)
+    # **مستقلٌّ عنه**: يجرّد المصدرَ بنفسه، ويُشترط أن يطابق الناتجُ المنشورَ بعد توحيد المسافات —
+    # فمجرِّدٌ يبتلع سلسلةً فيها `/*` أو `url(data:…*/…)`، أو يحذف ما ليس تعليقًا، يُرى هنا.
+    # (ولو كان الماسحُ واحدًا لشهد لنفسه.) ولا تعليقَ يبقى في المنشور.
+    for _cn in sorted(os.listdir(os.path.join(SITE, "assets"))):
+        if not _cn.endswith(".css"):
+            continue
+        with open(os.path.join(SITE, "assets", _cn), encoding="utf-8") as _mf:
+            _msrc = _mf.read()
+        _mpub = read("assets/" + _cn)
+        _mnorm = lambda _t: re.sub(r"\s+", " ", _t).strip()
+        check(_mnorm(css_strip_comments(_msrc, _cn)) == _mnorm(_mpub), lambda: "[MIN-01] ‏`public/assets/%s` ليس "
+              "المصدرَ بلا تعليقاته — المجرِّدُ غيّر ما ليس تعليقًا" % _cn)
+        check(_mnorm(css_strip_comments(_mpub, _cn)) == _mnorm(_mpub), lambda: "[MIN-01] ‏`public/assets/%s` ما زال "
+              "يحمل تعليقًا — المجرِّدُ لم يجرّد" % _cn)
+
+    # ── [MIN-02] سقفُ الحجم المضغوط لكلّ أصلٍ نصّيّ ──
+    # ما يُنزِّله الزائرُ فعلًا (gzip، المستوى 9): التجريدُ أنزل أوراقَ CSS من ‎16.4‎/‎10.6‎ ك.ب إلى
+    # ‎3.9‎/‎2.7‎ (قِيس 2026-11-25). والسقفُ فوق القياس بنحو ‎15%‎: إعادةُ التعليقات (مجرِّدٌ
+    # معطَّل) أو ملفٌّ يتضخّم بلا قرار يحمرّ هنا لا عند الزائر. ورفعُ السقف قرارٌ مكتوبٌ هنا.
+    # (‏JS لم يُجرَّد بعد: سقفُه قياسُه اليوم، ويُخفَض حين يُجرَّد.)
+    import gzip as _gz
+    _GZ_CAP = {"mihrab-docs.css": 4500, "mihrab-home.css": 3100, "docs.js": 17000, "site.js": 8300}
+    for _an, _cap in sorted(_GZ_CAP.items()):
+        with open(os.path.join(OUT, "assets", _an), "rb") as _gf:
+            _gzn = len(_gz.compress(_gf.read(), 9, mtime=0))
+        check(_gzn <= _cap, lambda: "[MIN-02] ‏`public/assets/%s` مضغوطًا %d بايت فوق سقفه %d — تعليقاتٌ عادت "
+              "أو تضخّمٌ بلا قرار؛ يُرفَع السقفُ في `_GZ_CAP` بتعليلٍ إن كان مقصودًا" % (_an, _gzn, _cap))
+
     # docs.js يخرج مبكّرًا بلا هذا الوسم، فيموت مبدّلُ النظام والترشيحُ والالتقاط.
     if "data-kbd-table" not in kbd:
         bad("keyboard/index.html بلا data-kbd-table — سلوكُ صفحة الاختصارات ميّتٌ صامتًا.")

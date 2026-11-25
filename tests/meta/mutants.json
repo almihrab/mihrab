@@ -1617,8 +1617,8 @@
       "guardFile": "tests/docs/check_site.py",
       "guard": "python tests/docs/check_site.py",
       "file": "site/build.py",
-      "old": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read())",
-      "new": "with open(src, \"rb\") as f_in, open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(f_in.read().replace(b\"e.preventDefault()\", b\"void 0\"))",
+      "old": "            with open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(data)",
+      "new": "            with open(os.path.join(dst_assets, fn), \"wb\") as f_out:\n                f_out.write(data.replace(b\"e.preventDefault()\", b\"void 0\"))",
       "expect": "Escape",
       "why": "البناءُ يحوِّل الأصلَ فيُعطِب `docs.js` المشحونَ والمصدرُ سليم: الحارسُ يجب أن يقيس ما يُشحَن (‏`OUT/assets`) لا المصدر — وإلّا فتجريدُ التعليقات يكسر الموقعَ والحارسُ أخضر."
     },
@@ -1661,6 +1661,26 @@
       "new": "                    if False and _linked(os.path.join(_dp, _d)):",
       "expect": "لا ترفض مخرَجًا ليس من هذا المصدر",
       "why": "[OUT-02] os.walk لا ينزل في وصلة، فمجلّدٌ موصولٌ في public/ يغيب عن الطرفين ويتطابقان، وtar يحزم الوصلةَ ويُنشَر ما وراءها."
+    },
+    {
+      "id": "min01-strip-trims-semicolon",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/strip.py",
+      "old": "            line = line.rstrip(\" \\t\")",
+      "new": "            line = line.rstrip(\" \\t;\")",
+      "expect": "ليس المصدرَ بلا تعليقاته",
+      "why": "[MIN-01] مجرِّدٌ يقصّ أكثرَ من المسافة بعد التعليق (‏`color: red; /* … */` ⇒ `color: red`) فيلتصق الإعلانُ بما يليه — والمتصفّحُ يُسقطهما صامتًا."
+    },
+    {
+      "id": "min01-not-stripped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "            if fn.endswith(\".css\"):\n                try:",
+      "new": "            if fn.endswith(\".scss\"):\n                try:",
+      "expect": "ما زال يحمل تعليقًا",
+      "why": "[MIN-01]/[MIN-02] البناءُ يكفّ عن التجريد فيُنزِّل الزائرُ سجلَّ القرارات (‎70%‎ من بايتات CSS)."
     }
   ],
   "uncovered": [

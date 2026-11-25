@@ -39,6 +39,7 @@ from sitegen.data import ASSETS, BUILD_MARK, CONTENT, NAV, OUT, RELEASES, SLUG_S
 from sitegen.fonts import write_fonts_css
 from sitegen.pages import build_download, build_keyboard_page, build_landing, build_not_found
 from sitegen.preview import ALIF_JS, build_alif_preview
+from sitegen.strip import StripError, strip_css
 from sitegen.templates import (
     DOCS_SECTION_NOTE,
     MARK_SVG,
@@ -159,8 +160,16 @@ def main():
     for fn in sorted(os.listdir(ASSETS)):
         src = os.path.join(ASSETS, fn)
         if os.path.isfile(src):
-            with open(src, "rb") as f_in, open(os.path.join(dst_assets, fn), "wb") as f_out:
-                f_out.write(f_in.read())
+            with open(src, "rb") as f_in:
+                data = f_in.read()
+            # تعليقاتُ CSS تُجرَّد (‏`sitegen/strip.py`، ويحرسه [MIN-01])، وما سواها يُنسَخ بالبايت.
+            if fn.endswith(".css"):
+                try:
+                    data = strip_css(data.decode("utf-8"), "site/assets/" + fn).encode("utf-8")
+                except StripError as e:
+                    raise SystemExit("❌ لا يُجرَّد: %s" % e)
+            with open(os.path.join(dst_assets, fn), "wb") as f_out:
+                f_out.write(data)
     # ‏`shots/` مجلّد، والحلقةُ أعلاه تتخطّى المجلّدات — فكانت الصفحةُ الأولى تُشير
     # إلى لقطةٍ لا تُنسَخ: مستطيلٌ مكسورٌ فوق الطيّة، بلا خطأٍ في البناء.
     # ‏`fonts/` مستثنًى: `write_fonts_css` ينسخ الموجودَ منه وحده (انظر تعليلَه).
