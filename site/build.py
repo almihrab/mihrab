@@ -39,7 +39,7 @@ from sitegen.data import ASSETS, BUILD_MARK, CONTENT, NAV, OUT, RELEASES, SLUG_S
 from sitegen.fonts import write_fonts_css
 from sitegen.pages import build_download, build_keyboard_page, build_landing, build_not_found
 from sitegen.preview import ALIF_JS, build_alif_preview
-from sitegen.strip import StripError, strip_css
+from sitegen.strip import StripError, strip_css, strip_js
 from sitegen.templates import (
     DOCS_SECTION_NOTE,
     MARK_SVG,
@@ -162,10 +162,11 @@ def main():
         if os.path.isfile(src):
             with open(src, "rb") as f_in:
                 data = f_in.read()
-            # تعليقاتُ CSS تُجرَّد (‏`sitegen/strip.py`، ويحرسه [MIN-01])، وما سواها يُنسَخ بالبايت.
-            if fn.endswith(".css"):
+            # تعليقاتُ CSS وJS تُجرَّد (‏`sitegen/strip.py`، ويحرسه [MIN-01])، وما سواها يُنسَخ بالبايت.
+            _strip = strip_css if fn.endswith(".css") else strip_js if fn.endswith(".js") else None
+            if _strip:
                 try:
-                    data = strip_css(data.decode("utf-8"), "site/assets/" + fn).encode("utf-8")
+                    data = _strip(data.decode("utf-8"), "site/assets/" + fn).encode("utf-8")
                 except StripError as e:
                     raise SystemExit("❌ لا يُجرَّد: %s" % e)
             with open(os.path.join(dst_assets, fn), "wb") as f_out:
