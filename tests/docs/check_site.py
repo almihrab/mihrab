@@ -613,13 +613,48 @@ def main():
         check(_mnorm(css_strip_comments(_mpub, _cn)) == _mnorm(_mpub), lambda: "[MIN-01] ‏`public/assets/%s` ما زال "
               "يحمل تعليقًا — المجرِّدُ لم يجرّد" % _cn)
 
+    # و**JS يُجرَّد سطريًّا** (أسطرُ التعليق الكاملة وحدَها؛ انظر `strip_js`). والشاهدُ هنا مستقلٌّ
+    # عنه: (١) المنشورُ أسطرُ المصدر نفسُها بترتيبها — حذفٌ لا تعديل؛ (٢) كلُّ سطرٍ محذوفٍ تعليقٌ
+    # بعدّ الحارس (داخلَ `/* … */` يبدأ في أوّل سطره، أو `//` في أوّله)؛ (٣) لا سطرَ تعليقٍ كاملٍ
+    # باقٍ؛ (٤) ‏`node --check` يقبل المنشور.
+    _node_chk = shutil.which("node")
+    for _jn in sorted(os.listdir(os.path.join(SITE, "assets"))):
+        if not _jn.endswith(".js"):
+            continue
+        with open(os.path.join(SITE, "assets", _jn), encoding="utf-8") as _jf:
+            _jsrc = _jf.read().split("\n")
+        _jpub = read("assets/" + _jn).split("\n")
+        _k, _inb, _bad = 0, False, []
+        for _no, _ln in enumerate(_jsrc, 1):
+            _st = _ln.lstrip()
+            _is_c = _inb or _st.startswith("//") or _st.startswith("/*")
+            if _st.startswith("/*") and not _inb:
+                _inb = "*/" not in _st[2:]
+            elif _inb and "*/" in _ln:
+                _inb = False
+            if _k < len(_jpub) and _jpub[_k] == _ln and not _is_c:
+                _k += 1
+            elif _is_c:
+                continue
+            else:
+                _bad.append(_no)
+        check(_k == len(_jpub) and not _bad, lambda: "[MIN-01] ‏`public/assets/%s` ليس المصدرَ بلا أسطر تعليقه — "
+              "أسطرُ شيفرةٍ حُذفت أو تغيّرت (المصدر: %s)" % (_jn, _bad[:5] or "زيادةٌ في المنشور"))
+        _left = [_n for _n, _l in enumerate(_jpub, 1) if _l.lstrip().startswith(("//", "/*"))]
+        check(not _left, lambda: "[MIN-01] ‏`public/assets/%s` ما زال يحمل سطرَ تعليقٍ كاملًا: %s" % (_jn, _left[:5]))
+        if _node_chk:
+            _nc = subprocess.run([_node_chk, "--check", os.path.join(OUT, "assets", _jn)],
+                                 capture_output=True, encoding="utf-8", errors="replace", timeout=60)
+            check(_nc.returncode == 0, lambda: "[MIN-01] ‏`node --check` يرفض `public/assets/%s`: %s"
+                  % (_jn, (_nc.stderr.strip().splitlines() or ["?"])[-1]))
+
     # ── [MIN-02] سقفُ الحجم المضغوط لكلّ أصلٍ نصّيّ ──
     # ما يُنزِّله الزائرُ فعلًا (gzip، المستوى 9): التجريدُ أنزل أوراقَ CSS من ‎16.4‎/‎10.6‎ ك.ب إلى
     # ‎3.9‎/‎2.7‎ (قِيس 2026-11-25). والسقفُ فوق القياس بنحو ‎15%‎: إعادةُ التعليقات (مجرِّدٌ
     # معطَّل) أو ملفٌّ يتضخّم بلا قرار يحمرّ هنا لا عند الزائر. ورفعُ السقف قرارٌ مكتوبٌ هنا.
-    # (‏JS لم يُجرَّد بعد: سقفُه قياسُه اليوم، ويُخفَض حين يُجرَّد.)
+    # وJS من ‎14.7‎/‎7.2‎ إلى ‎5.6‎/‎3.2‎.
     import gzip as _gz
-    _GZ_CAP = {"mihrab-docs.css": 4500, "mihrab-home.css": 3100, "docs.js": 17000, "site.js": 8300}
+    _GZ_CAP = {"mihrab-docs.css": 4500, "mihrab-home.css": 3100, "docs.js": 6400, "site.js": 3700}
     for _an, _cap in sorted(_GZ_CAP.items()):
         with open(os.path.join(OUT, "assets", _an), "rb") as _gf:
             _gzn = len(_gz.compress(_gf.read(), 9, mtime=0))

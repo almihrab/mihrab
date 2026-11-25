@@ -1677,10 +1677,30 @@
       "guardFile": "tests/docs/check_site.py",
       "guard": "python tests/docs/check_site.py",
       "file": "site/build.py",
-      "old": "            if fn.endswith(\".css\"):\n                try:",
-      "new": "            if fn.endswith(\".scss\"):\n                try:",
+      "old": "_strip = strip_css if fn.endswith(\".css\") else",
+      "new": "_strip = strip_css if fn.endswith(\".scss\") else",
       "expect": "ما زال يحمل تعليقًا",
       "why": "[MIN-01]/[MIN-02] البناءُ يكفّ عن التجريد فيُنزِّل الزائرُ سجلَّ القرارات (‎70%‎ من بايتات CSS)."
+    },
+    {
+      "id": "min01-js-not-stripped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "else strip_js if fn.endswith(\".js\") else None",
+      "new": "else strip_js if fn.endswith(\".jsx\") else None",
+      "expect": "ما زال يحمل سطرَ تعليقٍ كاملًا",
+      "why": "[MIN-01]/[MIN-02] البناءُ يكفّ عن تجريد JS فيُنزِّل الزائرُ سجلَّ القرارات (نحو 60% من بايتات السكربتات)."
+    },
+    {
+      "id": "min01-js-eats-next-line",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/strip.py",
+      "old": "                raise StripError(\"شيفرةٌ بعد `*/` في %s:%d — حذفُ سطر التعليق يحذفها معه\" % (name, j + 1))\n            i = j + 1",
+      "new": "                raise StripError(\"شيفرةٌ بعد `*/` في %s:%d — حذفُ سطر التعليق يحذفها معه\" % (name, j + 1))\n            i = j + 2",
+      "expect": "لا يُجرَّد",
+      "why": "مجرِّدٌ يتجاوز سطرًا بعد كلّ كتلة تعليق: يقع داخل التعليق التالي فيرفض البناءُ بصوت (علامةُ القالب في نصّ التعليق)، وإلّا فـ[MIN-01] يرى سطرَ الشيفرة المحذوف. لا يُشحَن صامتًا."
     }
   ],
   "uncovered": [
