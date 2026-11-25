@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""النصّ: Markdown المضبوط، والترويسة، والاختصارات، ومسردُ المصطلحات."""
+"""النصّ: Markdown المضبوط (ومعه اختصاراتُ `{{…}}` في المتن)، والترويسة، ونصُّ فهرس البحث
+وبدائلُ المسرد."""
 import html
 import json
 import os
@@ -173,41 +174,7 @@ def parse_front_matter(raw, path_hint):
     return meta, raw[end + 5:]
 
 
-# ترتيبُ المعدِّلات كما يبنيه `chordFromEvent` في docs.js — والحارسُ [CAP-01] يقرأه من هناك.
-_MOD_ORDER = ("Ctrl", "Cmd", "Shift", "Alt")
-
-
-def _canon_chord(chord):
-    """‏«Shift+Alt+Cmd+C» ⇒ «Cmd+Shift+Alt+C»؛ والمتتابعُ («Ctrl+K Ctrl+O») ضغطةً ضغطة."""
-    out = []
-    for press in chord.split(" "):
-        parts = [p.strip() for p in press.split("+") if p.strip()]
-        if not parts:
-            continue
-        mods, key = parts[:-1], parts[-1]
-        out.append("+".join([m for m in _MOD_ORDER if m in mods]
-                            + [m for m in mods if m not in _MOD_ORDER] + [key]))
-    return " ".join(out)
-
-
-def _chord_inner(chord):
-    """الفراغُ يفصل **ضغطتين متتاليتين** (‏`Ctrl+K Ctrl+S`) و`+` يفصل مفاتيحَ الضغطة
-    الواحدة. كان القسمُ على `+` وحدَه فتُعرَض «Ctrl + K Ctrl + S»: قبعةٌ واحدةٌ
-    مكتوبٌ عليها «K Ctrl» — في ستّةِ صفوفٍ ثلاثةٌ منها في «أساسيّات» (قِيس على
-    الحيّ، الجولة ‎16‎). فتُرسَم الضغطتان قبعاتٍ مستقلّةً بينهما «ثمّ»."""
-    bits = []
-    for j, stroke in enumerate(chord.split()):
-        if j:
-            bits.append('<span class="then">ثمّ</span>')
-        parts = [p.strip() for p in stroke.split("+") if p.strip()]
-        for i, p in enumerate(parts):
-            if i:
-                bits.append('<span class="plus">+</span>')
-            bits.append('<kbd class="chord" dir="ltr">%s</kbd>' % html.escape(p))
-    return "".join(bits)
-
-
-# ═════════════════════ البناء ═════════════════════
+# ═════════════════════ فهرسُ البحث: النصُّ المجرَّد وبدائلُ المسرد ═════════════════════
 def strip_tags(s):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s)).strip()
 

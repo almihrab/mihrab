@@ -276,6 +276,82 @@ def main():
     _det_files = sorted(p for p in glob.glob(os.path.join(SITE, "**", "*.py"), recursive=True)
                         if not os.path.abspath(p).startswith(os.path.abspath(OUT) + os.sep))
     need(_det_files, lambda: "[DET-01] لا ملفَّ بايثون في site/ — المسحُ لا يرى البناء")
+    # وجذرُ `site/` لا يحمل بايثون سوى نقطة الدخول: مجلّدُ السكربت أوّلُ `sys.path`، فملفٌّ
+    # كـ`site/json.py` أو `site/html.py` يظلّل المكتبةَ القياسيّة لـ`build.py` ولكلّ وحدةٍ في
+    # `sitegen/` — فيتغيّر البناءُ بملفٍّ لا يستورده أحدٌ صراحةً. والوحداتُ مكانُها `sitegen/`.
+    _root_py = sorted(f for f in os.listdir(SITE) if f.endswith(".py") and f != "build.py")
+    check(not _root_py, lambda: "[DET-01] بايثون في جذر site/ سوى build.py: %s — يظلّل ما يستورده "
+          "البناء؛ مكانُه site/sitegen/" % "، ".join(_root_py))
+
+    # ── [GEN-01] حدودُ المولِّد المقسَّم: كلُّ وحدةٍ في `sitegen/` مستورَدة، ولا حلقات، ولا بايتكود ──
+    # وحدةٌ لا يستوردها أحدٌ شيفرةٌ ميّتةٌ تبدو حيّة (تعديلُها لا يغيّر الموقع فيمرّ كلُّ حارسٍ
+    # أخضر)؛ والحلقةُ تجعل ترتيبَ الاستيراد يقرّر أيَّ اسمٍ يُرى؛ و`__pycache__` بجانب المصدر
+    # يظهر في `git status` وفي أدوات الإثبات (لذا `sys.dont_write_bytecode` في `build.py`).
+    import ast as _ast
+    _gen = os.path.join(SITE, "sitegen")
+    _mods = sorted(f[:-3] for f in os.listdir(_gen) if f.endswith(".py") and f != "__init__.py")
+    need(len(_mods) >= 2, lambda: "[GEN-01] لا وحداتٍ في site/sitegen/ — الحارسُ يقيس الهواء")
+    _edges = {}
+
+    def _gen_imports(_path):
+        """أسماءُ وحدات sitegen التي يستوردها الملفّ — **بكلّ صيغة** وفي أيّ موضع (استيرادٌ
+        كسولٌ داخل دالّةٍ يُغلق حلقةً كما يُغلقها رأسُ الملفّ): ‏`from .x import`،
+        ‏`from . import x`، ‏`from sitegen.x import`، ‏`from sitegen import x`، ‏`import sitegen.x`.
+        وصيغةٌ مفقودةٌ هنا تُسقط حافّةً فتُعلَن وحدةٌ حيّةٌ ميّتةً، وتفوت حلقة."""
+        with open(_path, encoding="utf-8") as _gf:
+            _tree = _ast.parse(_gf.read(), _path)
+        _out = set()
+        for _n in _ast.walk(_tree):
+            if isinstance(_n, _ast.ImportFrom):
+                _mod = _n.module or ""
+                if _n.level >= 1:
+                    _out.update([_mod.split(".")[0]] if _mod else [a.name for a in _n.names])
+                elif _mod == "sitegen":
+                    _out.update(a.name for a in _n.names)
+                elif _mod.startswith("sitegen."):
+                    _out.add(_mod.split(".")[1])
+            elif isinstance(_n, _ast.Import):
+                _out.update(a.name.split(".")[1] for a in _n.names if a.name.startswith("sitegen."))
+        return _out
+
+    for _m in _mods:
+        _edges[_m] = _gen_imports(os.path.join(_gen, _m + ".py")) & set(_mods)
+    # نقطتا الدخول: `build.py`، و`__init__.py` (يُنفَّذ مع أيّ استيرادٍ من الحزمة).
+    _from_entry = _gen_imports(os.path.join(SITE, "build.py"))
+    if os.path.isfile(os.path.join(_gen, "__init__.py")):
+        _from_entry |= _gen_imports(os.path.join(_gen, "__init__.py"))
+    # **الوصولُ من نقطة الدخول** لا «يستوردها أحد»: وحدتان ميّتتان تستورد إحداهما الأخرى
+    # كانتا تمرّان بالقاعدة الثانية (قِيس بالزرع).
+    _used, _todo = set(), sorted(_from_entry & set(_mods))
+    while _todo:
+        _m = _todo.pop()
+        if _m not in _used:
+            _used.add(_m)
+            _todo.extend(_edges.get(_m, ()))
+    _orphans = [m for m in _mods if m not in _used]
+    check(not _orphans, lambda: "[GEN-01] وحداتٌ في sitegen/ لا تصل إليها build.py (مباشرةً أو عبر وحدة): %s"
+          % "، ".join(_orphans))
+    _cycle = []
+
+    def _gen_dfs(_m, _stack):
+        if _cycle:
+            return
+        if _m in _stack:
+            _cycle.extend(_stack[_stack.index(_m):] + [_m])
+            return
+        for _d in sorted(_edges.get(_m, ())):
+            _gen_dfs(_d, _stack + [_m])
+
+    for _m in _mods:
+        _gen_dfs(_m, [])
+    check(not _cycle, lambda: "[GEN-01] حلقةُ استيرادٍ بين وحدات sitegen/: %s" % " ← ".join(_cycle))
+    _pyc = [os.path.relpath(os.path.join(_d, _x), SITE).replace(os.sep, "/")
+            for _d, _sub, _fs in os.walk(SITE)
+            if not (os.path.abspath(_d) + os.sep).startswith(os.path.abspath(OUT) + os.sep)
+            for _x in _sub if _x == "__pycache__"]
+    check(not _pyc, lambda: "[GEN-01] بايتكود في شجرة المصدر: %s — `build.py` يضبط "
+          "`sys.dont_write_bytecode`؛ وكاتبُه غيرُه: وحدةٌ شُغِّلت مباشرةً، أو `compileall` "
+          "بلا `PYTHONPYCACHEPREFIX` — يُحذف" % "، ".join(_pyc))
     for _py in _det_files:
         with open(_py, encoding="utf-8") as _f:
             _dv = _det(_f.read(), _py)
@@ -313,8 +389,12 @@ def main():
                 with open(_pp, "w") as _pf:
                     _pf.write("stale")
                 _pub_planted.append(_pp)
+        # الخرجُ يُلتقَط ثمّ يُطبَع كما هو، كي يُلحَق ذيلُه برسالة الفشل: «فشل البناء» وحدَها
+        # لا تقول أين — والسببُ (‏`SystemExit` أو التتبّع) في آخر سطورٍ منه.
         r = subprocess.run([sys.executable, os.path.join(SITE, "build.py")],
-                           cwd=ROOT)
+                           cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        _bout = r.stdout.decode("utf-8", "replace")
+        sys.stdout.write(_bout)
         _survived = [os.path.relpath(_pp, OUT) for _pp in _pub_planted if os.path.exists(_pp)]
         if r.returncode:
             # بناءٌ فشل قبل المحو يترك ما زُرع في `site/public/` مع الشاهد —
@@ -328,7 +408,8 @@ def main():
                         os.rmdir(_pd)
                 except OSError:
                     pass
-            print("❌ فشل بناءُ الموقع.")
+            _tail = [ln for ln in _bout.splitlines() if ln.strip()][-3:]
+            print("❌ فشل بناءُ الموقع (خرج %d):\n     %s" % (r.returncode, "\n     ".join(_tail) or "بلا خرج"))
             return 1
         check(not _survived, lambda: "بوائتُ في `site/public/` نجت البناءَ الحقيقيّ: %s — وهذا المجلّدُ بعينه "
             "ما يحزمه `deploy_site.sh` [OUT-01]" % "، ".join(_survived))
@@ -1254,7 +1335,7 @@ def main():
     # التباعدُ يُدخَل بين الحروف العربيّة **المتّصلة** فيفكّ اتّصالَها: عناوينُ الدرج
     # على محاكي أندرويد («اضبط ووسّع») ظهرت حروفًا متقطّعة. كان في ستّة مواضع
     # (‏`.site-nav h2`، `.toc-title`، `th`، `.hero h1`، `.footer-in h4`، `.docs-index
-    # h2`) ووسمِ صفحة المعاينة داخل `build.py` — والطفرةُ (إعادةُ `.18em` إلى واحدٍ
+    # h2`) ووسمِ صفحة المعاينة داخل `build.py` (اليومَ `sitegen/preview.py`) — والطفرةُ (إعادةُ `.18em` إلى واحدٍ
     # منها) كانت تمرّ خضراء. تُقاس السلاسلُ نفسُها التي يقيسها [AND-01].
     _n_ls = 0
     for _where, _txt in _chains:
@@ -1276,7 +1357,7 @@ def main():
 
     # ── [AND-07] الحجمُ المعروضُ عشريٌّ في **الثلاثة**: المخبوز، وsite.js، والمعاينة ──
     # الشاهدُ يملكه الحارس: أرشيفُ ويندوز ‎203,053,894‎ بايت يُعرَض ‎203‎ (‏÷‎1e6‎)،
-    # وكان ‎194‎ (‏÷‎1048576‎). صار `fmtSize` عشريًّا وبقي `_fmt_size` في `build.py`
+    # وكان ‎194‎ (‏÷‎1048576‎). صار `fmtSize` عشريًّا وبقي `_fmt_size` (اليومَ في `sitegen/pages.py`)
     # ثنائيًّا — فالصفحةُ المخبوزةُ تقول ‎194‎ ويمحوها السكربتُ بـ‎203‎ بعد التحميل،
     # ومن عطّل السكربتات يقرأ الأوّل. فتُقاس الأوجهُ الثلاثة، والقاعدةُ نفسُها تُطبَّق
     # على كلّ أصلٍ في المانيفست المخبوز. و`fmtSize` **تُنفَّذ** بـnode لا تُقرأ بتعبير.
@@ -1295,7 +1376,7 @@ def main():
         _dec = _and07_fmt(_a["size"])
         _bin = "%d ميغابايت" % round(_a["size"] / 1048576.0)
         check(">%s<" % _dec in _dl_html, lambda: "صفحةُ التنزيل المخبوزة لا تعرض %s لـ%s (‏%d بايت) — `_fmt_size` في "
-            "`build.py` ليست عشريّة [AND-07]" % (_dec, _a["file"], _a["size"]))
+            "`site/sitegen/pages.py` ليست عشريّة [AND-07]" % (_dec, _a["file"], _a["size"]))
         if _bin != _dec:
             check(">%s<" % _bin not in _dl_html, lambda: "صفحةُ التنزيل تعرض %s الثنائيّ لـ%s بجانب العشريّ [AND-07]" % (_bin, _a["file"]))
     _sjs = read("assets/site.js")
@@ -1633,7 +1714,7 @@ process.stdout.write(JSON.stringify([out, log]));
     # يبنيها Ctrl ثمّ Cmd ثمّ Shift ثمّ Alt («Cmd+Shift+Alt+C») — فثلاثةُ اختصاراتِ ماك
     # كانت تُلتقَط «لا أمرَ معروفًا» والصفُّ أمام الزائر. الترتيبُ يُقرأ من docs.js لا يُكتَب.
     _ord = re.findall(r"if \(e\.(ctrl|meta|shift|alt)Key\) \{ parts\.push\('(\w+)'\); \}", _docs_js)
-    check([m for m, _ in _ord] == ["ctrl", "meta", "shift", "alt"], lambda: "ترتيبُ المعدِّلات في `chordFromEvent` %r — يُراجَع `_canon_chord` في build.py [CAP-01]" % (_ord,))
+    check([m for m, _ in _ord] == ["ctrl", "meta", "shift", "alt"], lambda: "ترتيبُ المعدِّلات في `chordFromEvent` %r — يُراجَع `_canon_chord` في site/sitegen/pages.py [CAP-01]" % (_ord,))
     _mods = [n for _, n in _ord]
     _chords = [c for m in re.finditer(r'data-chords="([^"]*)"', _kb_html)
                for c in _html.unescape(m.group(1)).split("|") if c]
