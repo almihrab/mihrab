@@ -1626,7 +1626,7 @@
       "id": "out-nobuild-compares-self",
       "guardFile": "tests/docs/test_check_site_nobuild.py",
       "guard": "python tests/docs/test_check_site_nobuild.py",
-      "file": "tests/docs/check_site.py",
+      "file": "tests/docs/site_guard/out.py",
       "old": "        _pub, _cln = _tree(OUT), _tree(_clean)\n",
       "new": "        _pub, _cln = _tree(OUT), (_tree(_clean) if \"--no-build\" not in sys.argv else _tree(OUT))\n",
       "expect": "لا ترفض مخرَجًا ليس من هذا المصدر",
@@ -1656,7 +1656,7 @@
       "id": "out-nobuild-link-unseen",
       "guardFile": "tests/docs/test_check_site_nobuild.py",
       "guard": "python tests/docs/test_check_site_nobuild.py",
-      "file": "tests/docs/check_site.py",
+      "file": "tests/docs/site_guard/out.py",
       "old": "                    if _linked(os.path.join(_dp, _d)):",
       "new": "                    if False and _linked(os.path.join(_dp, _d)):",
       "expect": "لا ترفض مخرَجًا ليس من هذا المصدر",
@@ -1856,11 +1856,31 @@
       "id": "guard-css-escape-ignored",
       "guardFile": "tests/docs/test_strip.py",
       "guard": "python tests/docs/test_strip.py",
-      "file": "tests/docs/check_site.py",
+      "file": "tests/docs/site_guard/core.py",
       "old": "        if raw[pos] == \"\\\\\":",
       "new": "        if False:",
       "expect": "MIN-01/guard-escape",
       "why": "ماسحُ الحارس شاهدُ [MIN-01]: إن جهل الهروبَ خارج السلسلة قرأ `'` بدايةَ سلسلةٍ فابتلع ما بعدها، وعمي عنه الشاهد. والمصدرُ الحاليّ لا يُظهر هذا الفرع."
+    },
+    {
+      "id": "grd01-section-dropped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "tests/docs/check_site.py",
+      "old": "    release.s43_alif_pin,\n",
+      "new": "",
+      "expect": "[GRD-01]",
+      "why": "قسمٌ يُسقَط من SECTIONS (هنا معاينةُ ألف، وفشلُها بـbad وحدها) لا يُرى في العدد ولا في البصمة — فيصير الحارسُ أخضرَ بلا قياس."
+    },
+    {
+      "id": "grd02-export-forgotten",
+      "guardFile": "tests/docs/test_site_guard_names.py",
+      "guard": "python tests/docs/test_site_guard_names.py",
+      "file": "tests/docs/site_guard/android.py",
+      "old": "    for _n in ('_HP', '_css_get', '_rules', '_tokens'):",
+      "new": "    for _n in ('_HP', '_rules', '_tokens'):",
+      "expect": "[GRD-02]",
+      "why": "قسمٌ لا يكتب في السياق اسمًا يقرؤه قسمٌ بعده (‏_css_get، محرّكُ CSS): التشغيلُ الأخضر لا يراه لأنّ القارئَ يقرؤه بشرط وجوده، ومسارُ الفشل يرمي NameError بدل رسالة العطب."
     }
   ],
   "uncovered": [
