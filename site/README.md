@@ -89,9 +89,15 @@ python site/build.py --check    # تحقّقٌ بلا كتابة
 | `assets/mihrab-home.css` | واجهةُ المنتج — مفصولةٌ كي لا يمسّ تعديلٌ تسويقيّ التوثيقَ |
 | `assets/docs.js` | السمة، الدرج، البحث، صفحةُ الاختصارات |
 | `assets/site.js` | تخمينُ النظام + جلبُ المانيفست الحيّ |
-| `assets/fonts/` | الأوجهُ الأربعةُ المورَّدة + `OFL.txt` + README — يولّد منها `build.py` ورقةَ `fonts.css` |
+| `assets/fonts/` | الأوجهُ الأربعةُ المورَّدة + `OFL.txt` + README — يولّد منها `sitegen/fonts.py` ورقةَ `fonts.css` |
 | `assets/shots/editor.png` | لقطةُ الصفحة الأولى (اختياريّة — يسقط إلى رسمٍ SVG معلَن) |
-| `build.py` | المولِّد |
+| `build.py` | نقطةُ الدخول: `main()` — يجمع الصفحات ويمحو المخرَجَ ويكتبه |
+| `sitegen/data.py` | المساراتُ، وبياناتُ `data/`، والتنقّل |
+| `sitegen/text.py` | Markdown المضبوط، والترويسة، والاختصارات، والمسرد |
+| `sitegen/templates.py` | الترويسة والتنقّل والفهرس والتذييل وغلافُ الصفحة |
+| `sitegen/pages.py` | الصفحاتُ بلا ملفّ محتوى: الأولى والتنزيل والاختصارات و404 |
+| `sitegen/fonts.py` | نطاقا المحارف و`FONT_FACES` وكتابةُ `fonts.css` |
+| `sitegen/preview.py` | صفحةُ معاينة «محراب × ألف» |
 
 النصُّ التسويقيّ في `data/site.json` لا في بايثون: تغييرُ جملةٍ يجب ألّا يمرَّ بمراجعةِ كود.
 

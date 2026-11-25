@@ -688,15 +688,15 @@ def main():
     # وهما يتقلّصان معًا: `write_fonts_css` لا يُعلِن إلّا الموجود، فحذفُ ملفٍّ
     # يُنقِص الطرفين ويبقى الحارسُ أخضر. قِيس بالطفرة: حذفُ وجهٍ لاتينيٍّ مرّ.
     # والمرجعُ الصحيحُ هو **ما يَعِد به المولِّد**: قائمةُ `FONT_FACES`.
-    with open(os.path.join(SITE, "build.py"), encoding="utf-8") as _bf:
+    with open(os.path.join(SITE, "sitegen", "fonts.py"), encoding="utf-8") as _bf:
         _blk = _bf.read()
     _i = _blk.index("FONT_FACES = [")
     wanted = re.findall(r'\("([^"]+\.woff2)"', _blk[_i:_blk.index("]", _i)])
-    check(len(wanted) >= 2, lambda: "تعذّر قراءةُ `FONT_FACES` من `site/build.py` — تغيّرت صيغتُها؛ "
+    check(len(wanted) >= 2, lambda: "تعذّر قراءةُ `FONT_FACES` من `site/sitegen/fonts.py` — تغيّرت صيغتُها؛ "
         "يُحدَّث الحارس [FNT-01]")
     # والوعدُ يُقابَل بالجرد المستقلّ: تقليصُ `FONT_FACES` عطبٌ لا إعفاء.
     _shrunk = [n for n, _f, _w, _h in EXPECT_FACES if n not in wanted]
-    check(not _shrunk, lambda: "وجهٌ يشترطه الجردُ ولا تَعِد به `FONT_FACES` في `site/build.py`: %s — "
+    check(not _shrunk, lambda: "وجهٌ يشترطه الجردُ ولا تَعِد به `FONT_FACES` في `site/sitegen/fonts.py`: %s — "
         "وتقليصُ الوعد يُنقِص المُقاسَ والقياسَ معًا فيمرّ أخضر. من أسقط وجهًا "
         "عمدًا يُسقِطه من `EXPECT_FACES` هنا بتعليلٍ مكتوب [FNT-01]"
         % "، ".join(_shrunk))
@@ -828,7 +828,7 @@ def main():
 
     def _ranges(var_name):
         m = re.search(var_name + r" = \(([^)]+)\)", bpy, re.S)
-        need(m, lambda: "تعذّرت قراءةُ %s من `site/build.py` [FNT-01]" % var_name)
+        need(m, lambda: "تعذّرت قراءةُ %s من `site/sitegen/fonts.py` [FNT-01]" % var_name)
         out = set()
         for part in "".join(re.findall(r'"([^"]*)"', m.group(1))).split(","):
             part = part.strip()
@@ -842,7 +842,7 @@ def main():
                 out.add(int(body, 16))
         return out
 
-    with open(os.path.join(SITE, "build.py"), encoding="utf-8") as _bf2:
+    with open(os.path.join(SITE, "sitegen", "fonts.py"), encoding="utf-8") as _bf2:
         bpy = _bf2.read()
     ar_r, la_r = _ranges("_UR_AR"), _ranges("_UR_LA")
     overlap = ar_r & la_r
