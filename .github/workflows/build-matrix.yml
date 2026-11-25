@@ -74,6 +74,10 @@ jobs:
       - name: بنيةُ الموقع
         run: python tests/docs/check_site.py
 
+      # ‏[OUT-02] في وضع بوّابة النشر (`--no-build`): كلُّ مُصابٍ يمرّ عبر البناء فلا يراه.
+      - name: بوّابةُ النشر
+        run: python tests/docs/test_check_site_nobuild.py
+
       # أداتا الإثبات تُحرَسان هنا لا في حارس الحرّاس: أداةُ «متطابق» خضراءُ دائمًا تُلصَق
       # في طلب دمجٍ غيّر المخرَج. (‏node مثبَّتٌ في صورة ubuntu-latest.)
       - name: أداتا إثبات الموقع

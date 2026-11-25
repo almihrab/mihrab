@@ -30,6 +30,10 @@ for _s in (sys.stdout, sys.stderr):
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SITE = os.path.join(ROOT, "site")
 OUT = os.path.join(SITE, "public")
+# **يُقاس ما يُشحَن**: محتوى JS وCSS يُقرأ من `OUT/assets/` لا من `site/assets/` — [OUT-02]
+# يشترط أنّ `public/` بناءٌ نظيفٌ من المصدر، والبناءُ قد يحوِّل الأصل (تجريدُ التعليقات)،
+# فعطبٌ يُدخله التحويلُ لا يُرى في المصدر. (قوائمُ الملفّات تبقى من المصدر: ما يُفحَص هو
+# ما كتبه المطوّر، بمحتواه كما يصل الزائر.)
 
 fails = []
 # عددُ الفحوص المُقيَّمة (‏`check` و`need`) وبصمتُها — تُطبعان في اللافتة الخضراء، ويقارنهما
@@ -430,43 +434,65 @@ def main():
         report()
         return 1
 
-    # ── [OUT-02] الأصولُ في المخرَج هي المصدرُ بالبايت ──
-    # الفحوصُ أدناه تقرأ `site/assets/` وتنفّذ دوالَّه، والنشرُ يحزم `site/public/`. ومع
-    # `--no-build` (بوّابةُ `deploy_site.sh`) لا شيءَ يضمن أنّهما واحد: عطبٌ في
-    # `public/assets/docs.js` كان يمرّ أخضرَ ويُشحَن (قِيس بالزرع). و`build.py` ينسخ هذه
-    # الأصولَ بايتًا ببايت، فأيُّ فرقٍ مخرَجٌ ليس من هذا المصدر.
-    _src_assets = os.path.join(SITE, "assets")
-    for _sub in ("", "shots"):
-        _sd = os.path.join(_src_assets, _sub)
-        if not os.path.isdir(_sd):
-            continue
-        for _fn in sorted(os.listdir(_sd)):
-            _sp = os.path.join(_sd, _fn)
-            if not os.path.isfile(_sp):
-                continue
-            _op = os.path.join(OUT, "assets", _sub, _fn)
-            with open(_sp, "rb") as _f1:
-                _sb = _f1.read()
-            if not os.path.isfile(_op):
-                bad("أصلٌ في `site/assets/%s` غائبٌ عن المخرَج [OUT-02]" % os.path.join(_sub, _fn).replace(os.sep, "/"))
-                continue
-            with open(_op, "rb") as _f2:
-                if _f2.read() != _sb:
-                    bad("‏`public/assets/%s` يخالف مصدرَه بالبايت — المخرَجُ ليس من هذا المصدر، "
-                        "أعِد البناء [OUT-02]" % os.path.join(_sub, _fn).replace(os.sep, "/"))
-    # و`fonts/` بالاتّجاه المعاكس: `write_fonts_css` ينسخ الموجودَ من `FONT_FACES` والرخصةَ
-    # وحدَها، فما في المخرَج هو ما يُقابَل بمصدره (خطٌّ مبتورٌ يُشحَن ويسقط صامتًا).
-    _of = os.path.join(OUT, "assets", "fonts")
-    for _fn in sorted(os.listdir(_of)) if os.path.isdir(_of) else []:
-        _sp = os.path.join(_src_assets, "fonts", _fn)
-        with open(os.path.join(_of, _fn), "rb") as _f2:
-            _ob = _f2.read()
-        if not os.path.isfile(_sp):
-            bad("‏`public/assets/fonts/%s` بلا مصدرٍ في `site/assets/fonts` [OUT-02]" % _fn)
-            continue
-        with open(_sp, "rb") as _f1:
-            if _f1.read() != _ob:
-                bad("‏`public/assets/fonts/%s` يخالف مصدرَه بالبايت — أعِد البناء [OUT-02]" % _fn)
+    # ── [OUT-02] ما يُنشَر هو بناءٌ نظيفٌ من هذا المصدر، بالبايت ──
+    # الفحوصُ أدناه تقرأ `site/public/` (ما يحزمه `deploy_site.sh`)، ومع `--no-build`
+    # (بوّابةُ النشر) لا شيءَ يضمن أنّه من هذا المصدر: عطبٌ في `public/assets/docs.js` كان يمرّ
+    # أخضرَ ويُشحَن (قِيس بالزرع). كان الشرطُ «كلُّ أصلٍ يطابق `site/assets/` بالبايت» — وهو
+    # ينكسر عمدًا يومَ يُحوِّل البناءُ أصلًا (تجريدُ التعليقات)، ولا يرى الصفحاتِ ولا المولَّدَين.
+    # فالمرجعُ الآن **بناءٌ نظيفٌ في مجلّدٍ مؤقّت**: كلُّ ملفٍّ في `public/` يطابق نظيرَه بالبايت،
+    # ولا ناقصَ ولا زائد. وفي وضع البناء يكشف أيضًا ما يكتبه البناءُ في `public/` ولا يكتبه
+    # في غيره (فرعٌ على `MIHRAB_SITE_OUT`)، فيُشحَن ما لم يُقَس.
+    import tempfile as _tf2
+    with _tf2.TemporaryDirectory(prefix="mihrab-clean-") as _cd:
+        _clean = os.path.join(_cd, "out")
+        try:
+            _cr = subprocess.run([sys.executable, os.path.join(SITE, "build.py")], cwd=ROOT,
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 env=dict(os.environ, MIHRAB_SITE_OUT=_clean, PYTHONIOENCODING="utf-8"),
+                                 timeout=120)
+        except subprocess.TimeoutExpired:
+            need(False, lambda: "[OUT-02] البناءُ النظيفُ للمقارنة لم ينتهِ في 120 ثانية")
+        need(_cr.returncode == 0, lambda: "[OUT-02] البناءُ النظيفُ للمقارنة فشل (خرج %d): %s" % (
+            _cr.returncode, " | ".join(_cr.stdout.decode("utf-8", "replace").strip().splitlines()[-3:])))
+
+        def _linked(_p):
+            return os.path.islink(_p) or getattr(os.path, "isjunction", lambda _x: False)(_p)
+
+        def _tree(_root):
+            _t = {}
+            for _dp, _dn, _fs in os.walk(_root):
+                # **لا وصلةَ في المخرَج، مجلّدًا ولا ملفًّا**: ‏`os.walk` لا ينزل في وصلة مجلّد فتغيب
+                # عن الطرفين ويتطابقان، و`open` يتبع وصلةَ الملفّ فيطابق محتواها — و`tar` في
+                # `deploy_site.sh` يحزم الوصلةَ كما هي فيُنشَر ما وراءها. و`islink` لا يرى
+                # junction ويندوز (والنشرُ يجري من ويندوز)، فـ`isjunction` معه.
+                for _d in list(_dn):
+                    if _linked(os.path.join(_dp, _d)):
+                        bad("[OUT-02] ‏`%s` وصلةٌ في المخرَج — لا تُقارَن ولا يكتبها البناء"
+                            % os.path.relpath(os.path.join(_dp, _d), _root).replace(os.sep, "/"))
+                        _dn.remove(_d)
+                _dn.sort()
+                for _f in sorted(_fs):
+                    _fp = os.path.join(_dp, _f)
+                    if _linked(_fp):
+                        bad("[OUT-02] ‏`%s` وصلةٌ في المخرَج — لا تُقارَن ولا يكتبها البناء"
+                            % os.path.relpath(_fp, _root).replace(os.sep, "/"))
+                        continue
+                    with open(_fp, "rb") as _fb:
+                        _t[os.path.relpath(_fp, _root).replace(os.sep, "/")] = _fb.read()
+            return _t
+        _pub, _cln = _tree(OUT), _tree(_clean)
+    # بناءٌ نجح ولم يكتب في المجلّد المؤقّت شيئًا لا يحترم `MIHRAB_SITE_OUT` — فكتب في
+    # `site/public/` نفسِه. هذا عطبُ [OUT-01] لا «كلُّ الملفّات زائدة»، فيُسمّى باسمه.
+    need(_cln, lambda: "[OUT-02] البناءُ النظيفُ نجح ولم يكتب في `MIHRAB_SITE_OUT` شيئًا — لا يحترم "
+         "المتغيّرَ فيكتب في `site/public/`؛ لم يُبنَ شيءٌ [OUT-01]")
+    for _rel in sorted(set(_cln) - set(_pub)):
+        bad("[OUT-02] ‏`public/%s` غائب — البناءُ النظيفُ يكتبه والمخرَجُ ليس من هذا المصدر؛ أعِد البناء" % _rel)
+    for _rel in sorted(set(_pub) - set(_cln)):
+        bad("[OUT-02] ‏`public/%s` زائد — لا يكتبه بناءٌ نظيفٌ من هذا المصدر، فيُشحَن ما لم يُقَس" % _rel)
+    for _rel in sorted(set(_pub) & set(_cln)):
+        if _pub[_rel] != _cln[_rel]:
+            bad("[OUT-02] ‏`public/%s` يخالف البناءَ النظيفَ بالبايت — المخرَجُ ليس من هذا المصدر؛ "
+                "أعِد البناء" % _rel)
     if fails:
         report()
         return 1
@@ -537,9 +563,10 @@ def main():
                 bad("[PRIV-02] %s يحفظ في localStorage مفتاحًا غيرَ التفضيلَين: %r" % (_jn, _km.group(1)))
 
     # ── [OUT-03] المخرَجُ لا يحمل ما ليس من المصدر، ولا يحمّل من أصلٍ آخر ──
-    # ‏[OUT-02] يقابل كلَّ أصلٍ بمصدره، لكنّه لا يرى ما **زاد**: ملفٌّ بائتٌ في
-    # `public/assets` بلا مصدر يُشحَن، والمولَّدان (`fonts.css`، `preview-alif.js`) لا
-    # مصدرَ لهما يُقابَلان به. فكلُّ ملفٍّ هناك إمّا له مصدرٌ أو هو مولَّدٌ معلَن، ولا CSS
+    # ‏[OUT-02] يقابل `public/` ببناءٍ نظيف، فلا يرى ما يكتبه **البناءُ نفسُه** وليس من المصدر:
+    # مولِّدٌ يُخرج ملفًّا بلا مصدرٍ في `site/assets` يكتبه في البناءين معًا فيتطابقان. فكلُّ
+    # ملفٍّ في `public/assets` إمّا له مصدرٌ أو هو مولَّدٌ معلَن (‏`fonts.css`،
+    # ‏`preview-alif.js`)، ولا CSS
     # مخرَجٌ يستورد (`@import`) أو يحمّل `url()` من أصلٍ آخر، ولا صفحةٌ تحمّل موردًا من غير
     # أصلها — فـ`@import url(https://…)` في مولَّدٍ معطوبٍ كان يُشحَن ويكذّب الخصوصيّة.
     _GENERATED = {"fonts.css", "preview-alif.js"}
@@ -624,7 +651,7 @@ def main():
     # فعُرض الموقعُ **كلُّه** بـ`Times New Roman` والوجوهُ الأربعةُ المورَّدةُ لم
     # تُحمَّل، وكلُّ حارسٍ أخضر — لأنّ الحرّاسَ كانوا يقيسون الوجوهَ والمدياتِ
     # والسلسلة، ولا أحدَ يقيس أنّ **السلسلةَ تصل المتصفّحَ إعلانًا صالحًا**.
-    # فيُقاس على كلّ ورقةٍ في `site/assets/`: (١) كلُّ `*/` يُغلق `/*` مفتوحًا،
+    # فيُقاس على كلّ ورقةٍ في `site/assets/` بمحتواها **المنشور**: (١) كلُّ `*/` يُغلق `/*` مفتوحًا،
     # ولا `/*` داخل تعليق؛ (٢) بعد نزع التعليقات، كلُّ جملةٍ داخل `:root` إعلانٌ
     # (`اسم: قيمة`) أو فراغ؛ (٣) وأوّلُ `--font-ar` **بعد النزع** هو الخطُّ
     # المورَّد — فتعليقٌ يبتلع الإعلانَ يُسقِط هذا الشرطَ لا محالة.
@@ -633,7 +660,7 @@ def main():
     for _cn in sorted(os.listdir(_css_dir)):
         if not _cn.endswith(".css"):
             continue
-        with open(os.path.join(_css_dir, _cn), encoding="utf-8") as _cf3:
+        with open(os.path.join(OUT, "assets", _cn), encoding="utf-8") as _cf3:
             _raw3 = _cf3.read()
         # الماسحُ (تعليق/سلسلة/‏`url(` بلا اقتباس) هو نفسُه النازع: ما تُقاس عليه
         # الجملُ أدناه هو ما مرّ من الماسح حرفًا بحرف — لا نصٌّ ثانٍ من `re.sub`
@@ -1073,7 +1100,7 @@ def main():
                 "شيفرةٍ وتنكسر المحاذاة [FNT-01]" % (MONO_AR_FAMILY, _why, min(_hit)))
 
     # والسلسلةُ تبدأ به فعلًا — وإلّا فالوجهُ مُعلَنٌ ولا يصل أحدًا.
-    with open(os.path.join(SITE, "assets", "mihrab-docs.css"), encoding="utf-8") as _dc:
+    with open(os.path.join(OUT, "assets", "mihrab-docs.css"), encoding="utf-8") as _dc:
         _dcss = css_strip_comments(_dc.read(), "mihrab-docs.css")
     # **آخرُ** إعلانٍ لا أوّلُه: المتصفّحُ يطبّق الأخيرَ في التسلسل، فإعلانٌ
     # مُلحَقٌ بآخر الورقة كان يُبطِل الأوّلَ والحارسُ يقرأ الأوّلَ فيمرّ. والاقتباسُ
@@ -1292,7 +1319,7 @@ def main():
 
     _rules, _tokens = [], {}
     for _cn in ("mihrab-docs.css", "mihrab-home.css"):  # بترتيب التحميل في `page_shell`
-        with open(os.path.join(SITE, "assets", _cn), encoding="utf-8") as _cf5:
+        with open(os.path.join(OUT, "assets", _cn), encoding="utf-8") as _cf5:
             _rules.extend(_css_rules(_cf5.read(), _cn))
     for _media, _sel, _decls in _rules:
         if _sel == ":root" and not _media:
@@ -1306,7 +1333,7 @@ def main():
     _chains = []
     for _cn in sorted(os.listdir(os.path.join(SITE, "assets"))):
         if _cn.endswith(".css"):
-            with open(os.path.join(SITE, "assets", _cn), encoding="utf-8") as _cf6:
+            with open(os.path.join(OUT, "assets", _cn), encoding="utf-8") as _cf6:
                 _chains.append((_cn, css_strip_comments(_cf6.read(), _cn)))
     for base, _dirs, names in os.walk(OUT):
         for _nm in names:
@@ -1489,7 +1516,7 @@ def main():
     # الحالة في المواصفة. بلا الفرع كانت النتيجة «Unidentified — لا أمرَ معروفًا».
     # يُقاس ساكنًا: الفرعُ **قبل** `chordFromEvent` ويعود بعد رسالةٍ لا تحمل
     # «Unidentified». (والسلوكُ قِيس على msedge: الثلاثُ تُعرَض الرسالةَ نفسَها.)
-    with open(os.path.join(SITE, "assets", "docs.js"), encoding="utf-8") as _dj:
+    with open(os.path.join(OUT, "assets", "docs.js"), encoding="utf-8") as _dj:
         _docs_js = _dj.read()
     _kd = re.search(r"captureField\.addEventListener\('keydown',\s*function \(e\) \{(.*?)var chord = chordFromEvent\(e\);",
                     _docs_js, re.S)
@@ -1509,7 +1536,7 @@ def main():
     # وكشفُ iOS يُكتَب **مرّةً واحدة**: كان تعبيرُ `iPhone|iPad|iPod` + `Macintosh`
     # باللمس مكرَّرًا في كشف الهاتف وفي `IS_IOS` فيصلح أحدُهما ويبقى الآخر —
     # وiPad يُعرَف «هاتفًا» بتعبيرٍ و«ليس iOS» بالآخر.
-    with open(os.path.join(SITE, "assets", "site.js"), encoding="utf-8") as _sj2:
+    with open(os.path.join(OUT, "assets", "site.js"), encoding="utf-8") as _sj2:
         _site_js = _sj2.read()
     _site_code = re.sub(r"/\*.*?\*/", "", _site_js, flags=re.S)
     need(len(re.findall(r"iPhone\|iPad\|iPod", _site_code)) == 1, lambda: "تعبيرُ كشف iOS مكتوبٌ %d مرّة في `site.js` — يُكتَب مرّةً في `IS_IOS` "
@@ -1673,7 +1700,7 @@ process.stdout.write(JSON.stringify([out, log]));
         "قارئُ الشاشة لا يسمع عددَ الصفوف [AND-08]")
     check(re.search(r"var msg = q \? kbdWord\(total\) : '';\n\s*if \(kbdStatus && kbdStatus\.textContent !== msg\) "
                      r"\{ kbdStatus\.textContent = msg; \}", _docs_js), lambda: "‏`filterRows` لا تكتب العددَ في `.kbd-status` مشروطًا بتغيّر النصّ، أو تنطق والحقلُ فارغ [AND-08]")
-    with open(os.path.join(SITE, "assets", "mihrab-home.css"), encoding="utf-8") as _hf2:
+    with open(os.path.join(OUT, "assets", "mihrab-home.css"), encoding="utf-8") as _hf2:
         check(re.search(r"\.sr-only\s*\{", css_strip_comments(_hf2.read(), "mihrab-home.css")), lambda: "لا قاعدةَ `.sr-only` في الورقة التي تصل صفحةَ الاختصارات — سطرُ الحالة يُرى لا يُنطَق وحدَه [AND-08]")
     check("assets/mihrab-home.css" in _kb_html, lambda: "صفحةُ الاختصارات لا تحمّل `mihrab-home.css` حيث `.sr-only` [AND-08]")
 
@@ -1690,7 +1717,7 @@ process.stdout.write(JSON.stringify([out, log]));
             "توثيقٍ يختفي من الورق [PRN-01]" % _tag)
     _cc = _css_get(_rules, _tokens, _mc, "column-count", 1200, prn=True, raw=True)
     check(_cc in (None, "auto", "1"), lambda: "‏`main.content` في الطباعة أعمدةٌ (%r) بقاعدةٍ عامّة — لصفحة الاختصارات وحدَها [PRN-01]" % _cc)
-    with open(os.path.join(SITE, "assets", "mihrab-docs.css"), encoding="utf-8") as _pf:
+    with open(os.path.join(OUT, "assets", "mihrab-docs.css"), encoding="utf-8") as _pf:
         _prn_css = css_strip_comments(_pf.read(), "mihrab-docs.css")
     check(re.search(r"\.content:has\(\[data-kbd-table\]\)\s*>\s*p\b", _prn_css), lambda: "قاعدةُ إخفاء مقدّمة صفحة الاختصارات في الطباعة غائبةٌ أو بلا قيد `:has([data-kbd-table])` [PRN-01]")
     check("data-kbd-table" in _kb_html, lambda: "صفحةُ الاختصارات بلا `data-kbd-table` — قيدُ الطباعة لا يجد جدولَه [PRN-01]")
@@ -1926,7 +1953,7 @@ process.stdout.write(JSON.stringify(out));
                 json.dump(_fx, _fxf, ensure_ascii=False)
             try:
                 _nr12 = subprocess.run([_node, os.path.join(ROOT, "tests", "docs", "docs_sandbox.js"),
-                                        os.path.join(SITE, "assets", "docs.js"), _fxp],
+                                        os.path.join(OUT, "assets", "docs.js"), _fxp],
                                        capture_output=True, encoding="utf-8", errors="replace", timeout=60)
                 _sb_out, _sb_err = _nr12.stdout, _nr12.stderr
             except subprocess.TimeoutExpired:
