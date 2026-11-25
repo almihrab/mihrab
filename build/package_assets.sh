@@ -143,16 +143,32 @@ if [[ "$OS_NAME" == "linux" ]]; then
     echo "   ✅ $STEM-linux-$VSCODE_ARCH-tar.tar.gz"
   fi
 
+  # ── ‏`curl` يعيد المحاولة ويفشل بصوتٍ أثناء مهامّ دبيان وردهات [PKG-02] ──
+  # المنبعُ يجلب `dpkg-shlibdeps.pl` و`sysroots.json` من raw.githubusercontent.com بـ`curl` بلا
+  # ‏`-f` ولا إعادة محاولة، فحين ردّ الخادمُ ‎429‎ حُفظت صفحةُ الخطأ سكربتًا وانهار perl عليها
+  # (‏#43، مرّتين). فغلافٌ لـ`curl` أوّلَ `PATH` لهذه المهامّ وحدَها — العلّةُ والاحتياطُ في
+  # ‏`build/lib/curl_shim.sh`، ويحرسه `tests/static/test_curl_shim.sh`. ولا يُرقَّع المنبع.
+  # ويُبنى فقط إن طُلبت حزمةُ دبيان أو ردهات: عطبٌ فيه لا يُسقط الأرشيفَ المحمول.
+  if want "linux-$VSCODE_ARCH-deb" || want "linux-$VSCODE_ARCH-rpm"; then
+    MIHRAB_REAL_CURL="$(command -v curl)" || { echo "❌ curl غيرُ موجود — تغليفُ دبيان وردهات يحتاجه" >&2; exit 1; }
+    export MIHRAB_REAL_CURL
+    CURL_SHIM="$(mktemp -d)"
+    trap 'rm -rf "$CURL_SHIM"' EXIT
+    cp "$HERE/build/lib/curl_shim.sh" "$CURL_SHIM/curl"
+    chmod +x "$CURL_SHIM/curl"
+    "$CURL_SHIM/curl" --version >/dev/null || { echo "❌ غلافُ curl لا يعمل (curl ≥ 7.52 لـ--retry-connrefused)" >&2; exit 1; }
+  fi
+
   if want "linux-$VSCODE_ARCH-deb"; then
-    gulp_task "vscode-linux-$VSCODE_ARCH-prepare-deb"
-    gulp_task "vscode-linux-$VSCODE_ARCH-build-deb"
+    PATH="$CURL_SHIM:$PATH" gulp_task "vscode-linux-$VSCODE_ARCH-prepare-deb"
+    PATH="$CURL_SHIM:$PATH" gulp_task "vscode-linux-$VSCODE_ARCH-build-deb"
     take_one "$UP/vscode/.build/linux/deb/*/deb/*.deb" \
              "$STEM-linux-$VSCODE_ARCH-deb.deb"
   fi
 
   if want "linux-$VSCODE_ARCH-rpm"; then
-    gulp_task "vscode-linux-$VSCODE_ARCH-prepare-rpm"
-    gulp_task "vscode-linux-$VSCODE_ARCH-build-rpm"
+    PATH="$CURL_SHIM:$PATH" gulp_task "vscode-linux-$VSCODE_ARCH-prepare-rpm"
+    PATH="$CURL_SHIM:$PATH" gulp_task "vscode-linux-$VSCODE_ARCH-build-rpm"
     take_one "$UP/vscode/.build/linux/rpm/*/*.rpm" \
              "$STEM-linux-$VSCODE_ARCH-rpm.rpm"
   fi
