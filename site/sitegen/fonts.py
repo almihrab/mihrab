@@ -130,7 +130,7 @@ def write_fonts_css(dst_assets):
             "قانونيٌّ لإعادة التوزيع، والنشرُ إعادةُ توزيع")
 
     header = ('@charset "UTF-8";\n'
-              "/* مولَّد من build.py — لا تحرّره. %s مورَّدة، في %s. */\n"
+              "/* مولَّد من site/sitegen/fonts.py — لا تحرّره. %s مورَّدة، في %s. */\n"
               % (_files_word(len(present), len(FONT_FILES)), _faces_word(len(faces))))
     with open(os.path.join(dst_assets, "fonts.css"), "w", encoding="utf-8", newline="\n") as f:
         f.write(header + "\n".join(faces) + "\n")
