@@ -2,21 +2,27 @@
 # -*- coding: utf-8 -*-
 """هل يبني الموقعُ الآن ما كان يبنيه المرجع؟ — أداةُ إثباتٍ لتغييرٍ «لا يغيّر السلوك».
 
-    python tests/docs/same_output.py [المرجع]        (الافتراضيّ: HEAD)
+    python tests/docs/same_output.py [المرجع]           المرجع (HEAD افتراضًا) ⇐ شجرة العمل
+    python tests/docs/same_output.py <مرجع١> <مرجع٢>     إيداعان، بلا شجرة العمل
+    python tests/docs/same_output.py --dirs <أ> <ب>      مجلّدا `site` (لاختبار الأداة نفسِها)
 
-١) يستخرج `site/` من المرجع بـ`git archive` إلى مجلّدٍ مؤقّتٍ **ليس فيه غيرُه** — بلا
-   worktree ولا checkout، فلا تُمَسّ شجرةُ العمل. ومولِّدٌ يقرأ يومًا من خارج `site/` ينكسر
-   هناك بصوت، فلا تُقارَن مدخلاتٌ مختلفةٌ والأداةُ لا تدري.
-٢) يبنيه **مرّتين** ببذرتَي تجزئةٍ مختلفتين ويقارنهما: البناءُ حتميّ أو لا يُوثَق بمقارنةٍ بعده.
-٣) يبني `site/` من شجرة العمل ويقارن مخرَجَه بمخرَج المرجع ملفًّا ملفًّا بالبايت.
-٤) يطبع بصمةَ sha256 للمخرَج كلِّه تُلصَق في وصف طلب الدمج.
+١) **كلُّ طرفٍ يُبنى في مجلّدٍ مؤقّتٍ ليس فيه غيرُ `site/`**: المرجعُ بـ`git archive`، وشجرةُ
+   العمل بنسخ ما يراه git فيها (متتبَّعًا أو جديدًا غيرَ مُهمَل). فمولِّدٌ يقرأ يومًا من خارج
+   ‏`site/` ينكسر بصوتٍ في الطرفين، لا يقارن مدخلاتٍ مختلفةً والأداةُ لا تدري.
+٢) **كلُّ طرفٍ يُبنى مرّاتٍ في بيئاتٍ متباينة** ويُشترط تطابقُها: بذورُ تجزئةٍ مختلفة (ترتيبُ
+   المجموعات)، ومنطقتان زمنيّتان بينهما ‎26‎ ساعة (التاريخُ نفسُه يتغيّر)، و`PYTHONUTF8`
+   مُطفأٌ ومُشعَل (‏`open()` بلا ترميزٍ يقرأ بمحلّيّة الجهاز). ستُّ بذورٍ للمرجع: عدمُ حتميّةٍ
+   ثنائيٌّ (ترتيبٌ من اثنين) يفلت من بذرتين ثابتتين في نصف الحالات **ودائمًا**، ومن ستٍّ
+   باحتمال ‎1/32‎. وما لا تبلغه البيئة (‏`time.time()`، ‏`random`) يمنعه [DET-01] في check_site.
+٣) يقارن المخرَجين ملفًّا ملفًّا بالبايت، والمجلّداتِ الفارغةَ معها، ويطبع بصمةَ sha256.
 
-الخروج: 0 متطابق · 1 مختلف (أو غيرُ حتميّ) · 2 خطأٌ تشغيليّ. وكلُّ بناءٍ عبر `MIHRAB_SITE_OUT`
-إلى مجلّدٍ مؤقّتٍ جديد، فلا يُمَسّ `site/public` ولا مخرَجٌ سابق.
+الخروج: 0 متطابق · 1 مختلف (أو غيرُ حتميّ) · 2 خطأٌ تشغيليّ — **وكلُّ استثناءٍ غيرِ متوقَّعٍ 2**،
+فلا يُقرأ عطبُ الأداة «مختلفًا». ولا يُمَسّ `site/public` ولا شجرةُ العمل.
 """
 import hashlib
 import io
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -29,27 +35,38 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REF_BUILDS = 6
+WORK_BUILDS = 2
 
 
-def die(msg):
-    print("❌ %s" % msg)
-    sys.exit(2)
+class OpError(Exception):
+    """خطأٌ تشغيليٌّ (لا فرق): خروج 2."""
 
 
-def build(site_dir, out, seed):
-    # بذرةُ تجزئةٍ **مختلفة** لكلّ بناء: تثبيتُها يُخفي ما يتبع ترتيبَ المجموعات (`"|".join({…})`
-    # كان يقلب ترتيبَ ضغطتين بين بناءين) بدل أن يكشفه.
-    env = dict(os.environ, MIHRAB_SITE_OUT=out, PYTHONIOENCODING="utf-8", PYTHONHASHSEED=str(seed))
+def env_for(i, seed):
+    """بيئةُ البناء رقم i: البذرةُ تتغيّر دائمًا، والمنطقةُ والترميزُ يتناوبان."""
+    return {
+        "PYTHONHASHSEED": str(seed),
+        "TZ": ("AAA-14" if i % 2 == 0 else "BBB+12"),
+        "PYTHONUTF8": ("0" if i % 2 == 0 else "1"),
+    }
+
+
+def build(site_dir, out, env_extra):
+    env = dict(os.environ, MIHRAB_SITE_OUT=out, PYTHONIOENCODING="utf-8", **env_extra)
     r = subprocess.run([sys.executable, os.path.join(site_dir, "build.py")], cwd=site_dir, env=env,
                        capture_output=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
-        die("فشل البناءُ من %s:\n%s" % (site_dir, (r.stdout + r.stderr)[-1500:]))
+        raise OpError("فشل البناءُ من %s:\n%s" % (site_dir, (r.stdout + r.stderr)[-1500:]))
 
 
 def tree(out):
-    """{المسار النسبيّ: sha256} لكلّ ملفّ."""
+    """{المسار النسبيّ: sha256} لكلّ ملفّ، و`<مجلّد>/`: «dir» لكلّ مجلّدٍ فارغ."""
     res = {}
-    for dp, _dn, fn in os.walk(out):
+    for dp, dn, fn in os.walk(out):
+        rel = os.path.relpath(dp, out).replace(os.sep, "/")
+        if not dn and not fn and rel != ".":
+            res[rel + "/"] = "dir"
         for f in fn:
             p = os.path.join(dp, f)
             with open(p, "rb") as fh:
@@ -77,43 +94,114 @@ def diff(a, b, la, lb):
     return out
 
 
-def main():
-    ref = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
-    r = subprocess.run(["git", "-C", ROOT, "rev-parse", "--verify", "-q", ref + "^{commit}"],
-                       capture_output=True, encoding="utf-8")
-    if r.returncode != 0:
-        die("مرجعٌ غيرُ معروف: %s" % ref)
-    sha = r.stdout.strip()
-    with tempfile.TemporaryDirectory(prefix="mihrab-same-") as tmp:
-        arc = subprocess.run(["git", "-C", ROOT, "archive", "--format=tar", sha, "site"], capture_output=True)
-        if arc.returncode != 0:
-            die("تعذّر `git archive %s site`: %s" % (ref, arc.stderr.decode("utf-8", "replace")))
-        src = os.path.join(tmp, "ref")
-        with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
-            tf.extractall(src, filter="data")
-        ref_site = os.path.join(src, "site")
-
-        o1, o2, ow = (os.path.join(tmp, n) for n in ("out-ref-1", "out-ref-2", "out-work"))
-        build(ref_site, o1, 1)
-        build(ref_site, o2, 2)
-        t1, t2 = tree(o1), tree(o2)
-        nd = diff(t1, t2, "البناء الأوّل", "البناء الثاني")
+def stable_tree(site_dir, tmp, label, n, seed0):
+    """يبني n مرّةً في بيئاتٍ متباينة ⇒ (الشجرة، سطورُ عدم الحتميّة أو [])."""
+    first = None
+    for i in range(n):
+        out = os.path.join(tmp, "out-%s-%d" % (label, i))
+        build(site_dir, out, env_for(i, seed0 + i))
+        t = tree(out)
+        if first is None:
+            first = t
+            continue
+        nd = diff(first, t, "البناء 1", "البناء %d %s" % (i + 1, env_for(i, seed0 + i)))
         if nd:
-            print("❌ البناءُ غيرُ حتميّ: بناءان للمرجع %s نفسِه يختلفان — لا يُوثَق بمقارنةٍ بعدهما" % ref)
-            print("\n".join(nd[:40]))
-            return 1
-        build(os.path.join(ROOT, "site"), ow, 3)
-        tw = tree(ow)
-        d = diff(t1, tw, "المرجع", "شجرة العمل")
-        print("المرجع      %s (%s) — %d ملفًّا، البصمة %s" % (ref, sha[:7], len(t1), digest(t1)))
-        print("شجرة العمل  %d ملفًّا، البصمة %s" % (len(tw), digest(tw)))
-        if d:
-            print("❌ المخرَجُ يختلف عن المرجع في %d ملفًّا:" % len(d))
-            print("\n".join(d[:60]))
-            return 1
-        print("✅ متطابق بالبايت — والبناءُ حتميّ (بناءان للمرجع متطابقان)")
-        return 0
+            return first, nd
+    return first, []
+
+
+def compare(site_a, site_b, tmp, label_a, label_b, n_a=REF_BUILDS, n_b=WORK_BUILDS):
+    """⇒ (رمز الخروج، السطور). يُستورَد في `test_same_output.py`."""
+    lines = []
+    ta, nd = stable_tree(site_a, tmp, "a", n_a, 1)
+    if nd:
+        return 1, ["❌ البناءُ غيرُ حتميّ في %s — لا يُوثَق بمقارنةٍ بعده:" % label_a] + nd[:40]
+    tb, nd = stable_tree(site_b, tmp, "b", n_b, 101)
+    if nd:
+        return 1, ["❌ البناءُ غيرُ حتميّ في %s — لا يُوثَق بمقارنةٍ بعده:" % label_b] + nd[:40]
+    d = diff(ta, tb, label_a, label_b)
+    lines.append("%s — %d ملفًّا، البصمة %s" % (label_a, len(ta), digest(ta)))
+    lines.append("%s — %d ملفًّا، البصمة %s" % (label_b, len(tb), digest(tb)))
+    if d:
+        lines.append("❌ المخرَجُ يختلف في %d موضعًا:" % len(d))
+        lines.extend(d[:60])
+        return 1, lines
+    lines.append("✅ متطابق بالبايت — والبناءُ حتميّ (%d بناءً و%d، في بيئاتٍ متباينة)" % (n_a, n_b))
+    return 0, lines
+
+
+def git(*args, binary=False):
+    r = subprocess.run(["git", "-C", ROOT] + list(args), capture_output=True,
+                       **({} if binary else {"encoding": "utf-8"}))
+    if r.returncode != 0:
+        err = r.stderr.decode("utf-8", "replace") if binary else r.stderr
+        raise OpError("git %s: %s" % (" ".join(args), err.strip()))
+    return r.stdout
+
+
+def export_ref(ref, dest):
+    """‏`site/` من المرجع إلى dest/site ⇒ (المسار، sha)."""
+    try:
+        sha = git("rev-parse", "--verify", "-q", ref + "^{commit}").strip()
+    except OpError:
+        raise OpError("مرجعٌ غيرُ معروف: %s" % ref)
+    data = git("archive", "--format=tar", sha, "site", binary=True)
+    with tarfile.open(fileobj=io.BytesIO(data)) as tf:
+        try:
+            tf.extractall(dest, filter="data")
+        except TypeError:
+            raise OpError("‏`tarfile` بلا `filter=` — يلزم بايثون ≥ 3.12 (أو تصحيحٌ خلفيّ)")
+    return os.path.join(dest, "site"), sha
+
+
+def export_work(dest):
+    """ما يراه git في `site/` من شجرة العمل (متتبَّعًا أو جديدًا غيرَ مُهمَل) إلى dest/site."""
+    names = [n for n in git("ls-files", "-co", "--exclude-standard", "-z", "--", "site").split("\0") if n]
+    for rel in names:
+        src = os.path.join(ROOT, rel)
+        if not os.path.isfile(src):      # محذوفٌ لم يُودَع بعد
+            continue
+        dst = os.path.join(dest, rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copyfile(src, dst)
+    return os.path.join(dest, "site")
+
+
+def main(argv):
+    with tempfile.TemporaryDirectory(prefix="mihrab-same-") as tmp:
+        if argv[:1] == ["--dirs"]:
+            if len(argv) != 3:
+                raise OpError("‏--dirs <أ> <ب>")
+            a = shutil.copytree(argv[1], os.path.join(tmp, "a", "site"))
+            b = shutil.copytree(argv[2], os.path.join(tmp, "b", "site"))
+            rc, lines = compare(a, b, tmp, "أ", "ب")
+        elif len(argv) <= 2:
+            ref = argv[0] if argv else "HEAD"
+            a, sa = export_ref(ref, os.path.join(tmp, "a"))
+            if len(argv) == 2:
+                b, sb = export_ref(argv[1], os.path.join(tmp, "b"))
+                lb = "%s (%s)" % (argv[1], sb[:7])
+            else:
+                b = export_work(os.path.join(tmp, "b"))
+                lb = "شجرة العمل"
+                if git("status", "--porcelain", "--", "site").strip():
+                    print("⚠️ في `site/` ما لم يُودَع — البصمةُ بصمةُ شجرة العمل لا إيداعٍ بعينه")
+            rc, lines = compare(a, b, tmp, "%s (%s)" % (ref, sa[:7]), lb)
+        else:
+            raise OpError("وسائطُ زائدة: %s" % " ".join(argv))
+    print("\n".join(lines))
+    return rc
+
+
+def _run(argv):
+    try:
+        return main(argv)
+    except OpError as e:
+        print("❌ %s" % e)
+    except Exception as e:  # noqa: BLE001 — عطبُ الأداة ليس «مختلفًا»
+        print("❌ خطأٌ تشغيليّ: %s: %s" % (type(e).__name__, e))
+    return 2
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_run(sys.argv[1:]))

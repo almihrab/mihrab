@@ -1388,7 +1388,7 @@ def main():
     # `MIHRAB_SITE_OUT` قد يشير إلى أيّ مكان — فيُرفَض بصوتٍ ولا يُمحى.
     # ويحرس الوجهين [OUT-01] ببناءين حقيقيَّين في مجلّدٍ مؤقّت.
     if os.path.isdir(OUT):
-        if os.listdir(OUT) and not os.path.isfile(os.path.join(OUT, BUILD_MARK)):
+        if os.listdir(OUT) and not os.path.isfile(os.path.join(OUT, BUILD_MARK)):  # ترتيبٌ لا يؤثّر
             raise SystemExit(
                 "مجلّدُ المخرَج غيرُ فارغٍ وليس من بناءٍ سابق (لا %s فيه) — لن يُمحى: %s"
                 % (BUILD_MARK, OUT))
@@ -1425,7 +1425,7 @@ def main():
                     os.chmod(path, 0o666)
                     os.remove(path)
 
-        for _e in os.listdir(OUT):
+        for _e in os.listdir(OUT):  # ترتيبٌ لا يؤثّر
             if _e != BUILD_MARK:
                 _wipe(os.path.join(OUT, _e))
         _mk = os.path.join(OUT, BUILD_MARK)
@@ -1437,7 +1437,7 @@ def main():
     # الأصول
     dst_assets = os.path.join(OUT, "assets")
     os.makedirs(dst_assets, exist_ok=True)
-    for fn in os.listdir(ASSETS):
+    for fn in sorted(os.listdir(ASSETS)):
         src = os.path.join(ASSETS, fn)
         if os.path.isfile(src):
             with open(src, "rb") as f_in, open(os.path.join(dst_assets, fn), "wb") as f_out:
@@ -1451,7 +1451,7 @@ def main():
             continue
         d_dir = os.path.join(dst_assets, sub)
         os.makedirs(d_dir, exist_ok=True)
-        for fn in os.listdir(s_dir):
+        for fn in sorted(os.listdir(s_dir)):
             src = os.path.join(s_dir, fn)
             if os.path.isfile(src):
                 with open(src, "rb") as f_in, open(os.path.join(d_dir, fn), "wb") as f_out:

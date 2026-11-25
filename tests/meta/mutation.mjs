@@ -36,24 +36,42 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { dumpText, failureText, makeNorm, tail } from "./dump_norm.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..");
 const SPEC = join(HERE, "mutants.json");
 
-const argv = process.argv.slice(2);
-const val = (f, d) => { const i = argv.indexOf(f); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
-const ONLY = val("--only", null);
+// ── الأعلام: كلُّها ذاتُ قيمة، والمجهولُ يُرفَض ──
+// علمٌ مكتوبٌ خطأً (`--dump-failure`) أو بلا قيمة كان يُتجاهَل بصمت: لا يُكتب تفريغٌ،
+// أو يُشغَّل كلُّ المُصابات، أو يصير العلمُ التالي قيمةً (`--guard --dump-failures d`).
+const usage = msg => { console.error(`❌ ${msg}\n   node tests/meta/mutation.mjs [--only <id>] [--guard <جزء من الأمر>] [--dump-failures <مجلّد فارغ>]`); process.exit(2); };
+const FLAGS = ["--only", "--guard", "--dump-failures"];
+const opt = {};
+{
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i += 2) {
+    if (!FLAGS.includes(argv[i])) usage(`علمٌ مجهول: ${argv[i]}`);
+    if (!argv[i + 1] || argv[i + 1].startsWith("--")) usage(`${argv[i]} بلا قيمة`);
+    if (argv[i] in opt) usage(`${argv[i]} مكرَّر`);
+    opt[argv[i]] = argv[i + 1];
+  }
+}
+const ONLY = opt["--only"] ?? null;
 // ‏`--guard <جزء من الأمر>`: مُصاباتُ حارسٍ واحد (كـ`check_site`) بلا بقيّة الحرّاس.
-const GUARD = val("--guard", null);
+// مطابقةٌ نصّيّةٌ جزئيّة: ‏`check_anchors` يطابق الأمرين (بـ`--snapshot` وبلاه) — مقصود.
+const GUARD = opt["--guard"] ?? null;
 // ‏`--dump-failures <مجلّد>`: سطورُ فشلِ كلِّ مُصابٍ في `<id>.txt` — فيُقارَن **سببُ** الاحمرار
 // قبل تغييرٍ «لا يغيّر السلوك» وبعده (`diff -r`)، لا الاحمرارُ وحده: إعادةُ تنظيمٍ تُبدّل
 // رسالةً أو تُخفي فحصًا خلف `need` يبقى مُصابُها أحمرَ ويتغيّر ما يقوله.
-const DUMP = val("--dump-failures", null);
+// **والمجلّدُ فارغٌ أو غائب**: ملفُّ تشغيلٍ سابقٍ يبقى لمُصابٍ لم يُكتب له شيءٌ الآن، فيقول
+// ‏`diff -r` «متطابق» كذبًا. والمسحُ التلقائيّ أخطرُ من الرفض (مسارٌ خاطئٌ يُمحى).
+const DUMP = opt["--dump-failures"] ?? null;
+if (DUMP && existsSync(DUMP) && readdirSync(DUMP).length) usage(`--dump-failures: ${DUMP} غيرُ فارغ`);
 
 if (!existsSync(SPEC)) { console.error(`❌ لا ${SPEC}`); process.exit(2); }
 const spec = JSON.parse(readFileSync(SPEC, "utf8"));
@@ -177,25 +195,8 @@ for (const [g] of declaredUncovered) {
 console.log(`\n  تغطية: ${covered.size} مُغطًّى · ${declaredUncovered.size} مُعلَن · من ${guardsInRun.size} حارسًا في run.sh`);
 
 // ── المُصابات ────────────────────────────────────────────────────────────────────
-// **سطورُ الفشل تُختار ولا يُسقَط ما سواها.** إسقاطُ سطور النجاح (✅/✔/ok) كان يُبقي
-// كلَّ ما لم يُتوقَّع: ‏`node --test` يطبع `# Subtest: <الاسم>` لكلّ اختبارٍ **ناجح**، ولافتةُ
-// ‏`╚══ ✅ … (سقفًا وأرضيّة) ══╝` لا تبدأ بـ✅، وسطورُ ⏭️ و⚠️ — فيطابقها `expect` والفحصُ لم يحمرّ.
-// فالمختارُ: سطرٌ يحمل علامةَ فشل، وما تحته من سطورٍ أعمقَ إزاحةً (تفصيلُه، وكتلةُ YAML
-// تحت `not ok` في TAP، وجسمُ `Traceback`).
-const PASS_LINE = /^\s*(✅|✔|ok\b|# Subtest:)/;
-const FAIL_MARK = /❌|✗|✖|^\s*not ok\b|^\s*FAIL\b|Traceback \(most recent call last\)|\b\w*(Error|Exception)\b/;
-const indent = l => l.match(/^\s*/)[0].length;
-const failureText = (out) => {
-  const lines = out.split("\n");
-  const keep = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (PASS_LINE.test(lines[i]) || !FAIL_MARK.test(lines[i])) continue;
-    const base = indent(lines[i]);
-    keep.push(lines[i]);
-    while (i + 1 < lines.length && lines[i + 1].trim() && indent(lines[i + 1]) > base) keep.push(lines[++i]);
-  }
-  return keep.join("\n");
-};
+// اختيارُ سطور الفشل (`failureText`) وتطبيعُ التفريغ في `dump_norm.mjs` — دوالُّ نقيّةٌ
+// يحرسها اختبارُ وحدتها، لأنّ هذا الملفّ لا يُشغَّل من داخل نفسه (القفل).
 // ‏`r.status ?? 1` كان يقرأ انقضاءَ المهلة والقتلَ بإشارةٍ **أحمرَ** — فمُصابٌ علِق حارسُه
 // يُحسَب «أمسكه الحارس». فالمهلةُ والإشارةُ خطأٌ تشغيليٌّ صريح.
 const runGuard = (cmd) => {
@@ -208,40 +209,37 @@ const runGuard = (cmd) => {
 const selected = spec.mutants.filter(m => (!ONLY || m.id === ONLY) && (!GUARD || m.guard.includes(GUARD)));
 if ((ONLY || GUARD) && !selected.length) {
   // مرشِّحٌ لا يطابق شيئًا كان يطبع اللافتةَ الخضراء ويخرج بـ0 — أخضرُ لم يقِس شيئًا.
-  console.log(`\n  ❌ لا مُصابَ يطابق المرشِّح (${ONLY ? "--only " + ONLY : "--guard " + GUARD})`);
+  const f = [ONLY && "--only " + ONLY, GUARD && "--guard " + GUARD].filter(Boolean).join(" و");
+  console.log(`\n  ❌ لا مُصابَ يطابق المرشِّح (${f})`);
   process.exit(2);
 }
-// المساراتُ تُطبَّع ليُقارَن ما يُكتب بين مجلّدَي عملٍ مختلفين: جذرُ المستودع ثمّ المؤقّت
-// (بأيّ فاصل، فالحرّاسُ تطبع `\` و`/`).
-const escRe = p => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\\|\//g, "[\\\\/]");
-const ROOT_RE = new RegExp(escRe(ROOT), "gi");
-const TMP_RE = new RegExp(escRe(tmpdir()) + "[\\\\/][^\\s\"'»)]*", "gi");
-// و[OUT-01] يزرع بوائتَ بأسماءٍ عشوائيّةٍ عمدًا (‏`stale-2f548b84`) كي لا يمرّ محوٌ بالاسم —
-// فيُطبَّع الجزءُ العشوائيّ وحدَه.
-const norm = t => t.replace(ROOT_RE, "<ROOT>").replace(TMP_RE, "<TMP>")
-  .replace(/(stale(?:-dir)?)-[0-9a-f]{8}\b/g, "$1-<RAND>");
+// المساراتُ تُطبَّع ليُقارَن ما يُكتب بين مجلّدَي عملٍ مختلفين (انظر `dump_norm.mjs`).
+const norm = makeNorm(ROOT, tmpdir());
 const dump = (m, text) => {
   if (!DUMP) { return; }
   mkdirSync(DUMP, { recursive: true });
-  writeFileSync(join(DUMP, m.id + ".txt"), norm(text).replace(/\r\n/g, "\n").trimEnd() + "\n", "utf8");
+  writeFileSync(join(DUMP, m.id + ".txt"), norm(text).trimEnd() + "\n", "utf8");
 };
+// ولكلّ فرعٍ يتخطّى المُصابَ ملفُّه أيضًا: لا يُزرَع اليومَ ما زُرع أمس (وسمٌ صار يتكرّر بعد
+// تغييرٍ ما) والتفريغان «متطابقان» لأنّ أحدهما لم يُكتب.
+const skip = (m, why) => dump(m, `‹لم يُزرَع: ${why}›`);
 
 for (const m of selected) {
   const file = join(ROOT, m.file);
-  if (!existsSync(file)) { console.log(`  ❌ ${m.id}: لا ملفَّ ${m.file}`); rc = 1; continue; }
+  if (!existsSync(file)) { console.log(`  ❌ ${m.id}: لا ملفَّ ${m.file}`); skip(m, "لا ملفّ"); rc = 1; continue; }
 
   // **المقارنةُ بالبايت لا بالنصّ المفكوك**: ملفٌّ ليس UTF-8 صالحًا يُتلَف بالفكّ ثمّ الكتابة
   // (‏U+FFFD) وتتطابق بصمتا النصّين المفكوكين فيمرّ الإتلافُ صامتًا.
   const origBuf = readFileSync(file);
   const original = origBuf.toString("utf8");
   if (!Buffer.from(original, "utf8").equals(origBuf)) {
-    console.log(`  ❌ ${m.id}: ${m.file} ليس UTF-8 صالحًا — لا يُزرَع فيه`); rc = 1; continue;
+    console.log(`  ❌ ${m.id}: ${m.file} ليس UTF-8 صالحًا — لا يُزرَع فيه`); skip(m, "ليس UTF-8"); rc = 1; continue;
   }
 
   // **الوسمُ يجب أن يكون فريدًا**: وسمٌ متكرّرٌ يُصيب موضعًا لم يُقصَد، فيحمرّ الحارسُ
   // لسببٍ آخرَ ويُقرَأ ذلك نجاحًا للمُصاب — أخضرُ كاذبٌ داخل حارس الحرّاس نفسِه.
   const n = original.split(m.old).length - 1;
-  if (n !== 1) { console.log(`  ❌ ${m.id}: الوسمُ ورد ${n} مرّةً لا مرّةً واحدة — مُصابٌ لا يُوثَق به`); rc = 1; continue; }
+  if (n !== 1) { console.log(`  ❌ ${m.id}: الوسمُ ورد ${n} مرّةً لا مرّةً واحدة — مُصابٌ لا يُوثَق به`); skip(m, `الوسمُ ورد ${n} مرّة`); rc = 1; continue; }
 
   const base = runGuard(m.guard);
   if (base.code !== 0) {
@@ -252,9 +250,8 @@ for (const m of selected) {
     // مُصابٌ سابق. سببُ الاحمرار يُقال هنا حيث وقع.
     // وحارسٌ يحمرّ بلا علامةِ فشلٍ (‏`sys.exit("…")` مثلًا) لا يُترك سطرُه فارغًا: الذيلُ بديلًا.
     const bfl = failureText(base.out).split("\n").filter(l => l.trim());
-    const btail = base.out.split("\n").filter(l => l.trim()).slice(-3);
-    console.log("       " + (bfl.length ? bfl.slice(0, 3) : btail).join("\n       "));
-    rc = 1; continue;
+    console.log("       " + (bfl.length ? bfl.slice(0, 3) : tail(base.out)).join("\n       "));
+    skip(m, "الأساسُ أحمر\n" + dumpText(base)); rc = 1; continue;
   }
 
   let res;
@@ -282,7 +279,7 @@ for (const m of selected) {
     rmSync(JOURNAL, { force: true });
   }
 
-  dump(m, res.code === null ? "‹لم ينتهِ: " + res.why + "›" : res.code === 0 ? "‹أخضر›" : failureText(res.out));
+  dump(m, dumpText(res));
   if (res.code === null) {
     console.log(`  ❌ ${m.id}: الحارسُ لم ينتهِ (${res.why}) — لا يُقرأ أحمرَ`);
     rc = 1;
@@ -292,8 +289,7 @@ for (const m of selected) {
   } else if (!(m.expect && failureText(res.out).includes(m.expect))) {
     console.log(`  ❌ ${m.id}: حمِر لكن **لسببٍ آخر** — لم يُذكَر «${m.expect}» في سطور الفشل`);
     const fl = failureText(res.out).split("\n").filter(l => l.trim());
-    const tail = res.out.split("\n").filter(l => l.trim()).slice(-3);
-    console.log("       " + (fl.length ? fl.slice(0, 3) : tail).join("\n       "));
+    console.log("       " + (fl.length ? fl.slice(0, 3) : tail(res.out)).join("\n       "));
     rc = 1;
   } else {
     console.log(`  ✅ ${m.id.padEnd(26)} ${m.guardFile} يحمرّ على «${m.expect}»`);

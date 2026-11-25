@@ -72,6 +72,13 @@ jobs:
       - name: بنيةُ الموقع
         run: python tests/docs/check_site.py
 
+      # أداتا الإثبات تُحرَسان هنا لا في حارس الحرّاس: أداةُ «متطابق» خضراءُ دائمًا تُلصَق
+      # في طلب دمجٍ غيّر المخرَج. (‏node مثبَّتٌ في صورة ubuntu-latest.)
+      - name: أداتا إثبات الموقع
+        run: |
+          python tests/docs/test_same_output.py
+          node --test tests/meta/dump_norm.test.mjs
+
       # منصّةٌ خاطئةٌ في السطر الأوّل أرخصُ اكتشافًا من فشلٍ في الدقيقة الأربعين.
       - name: كشفُ المنصّة في build.sh
         run: |

@@ -1231,6 +1231,116 @@
       "new": "<div class=\"grow\"><textarea hidden><input type=\"search\" id=\"kbd-filter\" ",
       "expect": "داخل <textarea>",
       "why": "‏`textarea` نصٌّ خامّ في المتصفّح: تُبتلَع بقيّةُ الصفحة، والمحلِّلُ يبنيها عناصر."
+    },
+    {
+      "id": "so-byte-diff-blind",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "        if a[k] != b[k]:\n",
+      "new": "        if False:\n",
+      "expect": "[SO-01]",
+      "why": "مقارنةٌ لا ترى تغيّرَ المحتوى تجعل same_output أخضرَ دائمًا — ويُلصَق «متطابق» في طلب دمجٍ غيّر المخرَج."
+    },
+    {
+      "id": "so-extra-file-blind",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "    for k in sorted(set(b) - set(a)):",
+      "new": "    for k in []:",
+      "expect": "[SO-02]",
+      "why": "ملفٌّ زائدٌ في المخرَج (بائتٌ يُشحَن، أو أصلٌ جديد) يمرّ متطابقًا."
+    },
+    {
+      "id": "so-determinism-blind",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "nd = diff(first, t,",
+      "new": "nd = diff(first, first,",
+      "expect": "[SO-03]",
+      "why": "فحصُ الحتميّة يقارن البناءَ بنفسه: مقارنةٌ بعد بناءٍ غيرِ حتميٍّ تُقرأ متطابقةً صدفة."
+    },
+    {
+      "id": "so-work-built-once",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "WORK_BUILDS = 2\n",
+      "new": "WORK_BUILDS = 1\n",
+      "expect": "[SO-03]",
+      "why": "شجرةُ العمل تُبنى مرّةً فلا تُثبَت حتميّتُها: تغييرٌ يُدخل ترتيبَ مجموعةٍ يطابق المرجعَ بالبذرة صدفةً ويُدمج."
+    },
+    {
+      "id": "so-tz-constant",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "\"TZ\": (\"AAA-14\" if i % 2 == 0 else \"BBB+12\"),",
+      "new": "\"TZ\": \"AAA-14\",",
+      "expect": "[SO-05]",
+      "why": "منطقةٌ زمنيّةٌ واحدةٌ لكلّ بناء: تاريخٌ يدخل المخرَجَ يمرّ متطابقًا (قِيس قبل هذا التغيير)."
+    },
+    {
+      "id": "so-utf8-constant",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "\"PYTHONUTF8\": (\"0\" if i % 2 == 0 else \"1\"),",
+      "new": "\"PYTHONUTF8\": \"1\",",
+      "expect": "[SO-06]",
+      "why": "‏`open()` بلا ترميزٍ يقرأ بمحلّيّة الجهاز (‏cp1255 هنا): وضعٌ واحدٌ لا يكشفه."
+    },
+    {
+      "id": "so-exit-green",
+      "guardFile": "tests/docs/test_same_output.py",
+      "guard": "python tests/docs/test_same_output.py",
+      "file": "tests/docs/same_output.py",
+      "old": "    print(\"\\n\".join(lines))\n    return rc\n",
+      "new": "    print(\"\\n\".join(lines))\n    return 0\n",
+      "expect": "[SO-04]",
+      "why": "يطبع الفرقَ ويخرج 0 — CI والسكربتات تقرأ الرمزَ لا النصّ."
+    },
+    {
+      "id": "dump-tmp-swallows-relpath",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "  const TMP_RE = new RegExp(escRe(tmp) + \"[\\\\\\\\/]+[^\\\\\\\\/\\\\s\\\"'»)]+\", \"gi\");\n",
+      "new": "  const TMP_RE = new RegExp(escRe(tmp) + \"[\\\\\\\\/][^\\\\s\\\"'»)]*\", \"gi\");\n",
+      "expect": "relpath",
+      "why": "‏<TMP> يبتلع المسارَ داخل المؤقّت: تفريغا صفحتين مختلفتين يتطابقان، فيقول `diff -r` «لم يتغيّر سببُ الاحمرار» كذبًا."
+    },
+    {
+      "id": "dump-duration-noise",
+      "guardFile": "tests/meta/dump_norm.test.mjs",
+      "guard": "node --test tests/meta/dump_norm.test.mjs",
+      "file": "tests/meta/dump_norm.mjs",
+      "old": "    .replace(/^(\\s*duration_ms:).*$/gm, \"$1 <T>\");",
+      "new": "    ;",
+      "expect": "duration_ms",
+      "why": "زمنُ كلّ اختبارٍ في TAP يختلف بين تشغيلين: كلُّ مقارنةِ تفريغٍ حمراء فتُهمَل."
+    },
+    {
+      "id": "det-time-import",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "import struct\n",
+      "new": "import struct\nimport time\n",
+      "expect": "[DET-01]",
+      "why": "وقتٌ يدخل البناء لا يبلغه same_output إن كان `time.time()` (لا يتأثّر بالمنطقة)."
+    },
+    {
+      "id": "det-listdir-unsorted",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "    for fn in sorted(os.listdir(ASSETS)):\n",
+      "new": "    for fn in os.listdir(ASSETS):\n",
+      "expect": "[DET-01]",
+      "why": "ترتيبُ `listdir` أبجديٌّ على NTFS فلا يكشفه same_output على ويندوز، وعشوائيٌّ على ext4."
     }
   ],
   "uncovered": [
