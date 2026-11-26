@@ -8,7 +8,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from det_check import violations  # noqa: E402
+from det_check import pycache_dirs, root_strays, violations  # noqa: E402
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -90,6 +90,38 @@ CASES = [
 ]
 
 
+# (أسماءُ جذر site/، الحزمُ منها (بـ`__init__.py`)، ما يُمسَك) — ‏`root_strays`: ما يستورده
+# بايثون بالاسم سوى نقطة الدخول والحزم المسموحة.
+ROOT_CASES = [
+    (["build.py"], [], []),
+    (["build.py", "README.md", "content", "sitegen", "public"], ["sitegen"], []),
+    (["build.py", "json.py"], [], ["json.py"]),           # يظلّل `json` لكلّ وحدة
+    (["build.py", "html.pyc"], [], ["html.pyc"]),         # بايتكودٌ بلا مصدر يُستورَد كذلك
+    (["build.py", "_speedups.pyd"], [], ["_speedups.pyd"]),
+    (["build.py", "re.so"], [], ["re.so"]),
+    (["build.py", "csv.pyw"], [], ["csv.pyw"]),           # مصدرٌ على ويندوز
+    (["build.py", "json"], ["json"], ["json/"]),          # حزمةٌ تظلّل كالوحدة
+    (["build.py", "content"], [], []),                    # مجلّدٌ بلا `__init__.py`: namespace
+    (["build.py", "JSON.PY"], [], []),                    # المطابقةُ حرفيّة
+    (["build.py.bak", "notes.txt"], [], []),              # ليس اسمَ وحدة
+    (["build.py", "a.py", "b.py"], [], ["a.py", "b.py"]),  # الكلُّ يُبلَّغ، مرتّبًا
+]
+
+# (نتيجةُ walk لشجرةٍ جذرُها S ومخرَجُها S/public، ما يُمسَك) — ‏`pycache_dirs`.
+S = os.path.join(os.sep, "s")
+P = os.path.join(S, "public")
+PYC_CASES = [
+    ([(S, ["sitegen"], ["build.py"]), (os.path.join(S, "sitegen"), [], ["data.py"])], []),
+    ([(S, ["sitegen"], []), (os.path.join(S, "sitegen"), ["__pycache__"], []),
+      (os.path.join(S, "sitegen", "__pycache__"), [], ["data.cpython-312.pyc"])],
+     ["sitegen/__pycache__"]),                                     # المجلّدُ وحدَه، لا ما فيه
+    ([(S, ["__pycache__"], [])], ["__pycache__"]),                 # بجانب build.py
+    ([(os.path.join(S, "sitegen"), [], ["fonts.pyc"])], ["sitegen/fonts.pyc"]),  # ‏.pyc طليق
+    ([(P, ["__pycache__"], ["x.pyc"]), (os.path.join(P, "assets"), [], ["y.pyc"])], []),  # المخرَجُ ليس مصدرًا
+    ([(os.path.join(S, "publicity"), ["__pycache__"], [])], ["publicity/__pycache__"]),  # ليس المخرَجَ وإن شابهه
+]
+
+
 def main():
     print("╔══ [DET-01] جدولُ حالات det_check ══╗")
     fails = []
@@ -97,12 +129,21 @@ def main():
         got = bool(violations(src))
         if got != want:
             fails.append("[DET-01/%s] %s: %r" % (tag, "لم يُمسَك" if want else "أُمسِك خطأً", src))
+    for names, pkgs, want in ROOT_CASES:
+        got = root_strays(names, pkgs)
+        if got != want:
+            fails.append("[DET-01/root] %r (حزم %r) ⇒ %r والمتوقَّع %r" % (names, pkgs, got, want))
+    for walk, want in PYC_CASES:
+        got = pycache_dirs(walk, S, P)
+        if got != want:
+            fails.append("[DET-01/pycache] %r ⇒ %r والمتوقَّع %r" % ([w[0] for w in walk], got, want))
+    n = len(CASES) + len(ROOT_CASES) + len(PYC_CASES)
     if fails:
-        print("❌ %d حالةً خاطئة من %d:" % (len(fails), len(CASES)))
+        print("❌ %d حالةً خاطئة من %d:" % (len(fails), n))
         for f in fails:
             print("   · %s" % f)
         return 1
-    print("╚══ ✅ %d حالةً كما يُتوقَّع ══╝" % len(CASES))
+    print("╚══ ✅ %d حالةً كما يُتوقَّع ══╝" % n)
     return 0
 
 

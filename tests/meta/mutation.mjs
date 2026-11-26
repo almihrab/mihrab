@@ -213,8 +213,7 @@ console.log(`\n  تغطية: ${covered.size} مُغطًّى · ${declaredUncover
 // الحارسُ واحدٌ في run.sh وأقسامُه أربعون ونيّف: مُصابٌ واحدٌ يكفي لـ«الحارسُ مُغطًّى»
 // وأكثرُ الأقسام لم يمرّ أحدٌ بمسار فشلها (قِيس: 21 من 44). فكلُّ مُصابٍ يحمل `sec`،
 // اسمَ القسم الذي يُحمِّره، ويُشترط هنا ساكنًا — قبل أيّ زرع — ألّا يبقى قسمٌ بلا أحدهما.
-// أنّ المُصابَ يُحمِّر قسمَه فعلًا لا يُرى هنا، بل يُقاس بـ`python tests/meta/site_sections.py`
-// (يتتبّع الأقسامَ تحت كلّ مُصابٍ يحمل `sec`) — شغِّله عند كتابة `sec` أو تغييره.
+// وأنّ المُصابَ يُحمِّر قسمَه فعلًا يُقاس وقتَ زرعه: حارسُه يُشغَّل مُتتبَّعًا (‏`runTraced` أدناه).
 const SITE_GUARD = "tests/docs/check_site.py";
 {
   const src = readFileSync(join(ROOT, SITE_GUARD), "utf8");
@@ -245,7 +244,17 @@ const SITE_GUARD = "tests/docs/check_site.py";
     if (bySec.has(s)) { rc = 1; console.log(`  ❌ ${s}: مُعلَنٌ «بلا مُصاب» وله مُصاب — احذف سطرَ الإعلان.`); }
     else if (!known.has(s)) { rc = 1; console.log(`  ❌ ${s}: مُعلَنٌ وليس في SECTIONS — إعلانٌ عن قسمٍ زائل.`); }
   }
-  console.log(`  أقسامُ الموقع: ${bySec.size} مُغطًّى · ${declaredSec.size} مُعلَن · من ${sections.length}`);
+  // والفروعُ المتروكة بلا مُصاب (‏`uncoveredBranches`) تُسجَّل بنصّ رسالتها لا برقم سطرها، فلا
+  // يُعاد الجدالُ فيها عند كلّ قسمٍ جديد. وإعلانٌ زال نصُّه من الحارس أو قسمُه من SECTIONS يحمرّ.
+  const gdir = join(ROOT, "tests", "docs", "site_guard");
+  const gsrc = readdirSync(gdir).filter(f => f.endsWith(".py")).sort().map(f => readFileSync(join(gdir, f), "utf8")).join("\n");
+  for (const b of spec.uncoveredBranches || []) {
+    if (!known.has(b.section)) { rc = 1; console.log(`  ❌ فرعٌ مُعلَن في قسمٍ ليس في SECTIONS: ${b.section}`); }
+    if (!(b.why || "").trim()) { rc = 1; console.log(`  ❌ فرعٌ مُعلَن بلا سبب: ${b.section} «${b.expect}»`); }
+    if (!b.expect || !gsrc.includes(b.expect)) { rc = 1; console.log(`  ❌ فرعٌ مُعلَن زال نصُّه من الحارس: ${b.section} «${b.expect}»`); }
+  }
+  console.log(`  أقسامُ الموقع: ${bySec.size} مُغطًّى · ${declaredSec.size} مُعلَن · من ${sections.length}` +
+              ` · ${(spec.uncoveredBranches || []).length} فرعًا متروكًا بسببه`);
 }
 
 // ── المُصابات ────────────────────────────────────────────────────────────────────
@@ -253,11 +262,35 @@ const SITE_GUARD = "tests/docs/check_site.py";
 // يحرسها اختبارُ وحدتها، لأنّ هذا الملفّ لا يُشغَّل من داخل نفسه (القفل).
 // ‏`r.status ?? 1` كان يقرأ انقضاءَ المهلة والقتلَ بإشارةٍ **أحمرَ** — فمُصابٌ علِق حارسُه
 // يُحسَب «أمسكه الحارس». فالمهلةُ والإشارةُ خطأٌ تشغيليٌّ صريح.
-const runGuard = (cmd) => {
-  const r = spawnSync(cmd, { cwd: ROOT, shell: true, encoding: "utf8", timeout: 600_000 });
+const runGuard = (cmd, env) => {
+  const r = spawnSync(cmd, { cwd: ROOT, shell: true, encoding: "utf8", timeout: 600_000,
+    env: env ? { ...process.env, ...env } : process.env });
   const out = (r.stdout || "") + (r.stderr || "");
   if (r.error || r.signal) return { code: null, out, why: r.error ? r.error.code || r.error.message : `إشارة ${r.signal}` };
   return { code: r.status, out };
+};
+
+// مُصابٌ يحمل `sec` يُشغَّل حارسُه مُتتبَّعًا (‏`MIHRAB_GUARD_TRACE`، انظر `site_guard/core.py`):
+// يُكتب لكلّ فشلٍ قسمُه ونوعُه، فيُشترط أن يكون القسمُ المعلَن بينها، عطبًا أو إيقافًا لا انهيارًا.
+const TRACE = join(tmpdir(), `mihrab-guard-trace-${process.pid}.json`);
+const runTraced = (cmd) => {
+  rmSync(TRACE, { force: true });
+  const r = runGuard(cmd, { MIHRAB_GUARD_TRACE: TRACE });
+  try { r.trace = JSON.parse(readFileSync(TRACE, "utf8")); } catch { r.trace = null; }
+  rmSync(TRACE, { force: true });
+  return r;
+};
+// ⇒ سببُ الإخفاق نصًّا، أو "" إن احمرّ القسمُ المعلَن **بنصّ `expect`** — لا أن يحمرّ القسمُ عرَضًا
+// ويأتي النصُّ من قسمٍ آخر. وقسمٌ أنهى الحارسَ بلا `bad` (‏return) يُقبَل ونصُّه في الخرج المطبوع.
+const secMiss = (trace, sec, expect) => {
+  if (!trace) return "لم يُكتب ملفُّ التتبّع (الحارسُ لا يقرأ MIHRAB_GUARD_TRACE؟)";
+  const crash = trace.filter(t => t.kind === "crash");
+  if (crash.length) return `انهار الحارسُ في ${crash.map(t => `${t.sec} (${t.at})`).join("، ")}`;
+  const mine = trace.filter(t => t.sec === sec);
+  if (mine.some(t => t.kind === "return" || (t.msg || "").includes(expect))) return "";
+  const hit = [...new Set(trace.map(t => t.sec))];
+  if (mine.length) return `احمرّ، لكن «${expect}» ليس في رسائله (جاء من ${trace.filter(t => (t.msg || "").includes(expect)).map(t => t.sec).join("، ") || "خارج التتبّع"})`;
+  return `احمرّ في ${hit.join("، ") || "لا قسم"}`;
 };
 
 const selected = spec.mutants.filter(m => (!ONLY || m.id === ONLY) && (!GUARD || m.guard.includes(GUARD)));
@@ -309,7 +342,7 @@ for (const m of selected) {
     skip(m, "الأساسُ أحمر\n" + dumpText(base)); rc = 1; continue;
   }
 
-  let res;
+  let res, miss;
   // سجلُّ الاستعادة يُكتب **قبل** الزرع: قتلٌ قسريٌّ أو Ctrl-C (الحلقةُ متزامنةٌ فلا يعمل
   // معالجُ إشارة) يترك المُصابَ مزروعًا، والتشغيلُ التالي يستعيده من هنا قبل أيّ شيء.
   // و`planted` بصمةُ المُصاب: الاستعادةُ لا تقع إلّا إن كان ما على القرص هو المُصابَ نفسَه.
@@ -324,7 +357,7 @@ for (const m of selected) {
     planted: sha(Buffer.from(mutated, "utf8")) }));
   try {
     writeFileSync(file, mutated, "utf8");
-    res = runGuard(m.guard);
+    res = m.sec ? runTraced(m.guard) : runGuard(m.guard);
   } finally {
     writeFileSync(file, origBuf);
     if (!readFileSync(file).equals(origBuf)) {
@@ -346,8 +379,12 @@ for (const m of selected) {
     const fl = failureText(res.out).split("\n").filter(l => l.trim());
     console.log("       " + (fl.length ? fl.slice(0, 3) : tail(res.out)).join("\n       "));
     rc = 1;
+  } else if (m.sec && (miss = secMiss(res.trace, m.sec, m.expect))) {
+    // أحمرُ بنصّه، لكن لا في القسم الذي يُعلنه `sec` — أو انهار الحارسُ في الطريق.
+    console.log(`  ❌ ${m.id}: لا يُحمِّر قسمَه ${m.sec} — ${miss}`);
+    rc = 1;
   } else {
-    console.log(`  ✅ ${m.id.padEnd(26)} ${m.guardFile} يحمرّ على «${m.expect}»`);
+    console.log(`  ✅ ${m.id.padEnd(26)} ${m.guardFile} يحمرّ على «${m.expect}»${m.sec ? " في " + m.sec.slice(0, 3) : ""}`);
   }
 }
 

@@ -21,6 +21,7 @@ listdir`، و`pathlib`، و`sorted(os.walk(…))` (لا يرتّب ما داخل
 - **‏`hash()` و`id()`**: تتبعان البذرةَ والذاكرة.
 """
 import ast
+import os
 
 BANNED_MODULES = {"time", "datetime", "random", "uuid", "secrets", "zoneinfo", "calendar", "socket",
                   "platform", "getpass", "tempfile", "pathlib", "glob", "fnmatch", "importlib",
@@ -30,6 +31,42 @@ BANNED_NAMES = {"getpid", "getppid", "getuid", "getlogin", "gethostname", "uname
                 "scandir", "walk", "iterdir", "glob", "iglob", "rglob", "getcwd"}
 BANNED_BUILTINS = {"hash", "id", "__import__"}
 ENV_PREFIX = "MIHRAB_"
+ENTRY = "build.py"
+# ما يستورده بايثون من مجلّدٍ على `sys.path` بالاسم: مصدرًا (‏`.pyw` على ويندوز)، أو بايتكودًا بلا
+# مصدر، أو امتدادًا مُصرَّفًا (‏`importlib.machinery.all_suffixes()`؛ والوسومُ كـ`.cp312-win_amd64.pyd`
+# تنتهي بـ`.pyd`).
+_IMPORTABLE = (".py", ".pyw", ".pyc", ".pyd", ".so")
+# الحزمُ المسموحة في الجذر: مولِّدُ الموقع نفسُه، ولا يظلّل اسمُه وحدةً قياسيّة.
+ROOT_PACKAGES = {"sitegen"}
+
+
+def root_strays(names, packages=()):
+    """ما في جذر `site/` ممّا يستورده بايثون بالاسم، سوى نقطة الدخول والحزم المسموحة.
+
+    مجلّدُ `build.py` أوّلُ `sys.path`، فـ`site/json.py` — أو `json.pyc` أو `json.pyd`، أو الحزمةُ
+    `site/json/` بـ`__init__.py` — يظلّل المكتبةَ القياسيّة لـ`build.py` ولكلّ وحدةٍ في `sitegen/`،
+    فيتغيّر البناءُ بملفٍّ لا يستورده أحدٌ صراحةً. ومجلّدٌ بلا `__init__.py` حزمةُ namespace لا
+    تظلّل وحدةً عاديّة، فلا تُعَدّ. يأخذ أسماءً لا مسارًا (‏`packages`: المجلّداتُ التي فيها
+    `__init__.py`)، فيُحرَس بجدول حالات. والمطابقةُ حرفيّة: ‏`FileFinder` بلا `PYTHONCASEOK` كذلك."""
+    files = [n for n in names if n.endswith(_IMPORTABLE) and n != ENTRY]
+    return sorted(files + [p + "/" for p in packages if p not in ROOT_PACKAGES])
+
+
+def pycache_dirs(walk, site, out):
+    """بايتكودٌ في شجرة المصدر — مجلّداتُ `__pycache__` و`.pyc` الطليقة — خارجَ المخرَج.
+
+    ‏`build.py` يضبط `sys.dont_write_bytecode`، فكاتبُه غيرُه: وحدةٌ شُغِّلت مباشرةً، أو
+    `compileall`. و`.pyc` يُتحقَّق منه بالحجم وبزمن التعديل بالثواني، فمُصابٌ بالطول نفسه في
+    الثانية نفسها قد يُشغَّل قديمُه. ‏`walk` نتيجةُ `os.walk(site)` (أو جدولُ حالاتٍ بشكلها)."""
+    out_p = os.path.normpath(out) + os.sep
+    found = []
+    for d, subs, files in walk:
+        if (os.path.normpath(d) + os.sep).startswith(out_p):
+            continue
+        found += [os.path.join(d, x) for x in subs if x == "__pycache__"]
+        if os.path.basename(os.path.normpath(d)) != "__pycache__":
+            found += [os.path.join(d, x) for x in files if x.endswith(".pyc")]
+    return sorted(os.path.relpath(p, site).replace(os.sep, "/") for p in found)
 
 
 def _parents(tree):
