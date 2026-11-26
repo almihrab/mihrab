@@ -71,7 +71,40 @@ def fingerprint():
     return sum(evaluated.values()), h.hexdigest()[:12]
 
 
+# ── تتبّعُ الأقسام لـ`mutation.mjs` ──
+# بـ`MIHRAB_GUARD_TRACE=<ملفّ>` يُكتب لكلّ فشلٍ قسمُه ونوعُه (‏bad: عطبٌ مجموع، stop: إيقافٌ
+# بـ`need`، return: قسمٌ أنهى الحارسَ بلا عطبٍ مسجَّل، crash: انهيار) وموضعُه ونصُّه — فيُقاس أنّ
+# المُصابَ يُحمِّر القسمَ الذي يُعلنه `sec` **بنصّ `expect`**، في كلّ تشغيل لا مرّةً وقتَ كتابته.
+# ولا يتغيّر من الخرج ولا من العدد والبصمة شيء. ويُنزَع المتغيّرُ من البيئة: البناءُ الذي
+# يشغّله الحارسُ لا يرثه (‏DET-01 يسمح بمفاتيح `MIHRAB_*` الحرفيّة).
+_TRACE = os.environ.pop("MIHRAB_GUARD_TRACE", None)
+current = None  # القسمُ الجاري؛ يضبطه `check_site.main`
+_trace = []
+
+
+def _mark(kind, msg=None, at=None):
+    if not _TRACE or (current is None and kind != "crash"):
+        return
+    if at is None:
+        f = sys._getframe(1)
+        while f is not None and os.path.abspath(f.f_code.co_filename) == os.path.abspath(__file__):
+            f = f.f_back
+        at = "%s:%d" % (os.path.basename(f.f_code.co_filename), f.f_lineno) if f is not None else "؟"
+    _trace.append({"sec": current or "<main>", "kind": kind, "at": at, "msg": "" if msg is None else str(msg)})
+
+
+def write_trace():
+    if not _TRACE:
+        return
+    try:
+        with open(_TRACE, "w", encoding="utf-8") as fh:
+            json.dump(_trace, fh, ensure_ascii=False)
+    except OSError as e:  # لا يُخفي رمزَ خروج الحارس؛ و`mutation.mjs` يقرأ غيابَ الملفّ عطبًا
+        print("⚠️ تعذّرت كتابةُ التتبّع %s: %s" % (_TRACE, e), file=sys.stderr)
+
+
 def bad(msg):
+    _mark("bad", msg)
     fails.append(msg)
 
 
@@ -96,7 +129,9 @@ def need(cond, msg):
     """كـ`check` لكنّ ما بعده لا يُقاس بلاه: يُسجَّل ويوقف الحارسَ بعد عرض ما جُمع."""
     _count(msg)
     if not cond:
-        raise _Stop(msg() if callable(msg) else msg)
+        text = msg() if callable(msg) else msg
+        _mark("stop", text)
+        raise _Stop(text)
     return True
 
 

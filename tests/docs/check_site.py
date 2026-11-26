@@ -29,6 +29,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from site_guard.core import *  # noqa: E402,F401,F403 — ‏test_strip يستورد css_strip_comments و_Stop من هنا
 from site_guard import android, capture, fonts, out, priv, release  # noqa: E402
+from site_guard import core as _core  # noqa: E402 — القسمُ الجاري وتتبّعُه (‏MIHRAB_GUARD_TRACE)
 
 # الأقسامُ بترتيبها القديم في `main()` — الترتيبُ دلالة: ‏`need` وبوّاباتُ `if fails: return` توقف ما بعدها.
 SECTIONS = [
@@ -112,24 +113,39 @@ def main():
         return 1
     c = types.SimpleNamespace()
     for _sec in SECTIONS:
+        _core.current = _sec.__name__
         _r = _sec(c)
         if _r is not None:
+            # قسمٌ أنهى الحارسَ ولا عطبَ مجموعًا قطّ: الفشلُ فشلُه هو، مطبوعًا لا بـ`bad`
+            # (فشلُ البناء في s02). أمّا بوّابةُ `if fails: return 1` فعطوبُها لأقسامٍ قبلها.
+            if _r and not fails:
+                _core._mark("return")
             return _r
+    _core.current = None
     return 1 if fails else 0
 
 
 def _run():
     """‏`need` يوقف بعد عرض ما جُمع، وانهيارٌ غيرُ متوقَّعٍ يُعرَض مع ما جُمع قبله."""
     try:
-        return main()
-    except _Stop as e:
-        bad(str(e))
-    except Exception:  # noqa: BLE001
-        import traceback
-        traceback.print_exc()
-        bad("انهار الحارسُ بعد %d عطبٍ مجموع — الانهيارُ أعلاه" % len(fails))
-    report()
-    return 1
+        try:
+            return main()
+        except _Stop as e:
+            _core.current = None  # الإيقافُ سُجِّل في `need` نفسِه
+            bad(str(e))
+        except Exception:  # noqa: BLE001
+            # الانهيارُ يُنسَب إلى قسمه نوعًا مستقلًّا، فلا يُقرأ «احمرّ القسم» تغطيةً — وموضعُه
+            # من الاستثناء نفسِه لا من هنا. وخارجَ الأقسام (‏`_layout`) يُسجَّل لـ`<main>`.
+            import traceback
+            _fr = traceback.extract_tb(sys.exc_info()[2])[-1]
+            _core._mark("crash", at="%s:%d" % (os.path.basename(_fr.filename), _fr.lineno))
+            _core.current = None
+            traceback.print_exc()
+            bad("انهار الحارسُ بعد %d عطبٍ مجموع — الانهيارُ أعلاه" % len(fails))
+        report()
+        return 1
+    finally:
+        _core.write_trace()
 
 
 if __name__ == "__main__":

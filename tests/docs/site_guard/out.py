@@ -13,10 +13,10 @@ def s01_det01_determinism(c):
     _det_files = sorted(p for p in glob.glob(os.path.join(SITE, "**", "*.py"), recursive=True)
                         if not os.path.abspath(p).startswith(os.path.abspath(OUT) + os.sep))
     need(_det_files, lambda: "[DET-01] لا ملفَّ بايثون في site/ — المسحُ لا يرى البناء")
-    # وجذرُ `site/` لا يحمل بايثون سوى نقطة الدخول: مجلّدُ السكربت أوّلُ `sys.path`، فملفٌّ
-    # كـ`site/json.py` أو `site/html.py` يظلّل المكتبةَ القياسيّة لـ`build.py` ولكلّ وحدةٍ في
-    # `sitegen/` — فيتغيّر البناءُ بملفٍّ لا يستورده أحدٌ صراحةً. والوحداتُ مكانُها `sitegen/`.
-    _root_py = sorted(f for f in os.listdir(SITE) if f.endswith(".py") and f != "build.py")
+    # وجذرُ `site/` لا يحمل بايثون سوى نقطة الدخول — العلّةُ وجدولُ الحالات مع `root_strays`.
+    from det_check import root_strays as _strays
+    _root_ls = os.listdir(SITE)
+    _root_py = _strays(_root_ls, [d for d in _root_ls if os.path.isfile(os.path.join(SITE, d, "__init__.py"))])
     check(not _root_py, lambda: "[DET-01] بايثون في جذر site/ سوى build.py: %s — يظلّل ما يستورده "
           "البناء؛ مكانُه site/sitegen/" % "، ".join(_root_py))
     _l = locals()
@@ -93,10 +93,8 @@ def s02_gen01_sitegen_bounds(c):
     for _m in _mods:
         _gen_dfs(_m, [])
     check(not _cycle, lambda: "[GEN-01] حلقةُ استيرادٍ بين وحدات sitegen/: %s" % " ← ".join(_cycle))
-    _pyc = [os.path.relpath(os.path.join(_d, _x), SITE).replace(os.sep, "/")
-            for _d, _sub, _fs in os.walk(SITE)
-            if not (os.path.abspath(_d) + os.sep).startswith(os.path.abspath(OUT) + os.sep)
-            for _x in _sub if _x == "__pycache__"]
+    from det_check import pycache_dirs as _pycache  # العلّةُ وجدولُ الحالات معها
+    _pyc = _pycache(os.walk(SITE), SITE, OUT)
     check(not _pyc, lambda: "[GEN-01] بايتكود في شجرة المصدر: %s — `build.py` يضبط "
           "`sys.dont_write_bytecode`؛ وكاتبُه غيرُه: وحدةٌ شُغِّلت مباشرةً، أو `compileall` "
           "بلا `PYTHONPYCACHEPREFIX` — يُحذف" % "، ".join(_pyc))

@@ -18,7 +18,7 @@
   "uncoveredSections": [
     {
       "section": "s01_det01_determinism",
-      "why": "مسارُ فشله الوحيد ملفُّ بايثون في جذر `site/`، والمُصابُ هنا استبدالٌ في ملفٍّ قائم لا إنشاءُ ملف. الشرطُ لرفع هذا الإعلان: نقلُ الفحص إلى `det_check.py` دالّةً على قائمة أسماء يحرسها جدولُ `test_det_check.py`."
+      "why": "مسارُ فشله في الحارس ملفٌّ جديدٌ في جذر `site/`، والمُصابُ هنا استبدالٌ في ملفٍّ قائم لا إنشاءُ ملف. ومنطقُه في `det_check.root_strays` يحرسه جدولُ `test_det_check.py` (‏ROOT_CASES) والمُصابان `det-root-*`."
     },
     {
       "section": "s13_local_assets_exist",
@@ -31,6 +31,68 @@
     {
       "section": "s16_fnt01_inventory",
       "why": "بلا مسار فشل: جردُ الأوجه المنتظَرة؛ ووجودُ `fonts.css` يشترطه s03 قبله."
+    }
+  ],
+  "uncoveredBranches": [
+    {
+      "section": "s02_gen01_sitegen_bounds",
+      "expect": "لا وحداتٍ في site/sitegen/",
+      "why": "فحصُ سلامة: لا يبلغه عطبٌ واقعيّ دون أن يكسر البناءَ قبله."
+    },
+    {
+      "section": "s04_out02_clean_build",
+      "expect": "البناءُ النظيفُ للمقارنة لم ينتهِ",
+      "why": "عطبٌ تشغيليّ (مهلة)، لا عطبٌ في الموقع."
+    },
+    {
+      "section": "s04_out02_clean_build",
+      "expect": "البناءُ النظيفُ للمقارنة فشل",
+      "why": "بناءٌ يفشل في المجلّد المؤقّت وحدَه يمسكه s02 قبله في كلّ مُصابٍ واقعيّ."
+    },
+    {
+      "section": "s04_out02_clean_build",
+      "expect": "وصلةٌ في المخرَج — لا تُقارَن",
+      "why": "يحرسه test_check_site_nobuild.py ومُصابُه out-nobuild-link-unseen (والوصلةُ لا تُزرَع باستبدال)."
+    },
+    {
+      "section": "s04_out02_clean_build",
+      "expect": "غائب — البناءُ النظيفُ يكتبه",
+      "why": "يحرسه test_check_site_nobuild.py ومُصابُه out-nobuild-missing-unseen."
+    },
+    {
+      "section": "s04_out02_clean_build",
+      "expect": "زائد — لا يكتبه بناءٌ نظيف",
+      "why": "يحرسه test_check_site_nobuild.py ومُصابُه out-nobuild-extra-unseen."
+    },
+    {
+      "section": "s39_w404_every_origin",
+      "expect": "لا أصولَ مطلقةً في 404.html",
+      "why": "فحصُ سلامة: تغيّرُ بنية الصفحة لا عطبٌ فيها."
+    },
+    {
+      "section": "s42_out01_fresh_output",
+      "expect": "البناءُ في مخرَجٍ سابقٍ (بشاهد) فشل",
+      "why": "فحصُ سلامة لما بعده."
+    },
+    {
+      "section": "s42_out01_fresh_output",
+      "expect": "مُحي ملفٌّ ليس من مخرَجٍ سابق",
+      "why": "خطُّ دفاعٍ ثانٍ: المُصابُ الواقعيّ (الرفضُ يصير تحذيرًا) يحمرّ قبله على ما يمسكه out-foreign-dir-wiped."
+    },
+    {
+      "section": "s42_out01_fresh_output",
+      "expect": "رفض بصوتٍ ثمّ بنى فوقه",
+      "why": "كسابقه."
+    },
+    {
+      "section": "s42_out01_fresh_output",
+      "expect": "مُحي ملفٌّ وراء وصلةٍ في المخرَج",
+      "why": "خطُّ دفاعٍ ثانٍ: محوٌ لا يميّز الوصلة يحمرّ قبله على ما يمسكه out-env-dir-not-wiped."
+    },
+    {
+      "section": "s42_out01_fresh_output",
+      "expect": "فشلٌ في منتصف المحو ترك المخرَجَ",
+      "why": "يُقاس بمقبضٍ حابسٍ على ويندوز وحدَه؛ ومُصابُه أخضرُ على لينكس في CI."
     }
   ],
   "mutants": [
@@ -1102,7 +1164,7 @@
       "new": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<script src=\"https://cdn.example/a.js\"></script>\n<title>",
       "expect": "يحمّل موردًا من أصلٍ آخر",
       "why": "سكربتٌ من أصلٍ آخر في كلّ صفحة — نقيضُ «بلا سكربت تتبّع».",
-      "sec": "s39_w404_every_origin"
+      "sec": "s08_out03_nothing_foreign"
     },
     {
       "id": "site-print-has-bypass",
@@ -1744,7 +1806,7 @@
       "new": "else strip_js if fn.endswith(\".jsx\") else None",
       "expect": "ما زال يحمل سطرَ تعليقٍ كاملًا",
       "why": "[MIN-01]/[MIN-02] البناءُ يكفّ عن تجريد JS فيُنزِّل الزائرُ سجلَّ القرارات (نحو 60% من بايتات السكربتات).",
-      "sec": "s10_min02_gzip_cap"
+      "sec": "s09_min01_strip_equivalence"
     },
     {
       "id": "min01-js-eats-next-line",
@@ -1864,7 +1926,8 @@
       "new": "_strip = strip_css if fn.endswith(\".scss\") else",
       "expect": "[MIN-02]",
       "why": "سقفُ الحجم يحمرّ وحدَه لو حُذف [MIN-01]: تعليقاتٌ تعود فتتضاعف البايتات.",
-      "file": "site/build.py"
+      "file": "site/build.py",
+      "sec": "s10_min02_gzip_cap"
     },
     {
       "id": "min01-js-drops-code-line",
@@ -2145,6 +2208,99 @@
       "expect": "تشير إلى خاصّيّةٍ لا تُعلِنها أيُّ ورقة",
       "why": "[CSS-01] `var()` إلى خاصّيّةٍ لم تُعلَن: تُعاد تسميةُ رمزٍ ويبقى قديمُه في ورقةٍ أخرى، فالقيمةُ `unset` بلا خطأ.",
       "sec": "s14_css01_stylesheets"
+    },
+    {
+      "id": "det-root-py-only",
+      "old": "    files = [n for n in names if n.endswith(_IMPORTABLE) and n != ENTRY]",
+      "new": "    files = [n for n in names if n.endswith(\".py\") and n != ENTRY]",
+      "why": "‏`root_strays` يعود إلى `.py` وحده: ‏`html.pyc` أو `_speedups.pyd` في جذر site/ يظلّل المكتبةَ القياسيّة كالمصدر تمامًا، ولا يراه الحارس.",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "expect": "DET-01/root"
+    },
+    {
+      "id": "det-root-entry-flagged",
+      "old": "    files = [n for n in names if n.endswith(_IMPORTABLE) and n != ENTRY]",
+      "new": "    files = [n for n in names if n.endswith(_IMPORTABLE)]",
+      "why": "‏`root_strays` يُبلِّغ نقطةَ الدخول نفسَها: الحارسُ أحمرُ أبدًا، فيُعفى منه أو يُسكَت.",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py",
+      "expect": "DET-01/root"
+    },
+    {
+      "id": "w404-root-relative-assets",
+      "file": "site/sitegen/pages.py",
+      "sec": "s39_w404_every_origin",
+      "old": "    _ORIGIN = html.escape(SITE[\"canonical\"].rstrip(\"/\"))",
+      "new": "    _ORIGIN = \"\"",
+      "expect": "تحمل عنوانًا غيرَ مطلق",
+      "why": "[W404] أصولُ صفحة 404 تصير من الجذر (`/assets/…`): من أصل `app.mihrab.dev` تُحلّ على حمولة الورشة حيث لا `assets/`، فتصل الصفحةُ عارية.",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py"
+    },
+    {
+      "id": "w404-dl-link-not-in-manifest",
+      "file": "site/sitegen/pages.py",
+      "sec": "s39_w404_every_origin",
+      "old": "               html.escape(a[\"file\"])))",
+      "new": "               html.escape(a[\"id\"])))",
+      "expect": "رابطُ تنزيلٍ لا يذكره المانيفست",
+      "why": "جدولُ التنزيل يبني الرابطَ من معرّف المنصّة لا من اسم الملفّ: كلُّ زرّ «نزِّل» يقود إلى ‎404‎.",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py"
+    },
+    {
+      "id": "w404-asset-missing",
+      "file": "site/sitegen/templates.py",
+      "sec": "s39_w404_every_origin",
+      "old": "base + \"/assets/icon.svg\"",
+      "new": "base + \"/assets/icon.png\"",
+      "expect": "أصلٌ مُشارٌ إليه ولا وجودَ له في المخرَج",
+      "why": "الصفحةُ تشير إلى أصلٍ لا يكتبه البناء (أيقونةٌ بامتدادٍ غيرِ ما في `assets/`): ‎404‎ في كلّ فتحة، بلا خطأٍ ظاهر.",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py"
+    },
+    {
+      "id": "det-root-package-unseen",
+      "old": "    return sorted(files + [p + \"/\" for p in packages if p not in ROOT_PACKAGES])",
+      "new": "    return sorted(files)",
+      "expect": "DET-01/root",
+      "why": "‏`root_strays` لا يرى الحزم: ‏`site/json/` بـ`__init__.py` تظلّل `json` القياسيّةَ كالملفّ تمامًا.",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py"
+    },
+    {
+      "id": "det-pycache-unseen",
+      "old": "        found += [os.path.join(d, x) for x in subs if x == \"__pycache__\"]",
+      "new": "        found += [os.path.join(d, x) for x in subs if x == \"__pycache\"]",
+      "expect": "DET-01/pycache",
+      "why": "‏`pycache_dirs` لا يرى مجلّدَ البايتكود: ‏`.pyc` قديمٌ بجانب المصدر قد يُشغَّل مكانَ ما تغيّر.",
+      "guardFile": "tests/docs/test_det_check.py",
+      "guard": "python tests/docs/test_det_check.py",
+      "file": "tests/docs/det_check.py"
+    },
+    {
+      "id": "out-nobuild-missing-unseen",
+      "old": "    for _rel in sorted(set(_cln) - set(_pub)):",
+      "new": "    for _rel in []:",
+      "expect": "ملفٌّ ناقص (404.html): خرج",
+      "why": "[OUT-02] فرعُ «ملفٌّ ناقص» يُعطَّل وحدَه: مخرَجٌ ينقصه ما يكتبه البناءُ النظيف يُنشَر أخضر.",
+      "guardFile": "tests/docs/test_check_site_nobuild.py",
+      "guard": "python tests/docs/test_check_site_nobuild.py",
+      "file": "tests/docs/site_guard/out.py"
+    },
+    {
+      "id": "out-nobuild-extra-unseen",
+      "old": "    for _rel in sorted(set(_pub) - set(_cln)):",
+      "new": "    for _rel in []:",
+      "expect": "ملفٌّ زائد (stray.txt): خرج",
+      "why": "[OUT-02] فرعُ «ملفٌّ زائد» يُعطَّل وحدَه: ما لا يكتبه البناءُ النظيف يُشحَن بلا قياس.",
+      "guardFile": "tests/docs/test_check_site_nobuild.py",
+      "guard": "python tests/docs/test_check_site_nobuild.py",
+      "file": "tests/docs/site_guard/out.py"
     }
   ]
 }
