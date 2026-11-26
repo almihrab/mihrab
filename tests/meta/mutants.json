@@ -2431,6 +2431,16 @@
       "guardFile": "tests/static/test_help_data.py",
       "guard": "python tests/static/test_help_data.py",
       "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-cli-cp1252",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py",
+      "old": "            _s.reconfigure(encoding=\"utf-8\")",
+      "new": "            pass",
+      "expect": "يعمل سكربتًا وخرجُه بترميز cp1252",
+      "why": "[ON-03] المولِّدُ يطبع العربيّةَ بترميز الطرفيّة: على ويندوز (cp1252) يسقط بعد أن كتب البيانات، فيفشل البناءُ — وقع في بناءَي ويندوز."
     }
   ]
 }

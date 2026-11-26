@@ -63,6 +63,18 @@ def main():
             case("مصدرٌ غائبٌ يُفشِل بصوت", "[ON-03]" in str(e), str(e))
         finally:
             help_data.SOURCE = saved
+    # كما يشغّله build.sh: سكربتًا، وخرجُه بترميز ويندوز (cp1252) لا يحمل العربيّة — أسقط
+    # بناءَي ويندوز والبياناتُ مكتوبة.
+    import subprocess
+    with tempfile.TemporaryDirectory() as t:
+        env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0")
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "build", "lib", "help_data.py"), t],
+                           capture_output=True, env=env)
+        wrote = all(os.path.isfile(os.path.join(t, help_data.DATA_DIR, f)) for f in help_data.FILES)
+        case("يعمل سكربتًا وخرجُه بترميز cp1252", r.returncode == 0 and wrote,
+             "خرج %d، والملفّان %s — %s" % (r.returncode, "كُتبا" if wrote else "لم يُكتبا",
+                                           r.stderr.decode("utf-8", "replace")[-200:]))
+
     # ‏`mismatch`: ما يقرؤه فحصُ الحزمة (L2). البناءُ يصغّر JSON الامتدادات، فالمقارنةُ بالمحتوى.
     import json
 
