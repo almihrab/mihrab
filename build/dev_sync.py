@@ -36,6 +36,8 @@ for _s in (sys.stdout, sys.stderr):
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 import patch_manifest as M  # noqa: E402
+sys.path.insert(0, os.path.join(ROOT, "build", "lib"))
+import help_data  # noqa: E402
 
 BUILD = os.path.join(ROOT, "build")
 # الامتدادات المحزومة (الطبقة 1) التي تُنسَخ إلى شجرة المنبع كامتدادات مدمجة.
@@ -140,6 +142,9 @@ def sync_extensions(up):
         # حزمةٍ غُلِّفت من هذه الشجرة: «مولّد الأيقونات شُحن مع المنتج».
         shutil.copytree(src, dst, ignore=shutil.ignore_patterns(
             "node_modules", "__pycache__", "*.test.js", ".gitignore", "*.py"))
+        # [ON-03] بياناتُ المساعدة تُولَّد من `site/data/` كما يفعل build.sh، لا تُنسَخ من نسخةٍ محفوظة.
+        if ext == "mihrab-welcome":
+            help_data.sync(dst)
         n += 1
     log(f"الامتدادات المدمجة: نُسِخ {n}")
 

@@ -580,6 +580,21 @@ def _themes_shipped():
         "السمة الافتراضيّة غير معلَنة في حزمة المخرَج"
 
 
+@check("بياناتُ المساعدة في امتداد الترحيب المشحون: مولَّدةٌ من site/data/ بالبايت [ON-03]")
+def _help_data_shipped():
+    # لا تُحفَظ في الامتداد، بل تُولَّد في `build.sh` (‏build/lib/help_data.py). فيُقاس **ما خرج**:
+    # خطوةٌ تحزم الامتدادَ ولا تولّدها تُخرج لوحةَ مساعدةٍ فارغةً بلا خطأٍ في أيّ طبقة.
+    if not os.path.isdir(os.path.join(ROOT, "extensions", "mihrab-welcome")):
+        return
+    d = os.path.join(APP, "extensions", "mihrab-welcome", "data")
+    for fn in ("glossary.json", "keybindings.json"):
+        got = os.path.join(d, fn)
+        assert os.path.isfile(os.path.join(ROOT, "site", "data", fn)), f"لا site/data/{fn} في المصدر [ON-03]"
+        assert os.path.isfile(got), f"بياناتُ المساعدة غائبةٌ عن الحزمة: extensions/mihrab-welcome/data/{fn} [ON-03]"
+        assert filecmp.cmp(got, os.path.join(ROOT, "site", "data", fn), shallow=False), \
+            f"بياناتُ المساعدة في الحزمة تخالف site/data/{fn} — بُنيت من مصدرٍ آخر [ON-03]"
+
+
 @check("سمة أيقونات محراب: مشحونة (SVG + JSON) + الافتراضيّة معلَنة")
 def _icons_shipped():
     if not os.path.isdir(os.path.join(ROOT, "extensions", "mihrab-icons")):
@@ -1064,6 +1079,11 @@ def _static_web_extensions():
         # ولا مصدرَ غيرَ محزومٍ يُشحَن معها: نسختان من الشيفرة، والثانيةُ لا تُحمَّل.
         assert not os.path.isfile(os.path.join(base, "extension.web.js")), (
             f"‏{name}: مصدرُ المدخل مشحونٌ مع حزمته — نسخةٌ ميّتةٌ في المنتَج [WEB-06]")
+        # وبياناتُ المساعدة مولَّدةٌ في الشجرة الثابتة كما في المكتب [ON-03].
+        for fn in ("glossary.json", "keybindings.json"):
+            got = os.path.join(base, "data", fn)
+            assert os.path.isfile(got) and filecmp.cmp(got, os.path.join(ROOT, "site", "data", fn), shallow=False), \
+                f"‏{name}: بياناتُ المساعدة data/{fn} غائبةٌ أو تخالف site/data/ في الشجرة الثابتة [ON-03]"
 
     # وجولاتُ الترحيب: الشرطُ `isWeb` هو ما يملأ العمودَ الذي كان خاويًا.
     wpkg = json.loads(_readtext(os.path.join(exts, "mihrab-welcome", "package.json")))

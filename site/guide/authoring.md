@@ -95,17 +95,13 @@ python tests/docs/check_drift.py --offline  # اكتمالُ الحقول فقط
 - **الاختصارات:** `site/data/keybindings.json`، ومنه تُبنى صفحةُ `/keyboard/`.
 
 1. عدّل الملفّ.
-2. انسخ الملفّين إلى الامتداد:
-   ```bash
-   cp site/data/glossary.json site/data/keybindings.json extensions/mihrab-welcome/data/
-   ```
-3. شغّل الفحصين:
+2. شغّل الفحصين:
    ```bash
    python tests/docs/check_site.py
    python tests/static/lint_patchers.py
    ```
 
-تحقّق: يمرّ الفحصان. والثاني هو ما يقارن نسخةَ الامتداد ([ON-03](checks.md#حراس-من-خارج-الموقع))، فلا تكتفِ بالأوّل.
+تحقّق: يمرّ الفحصان. ولوحةُ المساعدة في المحرّر تأخذ الملفّين نفسَيهما عند البناء، فلا نسخةَ تُحدَّث يدويًّا ([ON-03](checks.md#حراس-من-خارج-الموقع)).
 
 ويمسك `lint_patchers.py` كذلك أيَّ بديلٍ ممنوعٍ في `content/`، إلّا ما اقتُبس بين «» من نصّ الشاشة.
 

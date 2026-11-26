@@ -14,7 +14,10 @@ const S = require("./arabic-sort.js");
 const H = require("./help-panel.js");
 // [WEB-06] القارئُ صار مُحقَنًا — والقرصُ يسكن وحدةً خاصّةً بالمكتب.
 const { nodeReader } = require("./help-data-node.js");
-const READ = nodeReader(__dirname);
+// [ON-03] البياناتُ تُولَّد في الحزمة من `site/data/` (‏build/lib/help_data.py) ولا تُحفَظ في
+// الامتداد — فالاختبارُ يقرأ مصدرَها نفسَه: ‏`nodeReader` يضمّ `DATA_DIR` إلى ما يُعطاه. وهذا يعمل
+// لأنّ `DATA_DIR` («data») هو اسمُ مجلّد الموقع أيضًا؛ وتطابقُهما مع ما يكتبه المولِّد يحرسه [ON-03].
+const READ = nodeReader(require("node:path").join(__dirname, "..", "..", "site"));
 const R = require("./release-notice.js");
 
 const ch = (cp) => String.fromCharCode(cp);

@@ -92,6 +92,10 @@ jobs:
       - name: غلافُ curl للتغليف
         run: bash tests/static/test_curl_shim.sh
 
+      # ‏[ON-03] بياناتُ المساعدة تُولَّد عند الحزم: المولِّدُ يُقاس هنا بلا بناء، والحزمةُ في L2.
+      - name: مولِّدُ بيانات المساعدة
+        run: python tests/static/test_help_data.py
+
       # منصّةٌ خاطئةٌ في السطر الأوّل أرخصُ اكتشافًا من فشلٍ في الدقيقة الأربعين.
       - name: كشفُ المنصّة في build.sh
         run: |
