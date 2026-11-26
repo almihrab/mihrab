@@ -63,6 +63,70 @@ def main():
             case("مصدرٌ غائبٌ يُفشِل بصوت", "[ON-03]" in str(e), str(e))
         finally:
             help_data.SOURCE = saved
+    # ‏`mismatch`: ما يقرؤه فحصُ الحزمة (L2). البناءُ يصغّر JSON الامتدادات، فالمقارنةُ بالمحتوى.
+    import json
+
+    def pack(write):
+        t = tempfile.mkdtemp()
+        os.makedirs(os.path.join(t, help_data.DATA_DIR))
+        for f in help_data.FILES:
+            with open(os.path.join(ROOT, "site", "data", f), encoding="utf-8") as fh:
+                write(os.path.join(t, help_data.DATA_DIR, f), f, json.load(fh))
+        return t
+
+    def dump(path, obj, **kw):
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh, **kw)
+
+    def items(obj):  # أوّلُ قائمةٍ غيرِ فارغة: ما تعرضه اللوحةُ صفوفًا (‏`terms` في المسرد)
+        lst = next((v for k, v in obj.items() if isinstance(v, list) and len(v) >= 2), None)
+        assert lst is not None, "لا قائمةَ في البيانات — الجدولُ يقيس الهواء"
+        return lst
+
+    def change_value(obj):  # نصٌّ في أوّل صفّ: الشكلُ والأطوالُ كما هي، والمعنى لا
+        row = items(obj)[0]
+        k = next(k for k, v in row.items() if isinstance(v, str))
+        row[k] = row[k] + "!"
+        return obj
+
+    def drop_item(obj):
+        items(obj).pop()
+        return obj
+
+    def swap_items(obj):  # ترتيبُ العرض في اللوحة من ترتيب القائمة
+        lst = items(obj)
+        lst[0], lst[1] = lst[1], lst[0]
+        return obj
+
+    def corrupt(path):
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("{")
+
+    first = help_data.FILES[0]
+    MM = [
+        ("مصغَّرٌ كما يكتبه البناء يمرّ", lambda p, f, o: dump(p, o, ensure_ascii=False, separators=(",", ":")), True),
+        ("العربيّةُ مرمَّزةً بـ\\uXXXX تمرّ", lambda p, f, o: dump(p, o, ensure_ascii=True), True),
+        ("ترتيبُ مفاتيح الكائن مختلفًا يمرّ",
+         lambda p, f, o: dump(p, dict(reversed(list(o.items()))), ensure_ascii=False), True),
+        ("مفتاحٌ محذوفٌ يُمسَك",
+         lambda p, f, o: dump(p, {k: v for k, v in o.items() if k != list(o)[-1]} if f == first else o), False),
+        ("قيمةٌ مختلفةٌ تُمسَك", lambda p, f, o: dump(p, change_value(o) if f == first else o), False),
+        ("عنصرٌ محذوفٌ من قائمةٍ يُمسَك", lambda p, f, o: dump(p, drop_item(o) if f == first else o), False),
+        ("تبديلُ عنصرَين في قائمةٍ يُمسَك", lambda p, f, o: dump(p, swap_items(o) if f == first else o), False),
+        ("ملفٌّ غائبٌ يُمسَك", lambda p, f, o: None if f == first else dump(p, o), False),
+        ("JSON تالفٌ يُمسَك بسببه", lambda p, f, o: corrupt(p) if f == first else dump(p, o), False),
+    ]
+    for name, write, ok in MM:
+        t = pack(write)
+        try:
+            why = help_data.mismatch(t)
+        except Exception as e:  # noqa: BLE001 — انهيارٌ بدل سببٍ مكتوب عطبٌ بذاته
+            why = None
+            case(name, False, "انهار: %r" % e)
+            continue
+        finally:
+            shutil.rmtree(t, ignore_errors=True)
+        case(name, (why == "") == ok, "السبب: %r" % why)
     if fails:
         print("❌ %d عطبًا:" % len(fails))
         for f in fails:

@@ -2391,6 +2391,46 @@
       "why": "[ON-03] شرطُ التوليد على مجلّدٍ آخر: يتخطّاه البناءُ صامتًا ويُشحَن الامتدادُ بلا بيانات.",
       "guardFile": "tests/static/lint_patchers.py",
       "guard": "python tests/static/lint_patchers.py"
+    },
+    {
+      "id": "on03-mismatch-by-bytes",
+      "old": "        if want != have:",
+      "new": "        if open(src, \"rb\").read() != open(got, \"rb\").read():",
+      "expect": "مصغَّرٌ كما يكتبه البناء يمرّ",
+      "why": "[ON-03] فحصُ الحزمة يقارن بالبايت: البناءُ يصغّر JSON الامتدادات فيحمرّ على بياناتٍ صحيحة — وقع في بناءات المنصّات الخمس.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-mismatch-ignores-content",
+      "old": "        if want != have:",
+      "new": "        if False:",
+      "expect": "قيمةٌ مختلفةٌ تُمسَك",
+      "why": "[ON-03] فحصُ الحزمة يكتفي بالوجود: حزمةٌ بُنيت من بياناتٍ قديمةٍ تمرّ، واللوحةُ تخالف الموقع.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-mismatch-order-blind",
+      "old": "        if want != have:",
+      "new": "        if len(json.dumps(want)) != len(json.dumps(have)):",
+      "expect": "تبديلُ عنصرَين في قائمةٍ يُمسَك",
+      "why": "[ON-03] مقارنةٌ عمياءُ عن الترتيب: ترتيبُ صفوف اللوحة يتبدّل في الحزمة ويمرّ.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-mismatch-shape-only",
+      "old": "        if want != have:",
+      "new": "        if sorted(want) != sorted(have) or [len(v) for v in want.values() if isinstance(v, list)] != [len(v) for v in have.values() if isinstance(v, list)]:",
+      "expect": "قيمةٌ مختلفةٌ تُمسَك",
+      "why": "[ON-03] مقارنةُ الشكل وحدَه (المفاتيح وأطوال القوائم): نصٌّ مختلفٌ في الحزمة يمرّ.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
     }
   ]
 }
