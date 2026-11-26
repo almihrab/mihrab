@@ -74,5 +74,5 @@ curl -L -o plex-arabic-400.woff2 \
 curl -L -o OFL.txt https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt
 ```
 
-ثمّ حدِّث الجدولَ أعلاه **وبصماتِ `EXPECT_FACES`** في `tests/docs/check_site.py` —
+ثمّ حدِّث الجدولَ أعلاه **وبصماتِ `EXPECT_FACES`** في `tests/docs/site_guard/fonts.py` —
 البصمةُ شاهدٌ يملكه الحارسُ لا المُقاس، وتحديثُها هو البوّابةُ لا عائقُها.

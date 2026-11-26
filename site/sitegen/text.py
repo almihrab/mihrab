@@ -96,7 +96,7 @@ def render_md(src, path_hint):
 
         if stripped.startswith("# "):
             raise SystemExit(
-                "%s: عنوانُ h1 يأتي من `title` في الترويسة لا من المتن." % path_hint)
+                "%s: عنوانُ h1 يأتي من `NAV` في sitegen/data.py لا من المتن." % path_hint)
 
         # جدول
         if stripped.startswith("|"):
