@@ -122,6 +122,9 @@ def s43_alif_pin(c):
     # تجعل الصفحةَ تُملي على الزائر بصمةً يقارن بها شيئًا لم يُبنَ منها.
     fetch = os.path.join(ROOT, "build", "fetch_alif_extension.sh")
     alif_json = os.path.join(SITE, "data", "releases-alif.json")
+    # ملفٌّ أُعيدت تسميتُه كان يُبقي القسمَ أخضرَ وهو لا يقيس شيئًا.
+    check(os.path.isfile(fetch) and os.path.isfile(alif_json),
+          lambda: "تثبيتُ ألف لا يُقاس: لا `build/fetch_alif_extension.sh` أو لا `site/data/releases-alif.json`")
     if os.path.isfile(fetch) and os.path.isfile(alif_json):
         with open(fetch, encoding="utf-8") as f:
             src = f.read()

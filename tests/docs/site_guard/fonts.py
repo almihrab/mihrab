@@ -156,8 +156,8 @@ def s16_fnt01_inventory(c):
     ]
     MONO_AR_FAMILY = "Mihrab Code Arabic"
 
+    # وجودُ `fonts.css` يشترطه s03 (الملفّاتُ الإلزاميّة) ويوقف قبل هنا، فلا يُعاد فحصُه.
     css_path = os.path.join(OUT, "assets", "fonts.css")
-    need(os.path.isfile(css_path), lambda: "لا `assets/fonts.css` في المخرَج [FNT-01]")
     with open(css_path, encoding="utf-8") as _f:
         fcss = _f.read()
 
@@ -202,8 +202,9 @@ def s17_fnt01_font_faces_promise(c):
 
     for name in declared:
         out_f = os.path.join(OUT, "assets", "fonts", name)
-        check(os.path.isfile(out_f), lambda: "‏`fonts.css` يُعلِن %s ولا وجودَ له في المخرَج — ‎404‎ في كلّ فتحةِ "
-            "صفحة ثمّ سقوطٌ صامتٌ إلى خطّ النظام [FNT-01]" % name)
+        if not check(os.path.isfile(out_f), lambda: "‏`fonts.css` يُعلِن %s ولا وجودَ له في المخرَج — ‎404‎ في كلّ فتحةِ "
+                     "صفحة ثمّ سقوطٌ صامتٌ إلى خطّ النظام [FNT-01]" % name):
+            continue
         with open(out_f, "rb") as _ff:
             raw = _ff.read()
         check(raw[:4] == b"wOF2", lambda: "%s ليس woff2 [FNT-01]" % name)
@@ -223,7 +224,8 @@ def s18_fnt01_hash_family_weight(c):
     # ── [FNT-01] والبصمةُ والعائلةُ والوزن، لا الوجودُ وحدَه ──
     for _fn, _fam, _wt, _sha in EXPECT_FACES:
         _p = os.path.join(OUT, "assets", "fonts", _fn)
-        check(os.path.isfile(_p), lambda: "وجهُ الجرد %s غائبٌ عن المخرَج [FNT-01]" % _fn)
+        if not check(os.path.isfile(_p), lambda: "وجهُ الجرد %s غائبٌ عن المخرَج [FNT-01]" % _fn):
+            continue
         _got = _hashlib.sha256(open(_p, "rb").read()).hexdigest()
         check(_got == _sha, lambda: "بصمةُ %s لا تطابق الجرد (%s… بدل %s…) — وفحصُ الطول يمرّ على ملفٍّ "
             "فاسدِ المحتوى وعلى وجهٍ وُضِع مكانَ آخر. إن كان التغييرُ مقصودًا "
