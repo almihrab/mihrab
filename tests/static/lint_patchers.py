@@ -2933,7 +2933,8 @@ def _welcome_ext():
         if os.path.isfile(_a):
             assert (_hl2.sha256(open(_a, "rb").read()).hexdigest()
                     == _hl2.sha256(open(_b, "rb").read()).hexdigest()), (
-                f"‏data/{_df} انجرف عن site/data/{_df} — المساعدةُ في المحرّر تخالف الموقعَ [ON-03]")
+                f"‏data/{_df} انجرف عن site/data/{_df} — المساعدةُ في المحرّر تخالف الموقعَ. "
+                f"انسخ site/data/{_df} إلى extensions/mihrab-welcome/data/ [ON-03]")
         # ولوحةُ المساعدة **تُرشِّح بالتطبيع**: بلا ذلك يبحث المستخدمُ بما يكتبه فلا يجد.
     assert "normalizeArabic" in _read(_hp), \
         "لوحةُ المساعدة لا تستعمل تطبيعَ البحث العربيّ — «لوحه الاوامر» لن تجد «لوحة الأوامر» [ON-03·DX-01]"
