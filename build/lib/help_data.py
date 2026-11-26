@@ -67,6 +67,13 @@ def mismatch(ext_dir):
 
 
 if __name__ == "__main__":
+    # خرجُ ويندوز في CI بترميز cp1252 لا يحمل العربيّة: كان السطرُ المطبوع يُسقط البناءَ بعد أن
+    # كُتبت البياناتُ نفسُها (‏UnicodeEncodeError). فيُحوَّل الخرجُ إلى UTF-8 كبقيّة سكربتات البناء.
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
     target = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "extensions", "mihrab-welcome")
     for p in sync(target):
         print("▶ بياناتُ المساعدة: %s" % p)
