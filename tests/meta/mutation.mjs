@@ -209,6 +209,45 @@ for (const [g] of declaredUncovered) {
 }
 console.log(`\n  تغطية: ${covered.size} مُغطًّى · ${declaredUncovered.size} مُعلَن · من ${guardsInRun.size} حارسًا في run.sh`);
 
+// ── أقسامُ حارس الموقع: لكلّ قسمٍ مُصابٌ يبلغ مسارَ فشله، أو إعلانٌ بسببٍ مكتوب ──
+// الحارسُ واحدٌ في run.sh وأقسامُه أربعون ونيّف: مُصابٌ واحدٌ يكفي لـ«الحارسُ مُغطًّى»
+// وأكثرُ الأقسام لم يمرّ أحدٌ بمسار فشلها (قِيس: 21 من 44). فكلُّ مُصابٍ يحمل `sec`،
+// اسمَ القسم الذي يُحمِّره، ويُشترط هنا ساكنًا — قبل أيّ زرع — ألّا يبقى قسمٌ بلا أحدهما.
+// أنّ المُصابَ يُحمِّر قسمَه فعلًا لا يُرى هنا، بل يُقاس بـ`python tests/meta/site_sections.py`
+// (يتتبّع الأقسامَ تحت كلّ مُصابٍ يحمل `sec`) — شغِّله عند كتابة `sec` أو تغييره.
+const SITE_GUARD = "tests/docs/check_site.py";
+{
+  const src = readFileSync(join(ROOT, SITE_GUARD), "utf8");
+  const i = src.indexOf("SECTIONS = [");
+  const sections = i < 0 ? [] : [...src.slice(i, src.indexOf("\n]", i)).matchAll(/\.(s\d\d_\w+)/g)].map(m => m[1]);
+  if (!sections.length) { rc = 1; console.log(`  ❌ لم أقرأ SECTIONS من ${SITE_GUARD} — تغيّرت صيغتُها؛ يُحدَّث هذا الفحص.`); }
+  const known = new Set(sections);
+  const bySec = new Map();
+  for (const m of spec.mutants.filter(m => m.sec)) {
+    if (!m.guard.includes("check_site")) { rc = 1; console.log(`  ❌ ${m.id}: \`sec\` على مُصابٍ لا يحرسه ${SITE_GUARD}.`); }
+    else if (!known.has(m.sec)) { rc = 1; console.log(`  ❌ ${m.id}: \`sec\` = ${m.sec} ليس قسمًا في SECTIONS.`); }
+    bySec.set(m.sec, (bySec.get(m.sec) || 0) + 1);
+  }
+  const declaredSec = new Map();
+  for (const u of spec.uncoveredSections || []) {
+    if (declaredSec.has(u.section)) { rc = 1; console.log(`  ❌ ${u.section}: مُعلَنٌ «بلا مُصاب» مرّتين.`); }
+    if (!(u.why || "").trim()) { rc = 1; console.log(`  ❌ ${u.section}: إعلانٌ بلا سببٍ مكتوب.`); }
+    declaredSec.set(u.section, u.why);
+  }
+  const bare = sections.filter(s => !bySec.has(s) && !declaredSec.has(s));
+  if (bare.length) {
+    rc = 1;
+    console.log(`\n  ❌ أقسامٌ في حارس الموقع بلا مُصابٍ وبلا إعلان (${bare.length}):`);
+    for (const s of bare) console.log(`     ${s}`);
+    console.log("     أضِف مُصابًا يحمل `sec`، أو أعلِنه في `uncoveredSections` بسببٍ مكتوب.");
+  }
+  for (const [s] of declaredSec) {
+    if (bySec.has(s)) { rc = 1; console.log(`  ❌ ${s}: مُعلَنٌ «بلا مُصاب» وله مُصاب — احذف سطرَ الإعلان.`); }
+    else if (!known.has(s)) { rc = 1; console.log(`  ❌ ${s}: مُعلَنٌ وليس في SECTIONS — إعلانٌ عن قسمٍ زائل.`); }
+  }
+  console.log(`  أقسامُ الموقع: ${bySec.size} مُغطًّى · ${declaredSec.size} مُعلَن · من ${sections.length}`);
+}
+
 // ── المُصابات ────────────────────────────────────────────────────────────────────
 // اختيارُ سطور الفشل (`failureText`) وتطبيعُ التفريغ في `dump_norm.mjs` — دوالُّ نقيّةٌ
 // يحرسها اختبارُ وحدتها، لأنّ هذا الملفّ لا يُشغَّل من داخل نفسه (القفل).

@@ -1,6 +1,38 @@
 {
   "_description": "[PF-03] عطبٌ مزروعٌ لكلّ حارس. الأصلُ أنّ العطبَ يُزرَع في **الشيءِ المحروس** لا في الحارس: زرعُه في الحارس يُثبِت أنّ الشيفرةَ تُنفَّذ، وزرعُه في المحروس يُثبِت أنّ الحارسَ يرى. والثاني هو المطلوب.",
   "_contract": "لكلّ مُصاب: `old` **فريدٌ في الملفّ** (وسمٌ متكرّرٌ يُصيب موضعًا لم يُقصَد فيحمرّ الحارسُ لسببٍ آخر)، والحارسُ يجب أن يكون **أخضرَ قبله**، وأن يحمرّ بعده **وخرجُه يذكر `expect`**.",
+  "uncovered": [
+    {
+      "guardFile": "tests/bundle/check_injected.py",
+      "why": "الشيءُ المحروسُ هو **الحزمةُ المبنيّة** لا ملفٌّ في الشجرة: زرعُ عطبٍ فيه يستلزم بناءً كاملًا (‏≈40 دقيقة) لكلّ مُصاب. ومُصابٌ لا يُشغَّل ليس تغطية. الشرطُ لرفع هذا الإعلان: وظيفةُ CI تبني مرّةً ثمّ تزرع في المخرَج مباشرةً."
+    },
+    {
+      "guardFile": "tests/lexicon/check_lexicon.mjs",
+      "why": "يشترط `tsc` من شجرة المنبع، وهو مشروطٌ في `run.sh` نفسِه بوجودها. مُصابٌ يتخطّى نفسَه على أكثر الأجهزة ليس تغطية."
+    },
+    {
+      "guardFile": "tests/dx/completion_rank.mjs",
+      "why": "كسابقه — يشترط شجرةَ المنبع لتصريف المُطابِق الضبابيّ."
+    }
+  ],
+  "uncoveredSections": [
+    {
+      "section": "s01_det01_determinism",
+      "why": "مسارُ فشله الوحيد ملفُّ بايثون في جذر `site/`، والمُصابُ هنا استبدالٌ في ملفٍّ قائم لا إنشاءُ ملف. الشرطُ لرفع هذا الإعلان: نقلُ الفحص إلى `det_check.py` دالّةً على قائمة أسماء يحرسها جدولُ `test_det_check.py`."
+    },
+    {
+      "section": "s13_local_assets_exist",
+      "why": "بلا مسار فشل: يحسب `DL_BASE` و`DL_FILES` لما بعده، والفحصُ نفسُه في s39."
+    },
+    {
+      "section": "s15_fnt01_faces",
+      "why": "بلا مسار فشل: يستورد ما تحتاجه s17 وs18، والفحصُ فيهما."
+    },
+    {
+      "section": "s16_fnt01_inventory",
+      "why": "بلا مسار فشل: جردُ الأوجه المنتظَرة؛ ووجودُ `fonts.css` يشترطه s03 قبله."
+    }
+  ],
   "mutants": [
     {
       "id": "size-missing-budget-line",
@@ -560,7 +592,8 @@
       "old": ".site-nav h2 {\n\tfont-size: 12px; color: var(--gold);",
       "new": ".site-nav h2 {\n\tfont-size: 12px; letter-spacing: .18em; color: var(--gold);",
       "expect": "[AND-06]",
-      "why": "‏`letter-spacing` يفكّ اتّصالَ الحروف العربيّة (عناوينُ الدرج على محاكي أندرويد). أُزيل من ستّة مواضع، والعودةُ إلى واحدٍ منها كانت تمرّ خضراء."
+      "why": "‏`letter-spacing` يفكّ اتّصالَ الحروف العربيّة (عناوينُ الدرج على محاكي أندرويد). أُزيل من ستّة مواضع، والعودةُ إلى واحدٍ منها كانت تمرّ خضراء.",
+      "sec": "s25_and06_letter_spacing"
     },
     {
       "id": "site-size-binary-mb",
@@ -580,7 +613,8 @@
       "old": "\t\tvar mb = bytes / 1e6;\n\t\treturn mb >= 1000",
       "new": "\t\tvar mb = bytes / 1048576;\n\t\treturn mb >= 1000",
       "expect": "في site.js ⇒",
-      "why": "الوجهُ الثاني من الثلاثة: `fmtSize` تُنفَّذ بـnode على ‎203,053,894‎ بايت ويُشترَط ‎203‎."
+      "why": "الوجهُ الثاني من الثلاثة: `fmtSize` تُنفَّذ بـnode على ‎203,053,894‎ بايت ويُشترَط ‎203‎.",
+      "sec": "s26_and07_decimal_size"
     },
     {
       "id": "site-escape-clears-query",
@@ -610,7 +644,8 @@
       "old": "if (n === 2) { return 'اختصاران'; }\n",
       "new": "",
       "expect": "قواعدُ العدد العربيّ",
-      "why": "بلا المثنّى يسمع قارئُ الشاشة «2 اختصارات» — اللحنُ الذي كُتبت `hitsWord` لتفاديه يعود في `kbdWord`. تُنفَّذ بـnode على ‎0/1/2/3/10/11/100‎."
+      "why": "بلا المثنّى يسمع قارئُ الشاشة «2 اختصارات» — اللحنُ الذي كُتبت `hitsWord` لتفاديه يعود في `kbdWord`. تُنفَّذ بـnode على ‎0/1/2/3/10/11/100‎.",
+      "sec": "s33_and08_search_arrows_filter"
     },
     {
       "id": "site-print-hides-all-docs",
@@ -630,7 +665,8 @@
       "old": "chords = \"|\".join(sorted({_canon_chord(c) for c in (win, mac) if c.strip() != \"—\"}))",
       "new": "chords = \"|\".join(sorted({c for c in (win, mac) if c.strip() != \"—\"}))",
       "expect": "ترتيبُ معدِّلاتها ليس",
-      "why": "‏`data-chords` بلا تقنينٍ تحمل «Shift+Alt+Cmd+C» والحدثُ يبني «Cmd+Shift+Alt+C» — فالالتقاطُ يردّ «لا أمرَ معروفًا» لثلاثة اختصاراتِ ماك والصفُّ أمام الزائر. الترتيبُ يُقرأ من `chordFromEvent` في docs.js لا يُكتَب في الحارس."
+      "why": "‏`data-chords` بلا تقنينٍ تحمل «Shift+Alt+Cmd+C» والحدثُ يبني «Cmd+Shift+Alt+C» — فالالتقاطُ يردّ «لا أمرَ معروفًا» لثلاثة اختصاراتِ ماك والصفُّ أمام الزائر. الترتيبُ يُقرأ من `chordFromEvent` في docs.js لا يُكتَب في الحارس.",
+      "sec": "s35_cap01_chord_order"
     },
     {
       "id": "site-chord-prefix-never-waits",
@@ -660,7 +696,8 @@
       "old": "if (e.key === 'Escape') { resetOut(); ",
       "new": "if (e.key === 'Escape') { ",
       "expect": "ولا يُلغي التعليق",
-      "why": "هذا هو العطبُ كما كان في الجولة ‎16‎: فرعُ Escape يسبق الحسمَ ويعود بلا تصفير، فمن ضغط Ctrl+K وأغلق الصندوقَ وفتحه وضغط S خلال المهلة قرأ «Ctrl+K S ← حفظ الكلّ»."
+      "why": "هذا هو العطبُ كما كان في الجولة ‎16‎: فرعُ Escape يسبق الحسمَ ويعود بلا تصفير، فمن ضغط Ctrl+K وأغلق الصندوقَ وفتحه وضغط S خلال المهلة قرأ «Ctrl+K S ← حفظ الكلّ».",
+      "sec": "s36_cap02_sequences"
     },
     {
       "id": "site-chord-pending-survives-blur",
@@ -760,7 +797,8 @@
       "old": "if (/^Arrow(Up|Down|Left|Right)$/.test(k)) { k = k.slice(5); }",
       "new": "",
       "expect": "[CAP-03]",
-      "why": "المتصفّحُ يرسل `ArrowUp` والجدولُ يكتب `Up`: بلا الترجمة لا يُلتقَط «Alt+Up» ولا صفٌّ بسهمٍ أبدًا — وكانت رحلةُ الذهاب والإياب تصنع الحدثَ بـ`key=\"Up\"` فتمرّ بلا قياس."
+      "why": "المتصفّحُ يرسل `ArrowUp` والجدولُ يكتب `Up`: بلا الترجمة لا يُلتقَط «Alt+Up» ولا صفٌّ بسهمٍ أبدًا — وكانت رحلةُ الذهاب والإياب تصنع الحدثَ بـ`key=\"Up\"` فتمرّ بلا قياس.",
+      "sec": "s37_cap03_key_not_char"
     },
     {
       "id": "site-chord-dead-key",
@@ -810,7 +848,8 @@
       "old": "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة.",
       "new": "بلا حساب، وبلا تتبّع.",
       "expect": "[PRIV-01] الصفحةُ الأولى تُعلن «بلا تتبّع» مجرّدةً",
-      "why": "دعوى خصوصيّةٍ أوسعُ ممّا يُبرهَن عليه: الخادمُ يكتب سجلَّ طلباتٍ فيه عنوانُ من طلب. والدعوى المضبوطةُ تحدّد ما يُفحَص في الصفحة نفسِها — لا كعكةَ ولا سكربتَ تتبّع. و[PRIV-01] كان بلا مُصاب."
+      "why": "دعوى خصوصيّةٍ أوسعُ ممّا يُبرهَن عليه: الخادمُ يكتب سجلَّ طلباتٍ فيه عنوانُ من طلب. والدعوى المضبوطةُ تحدّد ما يُفحَص في الصفحة نفسِها — لا كعكةَ ولا سكربتَ تتبّع. و[PRIV-01] كان بلا مُصاب.",
+      "sec": "s06_priv01_claim"
     },
     {
       "id": "editor-direction-markdown-loses-rtl",
@@ -990,7 +1029,8 @@
       "old": "$\", re.ASCII)",
       "new": "$\")",
       "expect": "أرقامًا غيرَ لاتينيّة",
-      "why": "‏`\\d` بلا `re.ASCII` يقبل `١.٣.٠` إصدارًا."
+      "why": "‏`\\d` بلا `re.ASCII` يقبل `١.٣.٠` إصدارًا.",
+      "sec": "s44_man01_manifest"
     },
     {
       "id": "priv-claim-extra-beside",
@@ -1000,7 +1040,8 @@
       "old": "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة.</p>",
       "new": "بلا حساب، وبلا كعكةٍ ولا سكربتِ تتبّعٍ في هذه الصفحة. ولا نتتبّعك أبدًا.</p>",
       "expect": "[PRIV-02] index.html يذكر",
-      "why": "الدعوى العامّةُ بجانب المضبوطة لا بدلها — ‏[PRIV-01] الحرفيُّ لا يراها."
+      "why": "الدعوى العامّةُ بجانب المضبوطة لا بدلها — ‏[PRIV-01] الحرفيُّ لا يراها.",
+      "sec": "s07_priv02_claim_and_output"
     },
     {
       "id": "priv-cookie-set",
@@ -1060,7 +1101,8 @@
       "old": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>",
       "new": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<script src=\"https://cdn.example/a.js\"></script>\n<title>",
       "expect": "يحمّل موردًا من أصلٍ آخر",
-      "why": "سكربتٌ من أصلٍ آخر في كلّ صفحة — نقيضُ «بلا سكربت تتبّع»."
+      "why": "سكربتٌ من أصلٍ آخر في كلّ صفحة — نقيضُ «بلا سكربت تتبّع».",
+      "sec": "s39_w404_every_origin"
     },
     {
       "id": "site-print-has-bypass",
@@ -1070,7 +1112,8 @@
       "old": "\t.content:has([data-kbd-table]) > pre { display: none !important; }",
       "new": "\t.content:has([data-kbd-table]) > pre { display: none !important; }\n\t.content:has(h1) > p { display: none !important; }",
       "expect": "القيدُ الوحيدُ المقبول",
-      "why": "التتالي المصغَّرُ يتجاهل `:has` فيمرّ إخفاءُ متن كلّ صفحةٍ من الورق."
+      "why": "التتالي المصغَّرُ يتجاهل `:has` فيمرّ إخفاءُ متن كلّ صفحةٍ من الورق.",
+      "sec": "s34_prn01_print"
     },
     {
       "id": "and01-copy-btn-touch",
@@ -1080,7 +1123,8 @@
       "old": ".copy-btn { min-height: 44px; min-width: 44px; opacity: 1; }",
       "new": ".copy-btn { min-height: 40px; min-width: 44px; opacity: 1; }",
       "expect": "زرُّ النسخ على اللمس",
-      "why": "زرُّ النسخ تحت حدّ اللمس ‎44‎ — [AND-01] كان بلا مُصاب."
+      "why": "زرُّ النسخ تحت حدّ اللمس ‎44‎ — [AND-01] كان بلا مُصاب.",
+      "sec": "s27_and01_copy_edge"
     },
     {
       "id": "and02-ime-no-return",
@@ -1090,7 +1134,8 @@
       "old": "captureOut.textContent = 'لم تصل ضغطةٌ مفهومة — ' + NO_SOFT_KEY;\n\t\t\t\treturn;",
       "new": "captureOut.textContent = 'لم تصل ضغطةٌ مفهومة — ' + NO_SOFT_KEY;",
       "expect": "فرعُ IME لا يعود",
-      "why": "فرعُ IME يكتب رسالته ثمّ يمضي إلى `chordFromEvent` فيكتب فوقها «Unidentified — لا أمرَ معروفًا»."
+      "why": "فرعُ IME يكتب رسالته ثمّ يمضي إلى `chordFromEvent` فيكتب فوقها «Unidentified — لا أمرَ معروفًا».",
+      "sec": "s29_and02_capture_ime"
     },
     {
       "id": "and03-ios-reads-android",
@@ -1100,7 +1145,8 @@
       "old": "meta.textContent = IS_IOS ? MOBILE_META_IOS : MOBILE_META;",
       "new": "meta.textContent = MOBILE_META;",
       "expect": "لا تختار نصَّ iOS",
-      "why": "‏iPhone يقرأ «يعمل على جهازك» ولم يُقَس عليه شيء."
+      "why": "‏iPhone يقرأ «يعمل على جهازك» ولم يُقَس عليه شيء.",
+      "sec": "s30_and03_ios_card"
     },
     {
       "id": "and04-nav-link-touch",
@@ -1110,7 +1156,8 @@
       "old": ".site-nav a { padding: 10px var(--s3); min-height: 44px; }",
       "new": ".site-nav a { padding: 10px var(--s3); min-height: 40px; }",
       "expect": "روابطُ الدرج على اللمس",
-      "why": "روابطُ الدرج تحت حدّ اللمس والإبهامُ يخطئها."
+      "why": "روابطُ الدرج تحت حدّ اللمس والإبهامُ يخطئها.",
+      "sec": "s31_and04_touch_targets"
     },
     {
       "id": "and05-readme-boot-number",
@@ -1120,7 +1167,8 @@
       "old": "٢٠ م.ب قبل الضغط",
       "new": "١٩ م.ب قبل الضغط",
       "expect": "بلا الأرقام المقيسة",
-      "why": "‏README يعود إلى رقمٍ غيرِ مقيس لأوّل إقلاعٍ للمحرّر في المتصفّح."
+      "why": "‏README يعود إلى رقمٍ غيرِ مقيس لأوّل إقلاعٍ للمحرّر في المتصفّح.",
+      "sec": "s32_and05_boot_numbers"
     },
     {
       "id": "sb-contract-capture-btn",
@@ -1130,7 +1178,8 @@
       "old": "id=\"capture-btn\"",
       "new": "id=\"capture-button\"",
       "expect": "عقدُ الصفحة",
-      "why": "‏`sitegen/pages.py` يسمّي الزرَّ باسمٍ لا يبحث عنه docs.js: الالتقاطُ ميّتٌ في الموقع. وكان الصندوقُ يصنع الاسمَ القديم بنفسه فيبقى أخضر."
+      "why": "‏`sitegen/pages.py` يسمّي الزرَّ باسمٍ لا يبحث عنه docs.js: الالتقاطُ ميّتٌ في الموقع. وكان الصندوقُ يصنع الاسمَ القديم بنفسه فيبقى أخضر.",
+      "sec": "s38_cap04_sandbox"
     },
     {
       "id": "sb-contract-result-class",
@@ -1180,7 +1229,8 @@
       "old": "f.write(header + \"\\n\".join(faces) + \"\\n\")",
       "new": "f.write(\"@IMPORT url(https://fonts.example/x.css);\\n\" + header + \"\\n\".join(faces) + \"\\n\")",
       "expect": "fonts.css يحمّل من خارجه",
-      "why": "قواعدُ `@` في CSS لا تفرّق بين الأحرف، والنمطُ كان يفرّق."
+      "why": "قواعدُ `@` في CSS لا تفرّق بين الأحرف، والنمطُ كان يفرّق.",
+      "sec": "s08_out03_nothing_foreign"
     },
     {
       "id": "sb-tree-dup-attr-id",
@@ -1320,7 +1370,8 @@
       "old": "    for fn in sorted(os.listdir(ASSETS)):\n",
       "new": "    for fn in os.listdir(ASSETS):\n",
       "expect": "[DET-01]",
-      "why": "ترتيبُ `listdir` أبجديٌّ على NTFS فلا يكشفه same_output على ويندوز، وعشوائيٌّ على ext4."
+      "why": "ترتيبُ `listdir` أبجديٌّ على NTFS فلا يكشفه same_output على ويندوز، وعشوائيٌّ على ext4.",
+      "sec": "s02_gen01_sitegen_bounds"
     },
     {
       "id": "so-builds-too-few",
@@ -1610,7 +1661,8 @@
       "old": "    open(os.path.join(OUT, \".nojekyll\"), \"w\", encoding=\"utf-8\").close()\n",
       "new": "    open(os.path.join(OUT, \".nojekyll\"), \"w\", encoding=\"utf-8\").close()\n    if not os.environ.get(\"MIHRAB_SITE_OUT\"):\n        with open(os.path.join(OUT, \"assets\", \"docs.js\"), \"a\", encoding=\"utf-8\") as _x:\n            _x.write(\" \")\n",
       "expect": "يخالف البناءَ النظيفَ بالبايت",
-      "why": "[OUT-02] البناءُ يكتب في `site/public/` (ما يحزمه النشر) شيئًا لا يكتبه في مجلّدٍ آخر: يُشحَن ما لم يُقَس. والمرجعُ بناءٌ نظيفٌ في مجلّدٍ مؤقّت لا مصدرُ الأصول."
+      "why": "[OUT-02] البناءُ يكتب في `site/public/` (ما يحزمه النشر) شيئًا لا يكتبه في مجلّدٍ آخر: يُشحَن ما لم يُقَس. والمرجعُ بناءٌ نظيفٌ في مجلّدٍ مؤقّت لا مصدرُ الأصول.",
+      "sec": "s04_out02_clean_build"
     },
     {
       "id": "out-shipped-js-broken",
@@ -1640,7 +1692,8 @@
       "old": "for _e in sorted(os.listdir(OUT)):",
       "new": "for _e in (sorted(os.listdir(OUT)) if not os.environ.get(\"MIHRAB_SITE_OUT\") else []):",
       "expect": "نجا البناءَ الجديد",
-      "why": "[OUT-01] المحوُ في public وحده يترك مخرَجَ MIHRAB_SITE_OUT بائتًا. كان شاهدُ هذا الفحص الوحيدُ split-data-out-ignores-env، وصار يقف عند [OUT-02]."
+      "why": "[OUT-01] المحوُ في public وحده يترك مخرَجَ MIHRAB_SITE_OUT بائتًا. كان شاهدُ هذا الفحص الوحيدُ split-data-out-ignores-env، وصار يقف عند [OUT-02].",
+      "sec": "s42_out01_fresh_output"
     },
     {
       "id": "out-foreign-dir-wiped",
@@ -1690,7 +1743,8 @@
       "old": "else strip_js if fn.endswith(\".js\") else None",
       "new": "else strip_js if fn.endswith(\".jsx\") else None",
       "expect": "ما زال يحمل سطرَ تعليقٍ كاملًا",
-      "why": "[MIN-01]/[MIN-02] البناءُ يكفّ عن تجريد JS فيُنزِّل الزائرُ سجلَّ القرارات (نحو 60% من بايتات السكربتات)."
+      "why": "[MIN-01]/[MIN-02] البناءُ يكفّ عن تجريد JS فيُنزِّل الزائرُ سجلَّ القرارات (نحو 60% من بايتات السكربتات).",
+      "sec": "s10_min02_gzip_cap"
     },
     {
       "id": "min01-js-eats-next-line",
@@ -1820,7 +1874,8 @@
       "new": "            i = j + 1\n            out and out.pop()\n            continue\n        bare = _QUOTED.sub",
       "expect": "ليس المصدرَ بلا أسطر تعليقه",
       "why": "مجرِّدٌ يحذف سطرَ الشيفرة قبل كلّ كتلة تعليقٍ ولا يرفض شيئًا: يراه شاهدُ JS في [MIN-01] (أسطرُ المصدر بترتيبها).",
-      "file": "site/sitegen/strip.py"
+      "file": "site/sitegen/strip.py",
+      "sec": "s09_min01_strip_equivalence"
     },
     {
       "id": "strip-js-continuation-ok",
@@ -1881,20 +1936,215 @@
       "new": "    for _n in ('_HP', '_rules', '_tokens'):",
       "expect": "[GRD-02]",
       "why": "قسمٌ لا يكتب في السياق اسمًا يقرؤه قسمٌ بعده (‏_css_get، محرّكُ CSS): التشغيلُ الأخضر لا يراه لأنّ القارئَ يقرؤه بشرط وجوده، ومسارُ الفشل يرمي NameError بدل رسالة العطب."
-    }
-  ],
-  "uncovered": [
-    {
-      "guardFile": "tests/bundle/check_injected.py",
-      "why": "الشيءُ المحروسُ هو **الحزمةُ المبنيّة** لا ملفٌّ في الشجرة: زرعُ عطبٍ فيه يستلزم بناءً كاملًا (‏≈40 دقيقة) لكلّ مُصاب. ومُصابٌ لا يُشغَّل ليس تغطية. الشرطُ لرفع هذا الإعلان: وظيفةُ CI تبني مرّةً ثمّ تزرع في المخرَج مباشرةً."
     },
     {
-      "guardFile": "tests/lexicon/check_lexicon.mjs",
-      "why": "يشترط `tsc` من شجرة المنبع، وهو مشروطٌ في `run.sh` نفسِه بوجودها. مُصابٌ يتخطّى نفسَه على أكثر الأجهزة ليس تغطية."
+      "id": "out-nojekyll-not-written",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/build.py",
+      "old": "    open(os.path.join(OUT, \".nojekyll\"), \"w\", encoding=\"utf-8\").close()\n",
+      "new": "    pass\n",
+      "expect": "ملفٌّ إلزاميّ مفقود في المخرَج: .nojekyll",
+      "why": "المولِّدُ يكفّ عن كتابة `.nojekyll`: مرآةُ Pages تمرّر المخرَجَ على Jekyll فتحذف ما يبدأ بشرطةٍ سفليّة. ‏[الملفّات الإلزاميّة] لم يمرّ بمسار فشلها مُصاب.",
+      "sec": "s03_required_files"
     },
     {
-      "guardFile": "tests/dx/completion_rank.mjs",
-      "why": "كسابقه — يشترط شجرةَ المنبع لتصريف المُطابِق الضبابيّ."
+      "id": "out-site-js-anchor-renamed",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/pages.py",
+      "old": "data-dl-version",
+      "new": "data-dl-ver",
+      "expect": "مِرساةٌ مفقودة في download/index.html: data-dl-version",
+      "why": "تُعاد تسميةُ مِرساةٍ في الصفحة ولا تُعاد في `site.js`: يموت السلوكُ صامتًا والصفحةُ تُصيَّر سليمة.",
+      "sec": "s05_site_js_anchors"
+    },
+    {
+      "id": "out-data-island-html-escaped",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/templates.py",
+      "old": "payload.replace(\"</\", \"<\\\\/\")",
+      "new": "payload.replace('\"', '&quot;')",
+      "expect": "جزيرةُ بياناتٍ غيرُ صالحة",
+      "why": "تهريبُ HTML (‏`&quot;`) مكانَ تهريب `</` داخل `<script type=application/json>`: الجزيرةُ لا تُقرأ JSON، فـ`site.js` بلا منصّاتٍ ولا مانيفستٍ مخبوز.",
+      "sec": "s11_data_island"
+    },
+    {
+      "id": "out-absolute-docs-link",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/pages.py",
+      "old": "<a class=\"btn btn-ghost\" href=\"./docs/\">",
+      "new": "<a class=\"btn btn-ghost\" href=\"https://mihrab.dev/docs/\">",
+      "expect": "رابطٌ مطلقٌ إلى مضيفٍ بعينه في index.html",
+      "why": "رابطٌ مطلقٌ إلى `https://mihrab.dev/` يُلصَق في الصفحة الأولى: يعمل على الأصل ويكسر أيَّ مرآةٍ تحت بادئة بصمت (ق-02).",
+      "sec": "s12_no_absolute_paths"
+    },
+    {
+      "id": "css01-stray-text-in-root",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-docs.css",
+      "old": "\t--font-ar: \"IBM Plex Sans Arabic\",",
+      "new": "\tراجِع\n\t--font-ar: \"IBM Plex Sans Arabic\",",
+      "expect": "جملةٌ ليست إعلانًا داخل `:root` في mihrab-docs.css",
+      "why": "[CSS-01] نصٌّ طليقٌ في `:root` يبتلع `--font-ar` بلا خطأٍ من المتصفّح. ولا يبلغه تعليقٌ مبتور بعد اليوم: المجرِّدُ يوقف البناءَ قبله ([MIN-01])، فهذا مسارُه الباقي.",
+      "sec": "s14_css01_stylesheets"
+    },
+    {
+      "id": "fnt01-face-dropped-from-promise",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/fonts.py",
+      "old": "    (\"plex-latin-600.woff2\", \"IBM Plex Sans Arabic\", 600, _UR_LA),\n",
+      "new": "",
+      "expect": "وجهٌ يشترطه الجردُ ولا تَعِد به `FONT_FACES`",
+      "why": "[FNT-01] وجهٌ يُسقَط من `FONT_FACES`: يُنقِص المُقاسَ والقياسَ معًا، فلولا الجردُ المستقلّ لمرّ أخضر.",
+      "sec": "s17_fnt01_font_faces_promise"
+    },
+    {
+      "id": "fnt01-face-weight-wrong",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/fonts.py",
+      "old": "    (\"plex-arabic-600.woff2\", \"IBM Plex Sans Arabic\", 600, _UR_AR),",
+      "new": "    (\"plex-arabic-600.woff2\", \"IBM Plex Sans Arabic\", 500, _UR_AR),",
+      "expect": "مُعلَنٌ بوزن 500 والجردُ يقول 600",
+      "why": "[FNT-01] وزنٌ خاطئٌ لوجهٍ في `FONT_FACES`: يطلب المتصفّحُ 600 فيجد وجهًا معلَنًا بـ500، فيُغمِّق اصطناعيًّا فوق ملفٍّ غامقٍ أصلًا.",
+      "sec": "s18_fnt01_hash_family_weight"
+    },
+    {
+      "id": "fnt01-pages-without-fonts-css",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/templates.py",
+      "old": "    css = ['<link rel=\"stylesheet\" href=\"%s/assets/fonts.css\">' % base,\n           '<link rel=\"stylesheet\" href=\"%s/assets/mihrab-docs.css\">' % base,",
+      "new": "    css = ['<link rel=\"stylesheet\" href=\"%s/assets/mihrab-docs.css\">' % base,",
+      "expect": "صفحاتٌ في المخرَج بلا `fonts.css` صالحٍ",
+      "why": "[FNT-01] غلافُ الصفحة يُسقط ربطَ `fonts.css`: الصفحاتُ بخطّ النظام، بلا خطأٍ في أيّ طبقة.",
+      "sec": "s19_fnt01_pages_load_sheet"
+    },
+    {
+      "id": "fnt01-glyph-outside-ranges",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/content/start.md",
+      "old": "**هذه الصفحةُ عن نسخة المكتب.**",
+      "new": "**هذه الصفحةُ عن نسخة المكتب ★.**",
+      "expect": "محرفٌ ظاهرٌ خارجَ `_UR_AR`/`_UR_LA`",
+      "why": "[FNT-01] محرفٌ في المتن خارجَ المدَيَين وخارجَ `FONT_ALLOW` (‏★): يسقط وحدَه إلى خطّ النظام، فيصير السطرُ بخطَّين.",
+      "sec": "s20_fnt01_glyph_coverage"
+    },
+    {
+      "id": "fnt01-font-display-block",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/fonts.py",
+      "old": "font-display:swap;",
+      "new": "font-display:block;",
+      "expect": "وجهٌ بلا `font-display:swap`",
+      "why": "[FNT-01] `font-display` غيرُ `swap` في `fonts.css` المولَّد: النصُّ مخفيٌّ حتّى يصل الخطّ، فصفحةٌ فارغةٌ على اتّصالٍ بطيء.",
+      "sec": "s21_fnt01_license"
+    },
+    {
+      "id": "fnt01-mono-range-widened",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/fonts.py",
+      "old": "    (\"plex-arabic-400.woff2\", MONO_AR_FAMILY, 400, _UR_AR_MONO),",
+      "new": "    (\"plex-arabic-400.woff2\", MONO_AR_FAMILY, 400, _UR_AR),",
+      "expect": "فيصير متناسبَ العرض داخل كتلة",
+      "why": "[FNT-01] «Mihrab Code Arabic» يأخذ مدى `_UR_AR` كاملًا لا `_UR_AR_MONO`: يلتقط علاماتِ الاتّجاه والواصلات بعرضٍ متناسب، فتنكسر محاذاةُ كتل الشيفرة. وهو التوحيدُ الذي يحذّر منه تعليقُ `sitegen/fonts.py`.",
+      "sec": "s22_fnt01_mono_alias"
+    },
+    {
+      "id": "and01-unclosed-brace",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-home.css",
+      "old": "color: var(--text); margin: 0 0 var(--s4); }",
+      "new": "color: var(--text); margin: 0 0 var(--s4);",
+      "expect": "قوسٌ لم يُغلَق في mihrab-home.css [AND-01]",
+      "why": "[AND-01] قاعدةٌ بلا `}` في ورقة الصفحة الأولى: المتصفّحُ يبتلع ما بعدها، وقياسُ الهاتف لا يُوثَق به.",
+      "sec": "s23_and01_measured"
+    },
+    {
+      "id": "and01-serif-in-mono-stack",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-docs.css",
+      "old": "\t--font-mono: \"Mihrab Code Arabic\",",
+      "new": "\t--font-mono: \"Mihrab Code Arabic\", \"Courier New\",",
+      "expect": "على أندرويد اسمٌ مستعارٌ لسيريف",
+      "why": "[AND-01] «Courier New» في سلسلة `--font-mono`: أندرويد يحلّه إلى سيريف قبل العامّ، فالشيفرةُ سيريفيّةٌ على كلّ هاتف.",
+      "sec": "s24_and01_no_serif"
+    },
+    {
+      "id": "and01-hero-padding-grown",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-home.css",
+      "old": "padding: var(--s8) 0 var(--s7); }",
+      "new": "padding: var(--s8) 0 var(--s8); }",
+      "expect": "فراغٌ متراكم فوق اللقطة [AND-01]",
+      "why": "[AND-01] حشوُ البطل يكبر: الفراغُ بين البطل ولقطة المحرّر يتجاوز ميزانيّتَه المقيسة. (يرتبط بقيم `--s7`/`--s8`: تغييرُ التصميم المقصود يحدّثه.)",
+      "sec": "s28_and01_hero_gap"
+    },
+    {
+      "id": "man-asset-without-sha256",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/data/releases.json",
+      "old": "\n    }\n  ]\n}",
+      "new": ",\n      \"sha256\": \"\"\n    }\n  ]\n}",
+      "expect": "بلا sha256 — الصفحةُ ستعرض صفًّا ناقصًا",
+      "why": "أصلٌ في المانيفست المخبوز ببصمةٍ فارغة: صفحةُ التنزيل تعرض صفًّا ناقصًا لمن حُجب عنه الحيّ. (المرساةُ ذيلُ الملفّ لا بصمةٌ بعينها، فلا تتقادم مع كلّ إصدار؛ والمفتاحُ المكرَّر يأخذ آخرَ قيمة.)",
+      "sec": "s40_manifest_platforms"
+    },
+    {
+      "id": "identity-docs-url-unbuilt",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "product-overrides/product.json",
+      "old": "\"documentationUrl\": \"https://mihrab.dev/docs/\"",
+      "new": "\"documentationUrl\": \"https://mihrab.dev/documentation/\"",
+      "expect": "product.json:documentationUrl يشير إلى صفحةٍ لا تُبنى",
+      "why": "مفتاحُ هويّةٍ في `product.json` يشير إلى مسارٍ لا يبنيه الموقع: قائمةُ «مساعدة» في المحرّر تقود إلى ‎404‎.",
+      "sec": "s41_identity_links"
+    },
+    {
+      "id": "alif-pin-drifted",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "build/fetch_alif_extension.sh",
+      "old": "${ALIF_EXT_VERSION:-",
+      "new": "${ALIF_EXT_VERSION:-9",
+      "expect": "تثبيتُ ألف منجرف",
+      "why": "تثبيتُ إضافة ألف يتغيّر في الجالب دون صفحة المعاينة: الصفحةُ تَعِد بإصدارٍ لا يُشحَن. (البادئةُ `9` تُنجرف عن أيّ إصدارٍ، فلا تتقادم المرساةُ مع الترقية.)",
+      "sec": "s43_alif_pin"
+    },
+    {
+      "id": "fnt01-ranges-overlap",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/sitegen/fonts.py",
+      "old": "U+200C-200E,",
+      "new": "U+200C-200F,",
+      "expect": "تداخُلٌ بين `_UR_AR` و`_UR_LA`",
+      "why": "[FNT-01] مدى العربيّ يتداخل مع اللاتينيّ: وجهان بالعائلة والوزن نفسِهما على محرفٍ واحد، فيأخذه الأخيرُ ويُهمَل الآخر.",
+      "sec": "s20_fnt01_glyph_coverage"
+    },
+    {
+      "id": "css01-undeclared-var",
+      "guardFile": "tests/docs/check_site.py",
+      "guard": "python tests/docs/check_site.py",
+      "file": "site/assets/mihrab-home.css",
+      "old": ".hero .mark-lg { width: 76px; height: 76px; color: var(--gold);",
+      "new": ".hero .mark-lg { width: 76px; height: 76px; color: var(--gold-deep);",
+      "expect": "تشير إلى خاصّيّةٍ لا تُعلِنها أيُّ ورقة",
+      "why": "[CSS-01] `var()` إلى خاصّيّةٍ لم تُعلَن: تُعاد تسميةُ رمزٍ ويبقى قديمُه في ورقةٍ أخرى، فالقيمةُ `unset` بلا خطأ.",
+      "sec": "s14_css01_stylesheets"
     }
   ]
 }
