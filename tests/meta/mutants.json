@@ -2301,6 +2301,96 @@
       "guardFile": "tests/docs/test_check_site_nobuild.py",
       "guard": "python tests/docs/test_check_site_nobuild.py",
       "file": "tests/docs/site_guard/out.py"
+    },
+    {
+      "id": "on03-build-skips-help-data",
+      "file": "build/build.sh",
+      "old": "  \"$PY_BIN\" \"$ROOT/build/lib/help_data.py\" \"$STAGE_EXT/mihrab-welcome\" \\",
+      "new": "  true \"$ROOT/build/lib/help_data.py\" \"$STAGE_EXT/mihrab-welcome\" \\",
+      "expect": "لا يولّد بياناتِ المساعدة في امتداد الترحيب المحزوم",
+      "why": "[ON-03] البناءُ لا يولّد بياناتِ المساعدة: لوحةُ المساعدة فارغةٌ في المكتب والمتصفّح معًا، بلا خطأٍ في أيّ طبقة.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py"
+    },
+    {
+      "id": "on03-dev-sync-skips-help-data",
+      "file": "build/dev_sync.py",
+      "old": "            help_data.sync(dst)",
+      "new": "            pass",
+      "expect": "dev_sync.py لا يولّد بياناتِ المساعدة",
+      "why": "[ON-03] شجرةُ التطوير بلا بيانات المساعدة: ما يراه المطوّرُ يخالف ما يُشحَن.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py"
+    },
+    {
+      "id": "on03-data-not-ignored",
+      "file": "extensions/mihrab-welcome/.gitignore",
+      "old": "/data/\n",
+      "new": "/data-old/\n",
+      "expect": "لا يتجاهل /data/",
+      "why": "[ON-03] النسخةُ المولَّدة لا تُتجاهَل: تُودَع خطأً بعد أوّل `dev_sync`، فتعود نسخةٌ ثانيةٌ تتباعد عن الموقع.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py"
+    },
+    {
+      "id": "on03-panel-reads-other-dir",
+      "file": "extensions/mihrab-welcome/help-panel.js",
+      "old": "const DATA_DIR = \"data\";",
+      "new": "const DATA_DIR = \"assets\";",
+      "expect": "الذي يكتبه help_data.py",
+      "why": "[ON-03] اللوحةُ تقرأ من غير المجلّد الذي يكتبه المولِّد: المساعدةُ فارغةٌ والبناءُ أخضر.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py"
+    },
+    {
+      "id": "on03-sync-writes-empty",
+      "old": "        shutil.copyfile(src, os.path.join(dst, f))",
+      "new": "        open(os.path.join(dst, f), \"w\", encoding=\"utf-8\").close()",
+      "expect": "مطابقٌ لـsite/data/ بالبايت",
+      "why": "[ON-03] المولِّدُ يُنشئ الملفَّين فارغَين: كلُّ فحصِ وجودٍ يمرّ، ولوحةُ المساعدة بلا مصطلحٍ واحد.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-sync-drops-file",
+      "old": "FILES = (\"glossary.json\", \"keybindings.json\")",
+      "new": "FILES = (\"glossary.json\",)",
+      "expect": "يكتب ملفَّي اللوحة كلَّيهما",
+      "why": "[ON-03] المولِّدُ يُسقط ملفًّا: تبويبُ الاختصارات فارغٌ في المحرّر، والمسردُ وحدَه يظهر.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-sync-missing-source-silent",
+      "old": "            raise SystemExit(\"❌ بياناتُ المساعدة مفقودة في المصدر: site/data/%s [ON-03]\" % f)",
+      "new": "            continue",
+      "expect": "مصدرٌ غائبٌ يُفشِل بصوت",
+      "why": "[ON-03] مصدرٌ غائبٌ يُتخطّى صامتًا: البناءُ أخضرُ واللوحةُ فارغة.",
+      "guardFile": "tests/static/test_help_data.py",
+      "guard": "python tests/static/test_help_data.py",
+      "file": "build/lib/help_data.py"
+    },
+    {
+      "id": "on03-dev-sync-commented",
+      "file": "build/dev_sync.py",
+      "old": "            help_data.sync(dst)",
+      "new": "            # help_data.sync(dst)\n            pass",
+      "expect": "dev_sync.py لا يولّد بياناتِ المساعدة",
+      "why": "[ON-03] الاستدعاءُ معلَّقٌ ونصُّه باقٍ: فحصٌ يبحث عن النصّ وحدَه يمرّ.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py"
+    },
+    {
+      "id": "on03-build-guard-other-dir",
+      "file": "build/build.sh",
+      "old": "if [[ -d \"$STAGE_EXT/mihrab-welcome\" ]]; then\n  \"$PY_BIN\" \"$ROOT/build/lib/help_data.py\"",
+      "new": "if [[ -d \"$STAGE_EXT/mihrab-welcom\" ]]; then\n  \"$PY_BIN\" \"$ROOT/build/lib/help_data.py\"",
+      "expect": "لا يولّد بياناتِ المساعدة في امتداد الترحيب المحزوم",
+      "why": "[ON-03] شرطُ التوليد على مجلّدٍ آخر: يتخطّاه البناءُ صامتًا ويُشحَن الامتدادُ بلا بيانات.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py"
     }
   ]
 }

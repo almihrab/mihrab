@@ -43,7 +43,7 @@ const FOLD_OBJECT = (() => {
 const PANEL_TYPE = "mihrab.help";
 const PANEL_TITLE = "مساعدة محراب";
 const OPEN_CMD = "mihrab.openHelp";
-/** مجلّدُ البيانات المحزوم — نسخٌ **مطابقةٌ بايتًا ببايت** لـ`site/data/` يحرسها فحصُ L0. */
+/** مجلّدُ البيانات المحزوم — يولّده `build/lib/help_data.py` من `site/data/` عند كلّ حزم [ON-03]. */
 const DATA_DIR = "data";
 const GLOSSARY_FILE = "glossary.json";
 const KEYBINDINGS_FILE = "keybindings.json";

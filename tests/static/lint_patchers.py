@@ -2919,23 +2919,44 @@ def _welcome_ext():
         "حارسُ الأسماء لا يراقب الإنشاءَ وإعادةَ التسمية — محروسٌ في بابٍ ومفتوحٌ في أوسع [BS-03]"
     assert "activateNameGuard" in js, "حارسُ الأسماء غيرُ موصولٍ في نقطة الدخول [BS-03]"
 
-    # (١م) [ON-03] المساعدةُ داخل المحرّر: البياناتُ المحزومةُ **مطابقةٌ بايتًا ببايت**
-    #      لـ`site/data/` — وإلّا افترق ما يقرؤه المستخدمُ في المحرّر عمّا يقرؤه في الموقع.
+    # (١م) [ON-03] المساعدةُ داخل المحرّر: بياناتُها **تُولَّد من `site/data/`** في كلّ حزم
+    #      (‏build/lib/help_data.py) ولا تُحفَظ نسخةً ثانية — كانت تُحفَظ ويُقارَن تطابقُها، فتعديلُ
+    #      الموقع وحدَه كان يُحمِّر CI بعد وقوعه. فيُقاس هنا أنّ الخطأ لا يقع أصلًا:
     _hp = os.path.join(ext, "help-panel.js")
     assert os.path.isfile(_hp), "لوحةُ المساعدة مفقودة (help-panel.js) [ON-03]"
     assert "openHelp" in js or "OPEN_HELP_CMD" in js, \
         "أمرُ المساعدة غيرُ موصولٍ في نقطة الدخول [ON-03]"
-    import hashlib as _hl2
-    for _df in ("glossary.json", "keybindings.json"):
-        _a = os.path.join(ROOT, "site", "data", _df)
-        _b = os.path.join(ext, "data", _df)
-        assert os.path.isfile(_b), f"بياناتُ المساعدة المحزومة مفقودة: data/{_df} [ON-03]"
-        if os.path.isfile(_a):
-            assert (_hl2.sha256(open(_a, "rb").read()).hexdigest()
-                    == _hl2.sha256(open(_b, "rb").read()).hexdigest()), (
-                f"‏data/{_df} انجرف عن site/data/{_df} — المساعدةُ في المحرّر تخالف الموقعَ. "
-                f"انسخ site/data/{_df} إلى extensions/mihrab-welcome/data/ [ON-03]")
-        # ولوحةُ المساعدة **تُرشِّح بالتطبيع**: بلا ذلك يبحث المستخدمُ بما يكتبه فلا يجد.
+    sys.path.insert(0, os.path.join(ROOT, "build", "lib"))
+    import help_data as _hd
+    _hpsrc = _read(_hp)
+    # (أ) ما يكتبه المولِّدُ هو ما تقرؤه اللوحة: الملفّاتُ ومجلّدُها.
+    for _const, _val in (("GLOSSARY_FILE", _hd.FILES[0]), ("KEYBINDINGS_FILE", _hd.FILES[1]),
+                         ("DATA_DIR", _hd.DATA_DIR)):
+        assert re.search(r"\b%s\s*=\s*\"%s\"" % (_const, re.escape(_val)), _hpsrc), (
+            f"‏help-panel.js لا يقرأ ‎{_const}‎ = «{_val}» الذي يكتبه help_data.py — اللوحةُ فارغة [ON-03]")
+    for _df in _hd.FILES:
+        assert os.path.isfile(os.path.join(ROOT, "site", "data", _df)), \
+            f"بياناتُ المساعدة مفقودة في المصدر: site/data/{_df} [ON-03]"
+    # (ب) لا نسخةَ محفوظة: ملفٌّ متعقَّبٌ في data/ يعود فيتباعد عن الموقع بلا حارس.
+    _trk = subprocess.run(["git", "ls-files", "--", "extensions/mihrab-welcome/" + _hd.DATA_DIR],
+                          cwd=ROOT, capture_output=True, text=True)
+    assert _trk.returncode == 0, "‏git ls-files فشل — لا يُقاس أنّ بياناتِ المساعدة غيرُ محفوظة [ON-03]"
+    assert not _trk.stdout.strip(), (
+        f"بياناتُ المساعدة محفوظةٌ في الامتداد: {_trk.stdout.split()} — تُولَّد من site/data/ "
+        f"(‏build/lib/help_data.py)، فاحذفها [ON-03]")
+    assert re.search(r"^/%s/$" % _hd.DATA_DIR, _read(os.path.join(ext, ".gitignore")), re.M), \
+        "‏extensions/mihrab-welcome/.gitignore لا يتجاهل /data/ — نسخةٌ مولَّدةٌ تُودَع خطأً [ON-03]"
+    # (ج) كلُّ خطوةٍ تحزم الامتدادَ تولّدها: البناءُ (المكتبُ والمتصفّحُ من مجلّدٍ واحد)، والتطوير.
+    # يُشغَّل فعلًا وعلى المجلّد الذي يُنسَخ إليه الامتداد: الشرطُ ثمّ بايثونُ البناء أوّلَ السطر —
+    # لا ذكرُ المسار وحدَه (‏`true …` أو تعليقٌ يمرّان به)، ولا شرطٌ على مجلّدٍ آخرَ يتخطّاه بصمت.
+    assert re.search(r'^if \[\[ -d "\$STAGE_EXT/mihrab-welcome" \]\]; then\n'
+                     r'\s*"\$PY_BIN" "\$ROOT/build/lib/help_data\.py" "\$STAGE_EXT/mihrab-welcome"',
+                     _read(os.path.join(ROOT, "build", "build.sh")), re.M), \
+        "‏build.sh لا يولّد بياناتِ المساعدة في امتداد الترحيب المحزوم — اللوحةُ فارغةٌ في المنتَج [ON-03]"
+    assert re.search(r'^(\s+)if ext == "mihrab-welcome":\n\1\s+help_data\.sync\(dst\)',
+                     _read(os.path.join(ROOT, "build", "dev_sync.py")), re.M), \
+        "‏dev_sync.py لا يولّد بياناتِ المساعدة — اللوحةُ فارغةٌ في شجرة التطوير [ON-03]"
+    # ولوحةُ المساعدة **تُرشِّح بالتطبيع**: بلا ذلك يبحث المستخدمُ بما يكتبه فلا يجد.
     assert "normalizeArabic" in _read(_hp), \
         "لوحةُ المساعدة لا تستعمل تطبيعَ البحث العربيّ — «لوحه الاوامر» لن تجد «لوحة الأوامر» [ON-03·DX-01]"
 

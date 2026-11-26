@@ -353,6 +353,7 @@ strip_ext_artifacts() {
   find "$1" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
   find "$1" -type f -name '*.py' -delete 2>/dev/null || true
   find "$1" -type f \( -name '*.test.js' -o -name '*.test.mjs' -o -name '*.test.cjs' \) -delete 2>/dev/null || true
+  find "$1" -type f -name '.gitignore' -delete 2>/dev/null || true
 }
 
 STAGE_EXT="$UP/.mihrab-extensions"
@@ -365,6 +366,12 @@ for ext in "$ROOT"/extensions/*/; do
   strip_ext_artifacts "$_dst"
   log "إضافة مدمجة مُجهَّزة: $(basename "$ext")"
 done
+# [ON-03] بياناتُ المساعدة في امتداد الترحيب تُولَّد من `site/data/` هنا، لا تُحفَظ نسخةً ثانية:
+# المكتبُ والمتصفّحُ يُحقنان كلاهما من هذا المجلّد. وغيابُها يُفشِل البناء لا اللوحةَ عند المستخدم.
+if [[ -d "$STAGE_EXT/mihrab-welcome" ]]; then
+  "$PY_BIN" "$ROOT/build/lib/help_data.py" "$STAGE_EXT/mihrab-welcome" \
+    || { echo "❌ تعذّر توليدُ بيانات المساعدة لامتداد الترحيب [ON-03]" >&2; exit 1; }
+fi
 
 # ── (ز-2ب-1ب) إضافاتٌ إضافيّةٌ لبناءِ المعاينة (خارجَ extensions/): ──
 #         بناءُ محرابٍ العاديُّ لا يحمل لغةً من خارجِ الدار — اللغةُ إضافةٌ تُثبَّت من
