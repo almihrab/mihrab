@@ -4,6 +4,13 @@
 أقسامُ `main()` القديمة بنصّها، بترتيبها في `check_site.py` (‏`SECTIONS`)."""
 from .core import *  # noqa: F401,F403
 
+# الوسومُ التي تحرسها أقسامُ هذه الوحدة، بما يمسكه كلٌّ منها — منها يُولَّد جدولُها في
+# `site/guide/checks.md` (‏`python tests/docs/check_site.py --list`)، ويحرس التطابقَ [GRD-03].
+TAGS = {
+    "W404": "أصولَ صفحة 404 غيرَ مطلقة وهي تُقدَّم من الأصلين، ومعها رابطَ تنزيلٍ لا يذكره المانيفست، وأصلًا تشير إليه الصفحاتُ ولا يكتبه البناء",
+    "MAN-01": "اختيارًا خاطئًا بين المانيفست المخبوز والحيّ",
+}
+
 def s39_w404_every_origin(c):
     _c = vars(c)
     if "DL_BASE" in _c:
@@ -65,14 +72,15 @@ def s39_w404_every_origin(c):
             if norm.startswith(DL_BASE):
                 name = norm[len(DL_BASE):]
                 if name not in DL_FILES:
-                    bad("رابطُ تنزيلٍ لا يذكره المانيفست (%s): %s" % (rel, url))
+                    bad("رابطُ تنزيلٍ لا يذكره المانيفست (%s): %s [W404]" % (rel, url))
                 continue
             target = os.path.normpath(os.path.join(page_dir, url))
             if not os.path.exists(target):
-                bad("أصلٌ مُشارٌ إليه ولا وجودَ له في المخرَج (%s): %s" % (rel, url))
+                bad("أصلٌ مُشارٌ إليه ولا وجودَ له في المخرَج (%s): %s [W404]" % (rel, url))
 
 
 def s40_manifest_platforms(c):
+    """منصّاتُ المانيفست المخبوز"""
     _c = vars(c)
     if "data" in _c:
         data = _c['data']
@@ -91,6 +99,7 @@ def s40_manifest_platforms(c):
 
 
 def s41_identity_links(c):
+    """مفاتيحُ `product.json` التي تشير إلى صفحاتٍ لا تُبنى"""
     _c = vars(c)
     if "data" in _c:
         data = _c['data']
@@ -116,6 +125,7 @@ def s41_identity_links(c):
 
 
 def s43_alif_pin(c):
+    """تثبيتُ معاينة ألف بين الجالب والصفحة"""
     # ── تثبيتُ إضافةِ ألف: الجالبُ وصفحةُ المعاينة يقولان الشيءَ نفسَه ──
     # الإصدارُ والبصمةُ مكتوبان في مكانين: `build/fetch_alif_extension.sh` (ما يُبنى
     # به) و`site/data/releases-alif.json` (ما تُعلنه الصفحة). ترقيةُ أحدِهما وحدَه

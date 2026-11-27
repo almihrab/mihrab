@@ -14,7 +14,7 @@
 - `core.py`: ‏`check`/`need`/`bad` والعدّادُ والبصمة، و`read`، وشجرةُ الصفحة، وماسحُ CSS، و`report`.
 - `out.py`: الحتميّةُ [DET-01] وحدودُ المولِّد [GEN-01] والمطابقةُ لبناءٍ نظيف [OUT-0x] والتجريدُ [MIN-0x].
 - `priv.py`: دعوى الخصوصيّة [PRIV-01/02].   ‏`fonts.py`: الأوراق [CSS-01] والخطوط [FNT-01].
-- `android.py`: ‏[AND-01..07].   ‏`capture.py`: البحثُ والطباعة والالتقاط وصندوقُ السلوك [CAP-0x].
+- `android.py`: ‏[AND-01..08].   ‏`capture.py`: البحثُ والطباعة والالتقاط وصندوقُ السلوك [CAP-0x].
 - `release.py`: ‏404 [W404] والمانيفست [MAN-01] وروابطُ الهويّة ومعاينةُ ألف.
 وما يعبر الأقسام (‏≈٢٧ اسمًا) يمرّ في سياقٍ صريح `c`: كلُّ قسمٍ يقرأ ما يحتاجه في أوّله ويكتب ما
 يحتاجه غيرُه في آخره.
@@ -80,6 +80,10 @@ SECTIONS = [
 ]
 
 
+# وحداتُ الأقسام، بترتيب جداولها في `site/guide/checks.md`. ‏`_layout` يمسحها و`--list` يولّد منها.
+CATALOG = (out, priv, fonts, android, capture, release)
+
+
 def _layout():
     """[GRD-01] كلُّ قسمٍ `sNN_…` في وحدات `site_guard` مسجَّلٌ في SECTIONS مرّةً، وبترتيبٍ متّصل.
 
@@ -88,7 +92,7 @@ def _layout():
     `check` عمدًا: ‏`check` يدخل العدّادَ والبصمة، فيصير فحصُ البنية نفسُه فرقًا في `same_guard`."""
     import inspect
     import re as _re
-    mods = (android, capture, fonts, out, priv, release)
+    mods = CATALOG  # الوحداتُ في مكانٍ واحد: جداولُ الدليل وبنيةُ الحارس
     defined = {f for m in mods for n, f in vars(m).items()
                if _re.fullmatch(r"s\d\d_\w+", n) and inspect.isfunction(f)}
     errs = []
@@ -148,5 +152,40 @@ def _run():
         _core.write_trace()
 
 
+def _list(keys, write=False):
+    """‏`--list [وحدة…]`: جداولُ الوسوم كما تُكتب في `checks.md` [GRD-03]، ولا يُشغَّل الحارس.
+    و`--write` يكتبها في `site/guide/checks.md` بين علاماتها بدل طباعتها."""
+    from site_guard import catalog
+    mods = [m for m in CATALOG if not keys or m.__name__.rsplit(".", 1)[1] in keys]
+    unknown = set(keys) - {m.__name__.rsplit(".", 1)[1] for m in CATALOG}
+    if unknown:
+        print("❌ لا وحدةَ بهذا الاسم: %s" % "، ".join(sorted(unknown)))
+        return 2
+    if write:
+        path = os.path.join(ROOT, "site", "guide", "checks.md")
+        with open(path, encoding="utf-8") as f:
+            md = f.read()
+        for m in mods:
+            md, ok = catalog.replace_block(md, m.__name__.rsplit(".", 1)[1], catalog.render(m, SECTIONS))
+            if not ok:
+                print("❌ لا علامتَين لـ%s في checks.md — أضِفهما حيث يقع جدولُه" % m.__name__)
+                return 1
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(md)
+        print("▶ كُتبت جداولُ الوسوم في site/guide/checks.md")
+        return 0
+    for m in mods:
+        key = m.__name__.rsplit(".", 1)[1]
+        print(catalog.BEGIN % (key, key) + "\n")
+        print(catalog.render(m, SECTIONS) + "\n")
+        print(catalog.END + "\n")
+    return 0
+
+
 if __name__ == "__main__":
+    # ‏`--write` يعني `--list` ويكتب: وحدَه كان يُتجاهَل فيُشغَّل الحارسُ كلُّه ويُبنى الموقع.
+    if "--list" in sys.argv or "--write" in sys.argv:
+        flag = "--list" if "--list" in sys.argv else "--write"
+        sys.exit(_list([a for a in sys.argv[sys.argv.index(flag) + 1:] if not a.startswith("--")],
+                       write="--write" in sys.argv))
     sys.exit(_run())

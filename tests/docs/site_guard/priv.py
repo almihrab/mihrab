@@ -4,6 +4,13 @@
 أقسامُ `main()` القديمة بنصّها، بترتيبها في `check_site.py` (‏`SECTIONS`)."""
 from .core import *  # noqa: F401,F403
 
+# الوسومُ التي تحرسها أقسامُ هذه الوحدة، بما يمسكه كلٌّ منها — منها يُولَّد جدولُها في
+# `site/guide/checks.md` (‏`python tests/docs/check_site.py --list`)، ويحرس التطابقَ [GRD-03].
+TAGS = {
+    "PRIV-01": "دعوى خصوصيّةٍ في الصفحة الأولى أوسعَ ممّا يُبرهَن عليه",
+    "PRIV-02": "ذكرًا للتتبّع خارج الجملة المضبوطة، أو كعكةً، أو مفتاحَ `localStorage` غيرَ مفتاحَي التفضيل",
+}
+
 def s06_priv01_claim(c):
     _c = vars(c)
     if "home" in _c:
