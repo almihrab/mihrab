@@ -2531,6 +2531,26 @@
       "why": "[GRD-03] رسالةٌ بوسمٍ لا يصفه جدول: القارئ يبحث عنه في الدليل فلا يجده.",
       "guardFile": "tests/docs/test_checks_catalog.py",
       "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "enc01-build-script-cp1252",
+      "file": "build/dev_sync.py",
+      "why": "[ENC-01] سكربتُ بناءٍ يطبع العربيّةَ بترميز الطرفيّة: على ويندوز يسقط بـUnicodeEncodeError — كما سقط help_data.py في #51. والاستدعاءُ معلَّقًا في تعليقٍ لا يكفي: يُقرأ استدعاءً في الشيفرة.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "old": "        _s.reconfigure(encoding=\"utf-8\")",
+      "new": "        pass  # _s.reconfigure(encoding=\"utf-8\")",
+      "expect": "ولا يحوّل خرجَه إلى UTF-8"
+    },
+    {
+      "id": "enc01-bundle-check-cp1252",
+      "file": "tests/bundle/check_injected.py",
+      "why": "[ENC-01] فحصُ الحزمة (L2) يطبع العربيّةَ بترميز الطرفيّة: يسقط على عدّاءَي ويندوز وحدهما.",
+      "guardFile": "tests/static/lint_patchers.py",
+      "guard": "python tests/static/lint_patchers.py",
+      "old": "        _s.reconfigure(encoding=\"utf-8\")",
+      "new": "        pass",
+      "expect": "ولا يحوّل خرجَه إلى UTF-8"
     }
   ]
 }

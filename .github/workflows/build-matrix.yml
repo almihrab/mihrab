@@ -105,6 +105,46 @@ jobs:
             || { echo "❌ كُشف على عدّاء لينكس: $out"; exit 1; }
           echo "✅ $out"
 
+  # ── البوّابةُ الرخيصةُ على ويندوز ──
+  # ‏#51 سقط مرّتين في بناءَي ويندوز وحدهما بعد ساعةٍ من البناء: ترميزُ الأنبوب cp1252، ومسارٌ أو
+  # صدفةٌ تختلف. فالحرّاسُ الساكنةُ والأدواتُ التي لا تحتاج بناءً تُشغَّل هنا أيضًا، في دقيقتين.
+  # ولا ينتظرها `build` (‏needs: quick وحدَها): تعمل بالتوازي، وفشلُها يُرى قبل البناءات.
+  quick-windows:
+    name: فحصٌ سريعٌ على ويندوز
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run: { shell: bash }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: الحرّاسُ الساكنة (L0)
+        run: python tests/static/lint_patchers.py
+
+      # المرقِّعاتُ تعمل فعلًا على عدّاءَي ويندوز داخل البناء.
+      - name: مراسي الرُقَع على لقطة المنبع (L1)
+        run: python tests/apply/check_anchors.py
+
+      - name: أدواتُ الموقع والحارس
+        run: |
+          python tests/static/test_help_data.py
+          python tests/docs/test_det_check.py
+          python tests/docs/test_strip.py
+          python tests/docs/test_site_guard_names.py
+          python tests/docs/test_checks_catalog.py
+          node --test tests/meta/dump_norm.test.mjs
+
+      - name: بنيةُ الموقع
+        run: python tests/docs/check_site.py
+
+      # أحسُّ الأدوات بالمنصّة: عمليّاتٌ فرعيّة، ومسارات، ووصلاتٌ ومحوُ مجلّدات.
+      - name: بوّابةُ النشر وأداةُ «متطابق»
+        run: |
+          python tests/docs/test_check_site_nobuild.py
+          python tests/docs/test_same_output.py
+
   build:
     needs: quick
     name: ${{ matrix.name }}

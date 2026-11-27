@@ -3445,10 +3445,15 @@ def _unicode_script_mixing_patch_behaves():
         return any(p(c) for c in word for p in preds)
 
     # (ج) جدولُ الالتباس من مصدره — وشاهدُ تفعيلٍ موجَبٌ قبل أيّ توكيدٍ سالب.
-    st = os.path.join(ROOT, ".upstream", "vscode", "src", "vs", "base", "common",
-                      "strings.ts")
-    if not os.path.isfile(st):
-        return                      # لا منبعَ مثبَّتًا: يُفحَص الشكلُ ولا يُدَّعى القياس
+    #     من لقطة المنبع المودَعة (‏tests/apply/snapshot، يقرؤها L1 أيضًا، ووسمُها محروسٌ بالمثبَّت)،
+    #     وإلّا من شجرة المنبع. اللقطةُ أوّلًا: نتيجةٌ واحدةٌ محلّيًّا وفي CI ولو كانت `.upstream` على
+    #     إصدارٍ آخر. وكان غيابُ `.upstream` يُنهي الفحصَ هنا أخضرَ — وCI بلا `.upstream`، فما قاس
+    #     المحاكاةَ قطّ، ومُصابا `unicode-script-mixing-*` يمرّان فيه وفي كلّ نسخة عمل.
+    _rel = ("src", "vs", "base", "common", "strings.ts")
+    st = next((p for p in (os.path.join(ROOT, "tests", "apply", "snapshot", *_rel),
+                           os.path.join(ROOT, ".upstream", "vscode", *_rel)) if os.path.isfile(p)), None)
+    assert st, ("لا strings.ts في `.upstream/vscode` ولا في لقطة المنبع tests/apply/snapshot — "
+                "جدولُ الالتباس غائب، فلا تُقاس المحاكاة [AR-05]")
     src = _read(st)
     i = src.find('\'{\\"_common\\"')
     j = src.find("]}'", i)
@@ -5090,6 +5095,43 @@ def _every_advertised_platform_is_actually_built():
     assert not stray, (
         "المصفوفةُ تبني معرّفًا لا تعرفه صفحةُ التنزيل: " + ", ".join(stray)
         + " — وظيفةُ ساعةٍ تُنتِج أصلًا لا يظهر في الجدول [PKG-01].")
+
+
+@check("سكربتاتُ البناء تطبع العربيّةَ بـUTF-8 لا بترميز الطرفيّة [ENC-01]")
+def _scripts_print_utf8():
+    """كلُّ بايثون في `build/` و`tests/bundle/` يطبع نصًّا غيرَ ASCII يحوّل خرجَه إلى UTF-8.
+
+    على ويندوز في CI خرجُ بايثون أنبوبٌ بترميز النظام (cp1252) لا يحمل العربيّة: سقط
+    `build/lib/help_data.py` بعد أن كتب بياناته، فأسقط بناءَي ويندوز (#51) وماك ولينكس خضراء.
+    والإصلاحُ في كلّ سكربت: ‏`reconfigure(encoding="utf-8")` — استدعاءً في الشيفرة لا كلمةً في تعليق.
+    و`tests/bundle/` معها لأنّ L2 يُشغَّل على المنصّات الخمس. وما يرث التحويلَ باستيراد وحدةٍ
+    (‏`tests/docs/`) لا يُفحَص ساكنًا هنا، بل تشغيلًا في `quick-windows`."""
+    import ast as _ast
+
+    def _reconfigures(tree):
+        return any(isinstance(n, _ast.Call) and isinstance(n.func, _ast.Attribute)
+                   and n.func.attr == "reconfigure"
+                   and any(k.arg == "encoding" and isinstance(k.value, _ast.Constant)
+                           and str(k.value.value).lower().replace("-", "") == "utf8" for k in n.keywords)
+                   for n in _ast.walk(tree))
+    files = sorted(glob.glob(os.path.join(ROOT, "build", "**", "*.py"), recursive=True)
+                   + glob.glob(os.path.join(ROOT, "tests", "bundle", "**", "*.py"), recursive=True))
+    assert files, "لا بايثون في build/ ولا tests/bundle/ — الفحصُ يقيس الهواء [ENC-01]"
+    bad = []
+    for f in files:
+        src = _read(f)
+        tree = _ast.parse(src)
+        prints = any(isinstance(n, _ast.Call) and (
+            (isinstance(n.func, _ast.Name) and n.func.id == "print")
+            or (isinstance(n.func, _ast.Attribute) and n.func.attr == "write"))
+            for n in _ast.walk(tree))
+        arabic_text = any(isinstance(n, _ast.Constant) and isinstance(n.value, str)
+                          and any(ord(ch) > 127 for ch in n.value) for n in _ast.walk(tree))
+        if prints and arabic_text and not _reconfigures(tree):
+            bad.append(os.path.relpath(f, ROOT).replace(os.sep, "/"))
+    assert not bad, (
+        "يطبع نصًّا غيرَ ASCII ولا يحوّل خرجَه إلى UTF-8: %s — على ويندوز يسقط بـUnicodeEncodeError. "
+        "أضِف `for _s in (sys.stdout, sys.stderr): _s.reconfigure(encoding=\"utf-8\")` [ENC-01]" % "، ".join(bad))
 
 
 def _assert_lines():
