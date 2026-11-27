@@ -2441,6 +2441,96 @@
       "new": "            pass",
       "expect": "يعمل سكربتًا وخرجُه بترميز cp1252",
       "why": "[ON-03] المولِّدُ يطبع العربيّةَ بترميز الطرفيّة: على ويندوز (cp1252) يسقط بعد أن كتب البيانات، فيفشل البناءُ — وقع في بناءَي ويندوز."
+    },
+    {
+      "id": "grd03-tag-undescribed",
+      "file": "tests/docs/site_guard/priv.py",
+      "old": "    \"PRIV-02\": ",
+      "new": "    \"PRIV-2X\": ",
+      "expect": "الوسمُ PRIV-02 في اسم قسمٍ ولا وصفَ له",
+      "why": "[GRD-03] وسمٌ في اسم قسمٍ بلا وصفٍ في `TAGS` (أو وصفٌ لوسمٍ تغيّر اسمُه): الجدولُ يُسقطه، فلا يجده من احمرّ عنده.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-section-undescribed",
+      "file": "tests/docs/site_guard/out.py",
+      "old": "    \"\"\"جزيرةُ بياناتٍ JSON غيرُ صالحةٍ في الصفحة\"\"\"\n",
+      "new": "",
+      "expect": "قسمٌ بلا وسمٍ ولا وصف",
+      "why": "[GRD-03] قسمٌ بلا وسمٍ ولا وصف: لا يظهر في سطر «بلا وسم»، فرسالتُه بلا وسمٍ ولا مدخلٍ في الدليل.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-table-hand-edited",
+      "file": "site/guide/checks.md",
+      "old": "| MAN-01 | اختيارًا خاطئًا بين المانيفست المخبوز والحيّ |",
+      "new": "| MAN-01 | اختيارًا خاطئًا بين المانيفستين |",
+      "expect": "جدولُ «release» في checks.md يخالف ما يُولَّد",
+      "why": "[GRD-03] صفٌّ مولَّدٌ حُرِّر يدويًّا: يتباعد عن `TAGS` ويُمحى عند أوّل `--write`.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-module-not-catalogued",
+      "file": "tests/docs/check_site.py",
+      "old": "CATALOG = (out, priv, fonts, android, capture, release)",
+      "new": "CATALOG = (out, priv, fonts, android, capture)",
+      "expect": "له أقسامٌ وليس في `CATALOG`",
+      "why": "[GRD-03] وحدةٌ لها أقسامٌ ولا جدولَ لها: وسومُها غائبةٌ عن الدليل كلُّها.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-tag-without-section",
+      "file": "tests/docs/site_guard/priv.py",
+      "old": "    \"PRIV-01\": \"دعوى خصوصيّةٍ في الصفحة الأولى أوسعَ ممّا يُبرهَن عليه\",",
+      "new": "    \"PRIV-09\": \"وسمٌ لا قسمَ له\",\n    \"PRIV-01\": \"دعوى خصوصيّةٍ في الصفحة الأولى أوسعَ ممّا يُبرهَن عليه\",",
+      "expect": "‏`TAGS` يصف PRIV-09 ولا قسمَ يحمله",
+      "why": "[GRD-03] وصفٌ لوسمٍ لا قسمَ يحمله (قسمٌ حُذف أو غيّر وسمَه): الجدولُ يعِد بفحصٍ لا وجودَ له.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-empty-description",
+      "file": "tests/docs/site_guard/priv.py",
+      "old": "    \"PRIV-01\": \"دعوى خصوصيّةٍ في الصفحة الأولى أوسعَ ممّا يُبرهَن عليه\",",
+      "new": "    \"PRIV-01\": \" \",",
+      "expect": "وصفُ PRIV-01 فارغ",
+      "why": "[GRD-03] وسمٌ بوصفٍ فارغ: صفٌّ في الجدول لا يقول ما يمسك.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-marker-missing",
+      "file": "site/guide/checks.md",
+      "old": "<!-- مولَّد: priv — من `python tests/docs/check_site.py --list priv`، لا يُحرَّر يدويًّا -->\n",
+      "new": "",
+      "expect": "لا علامتَي «priv» في checks.md",
+      "why": "[GRD-03] علامةُ جدولٍ حُذفت: لا يكتبه `--write`، فيتقادم يدويًّا.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-message-without-tag",
+      "file": "tests/docs/site_guard/out.py",
+      "old": "\"[MIN-02] ‏`public/assets/%s` مضغوطًا",
+      "new": "\"‏`public/assets/%s` مضغوطًا",
+      "expect": "لا رسالةَ فيه تحمل [MIN-02]",
+      "why": "[GRD-03] قسمٌ لا يطبع وسمَ اسمه: من احمرّ عنده لا يجد ما يبحث عنه في الدليل.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
+    },
+    {
+      "id": "grd03-message-unknown-tag",
+      "file": "tests/docs/site_guard/release.py",
+      "old": "bad(\"أصلٌ مُشارٌ إليه ولا وجودَ له في المخرَج (%s): %s [W404]\"",
+      "new": "bad(\"أصلٌ مُشارٌ إليه ولا وجودَ له في المخرَج (%s): %s [W405]\"",
+      "expect": "يطبع [W405] ولا جدولَ يصفه",
+      "why": "[GRD-03] رسالةٌ بوسمٍ لا يصفه جدول: القارئ يبحث عنه في الدليل فلا يجده.",
+      "guardFile": "tests/docs/test_checks_catalog.py",
+      "guard": "python tests/docs/test_checks_catalog.py"
     }
   ]
 }

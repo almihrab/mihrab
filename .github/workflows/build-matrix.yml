@@ -86,6 +86,7 @@ jobs:
           python tests/docs/test_det_check.py
           python tests/docs/test_strip.py
           python tests/docs/test_site_guard_names.py
+          python tests/docs/test_checks_catalog.py
           node --test tests/meta/dump_norm.test.mjs
 
       # ‏[PKG-02] غلافُ curl لتغليف لينكس: بلا هذا لا يُرى يعمل إلّا في بناء لينكس بعد ساعة.

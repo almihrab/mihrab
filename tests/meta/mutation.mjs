@@ -247,7 +247,7 @@ const SITE_GUARD = "tests/docs/check_site.py";
   // والفروعُ المتروكة بلا مُصاب (‏`uncoveredBranches`) تُسجَّل بنصّ رسالتها لا برقم سطرها، فلا
   // يُعاد الجدالُ فيها عند كلّ قسمٍ جديد. وإعلانٌ زال نصُّه من الحارس أو قسمُه من SECTIONS يحمرّ.
   const gdir = join(ROOT, "tests", "docs", "site_guard");
-  const gsrc = readdirSync(gdir).filter(f => f.endsWith(".py")).sort().map(f => readFileSync(join(gdir, f), "utf8")).join("\n");
+  const gsrc = readdirSync(gdir).filter(f => f.endsWith(".py") && f !== "catalog.py").sort().map(f => readFileSync(join(gdir, f), "utf8")).join("\n");
   for (const b of spec.uncoveredBranches || []) {
     if (!known.has(b.section)) { rc = 1; console.log(`  ❌ فرعٌ مُعلَن في قسمٍ ليس في SECTIONS: ${b.section}`); }
     if (!(b.why || "").trim()) { rc = 1; console.log(`  ❌ فرعٌ مُعلَن بلا سبب: ${b.section} «${b.expect}»`); }
